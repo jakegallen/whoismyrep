@@ -238,8 +238,11 @@ const PoliticianDetail = () => {
           {/* Voting Scorecard */}
           <VotingScorecard
             politicianId={politician.id}
+            politicianName={politician.name}
             keyIssues={politician.keyIssues}
             party={politician.party}
+            level={politician.level}
+            chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
           />
 
           <div className="my-8 h-px bg-border" />

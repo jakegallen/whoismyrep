@@ -11,11 +11,12 @@ import {
   Home,
   ExternalLink,
   Users,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { lookupRepresentatives, type DistrictResult } from "@/lib/districtLookup";
-import type { Politician } from "@/lib/politicians";
+import { useCivicReps, type CivicRep, type CivicGroup } from "@/hooks/useCivicReps";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -48,17 +49,13 @@ const EXAMPLE_ADDRESSES = [
 const DistrictLookup = () => {
   const navigate = useNavigate();
   const [address, setAddress] = useState("");
-  const [results, setResults] = useState<DistrictResult[] | null>(null);
-  const [searchedAddress, setSearchedAddress] = useState("");
+  const { groups, normalizedAddress, totalReps, isLoading, error, lookup, reset } = useCivicReps();
 
   const handleLookup = (addr?: string) => {
     const query = addr || address;
     if (!query.trim()) return;
-    setSearchedAddress(query);
-    setResults(lookupRepresentatives(query));
+    lookup(query);
   };
-
-  const totalReps = results?.reduce((s, g) => s + g.representatives.length, 0) ?? 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -122,14 +119,18 @@ const DistrictLookup = () => {
                 className="pl-9 font-body"
               />
             </div>
-            <Button type="submit" disabled={!address.trim()}>
-              <Search className="mr-2 h-4 w-4" />
-              Look Up
+            <Button type="submit" disabled={!address.trim() || isLoading}>
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="mr-2 h-4 w-4" />
+              )}
+              {isLoading ? "Looking up…" : "Look Up"}
             </Button>
           </form>
 
           {/* Quick examples */}
-          {!results && (
+          {!groups && !isLoading && (
             <div className="mt-4">
               <p className="mb-2 font-body text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Try an example
@@ -152,11 +153,23 @@ const DistrictLookup = () => {
           )}
         </motion.div>
 
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4"
+          >
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            <p className="font-body text-sm text-destructive">{error}</p>
+          </motion.div>
+        )}
+
         {/* Results */}
         <AnimatePresence mode="wait">
-          {results && (
+          {groups && (
             <motion.div
-              key={searchedAddress}
+              key={normalizedAddress}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -171,12 +184,12 @@ const DistrictLookup = () => {
                     Showing <span className="font-semibold text-headline">{totalReps} representatives</span> for
                   </p>
                   <p className="font-body text-xs text-muted-foreground">
-                    {searchedAddress}
+                    {normalizedAddress}
                   </p>
                 </div>
                 <button
                   onClick={() => {
-                    setResults(null);
+                    reset();
                     setAddress("");
                   }}
                   className="ml-auto rounded-md bg-surface-elevated px-2.5 py-1 font-body text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-hover"
@@ -186,7 +199,7 @@ const DistrictLookup = () => {
               </div>
 
               {/* Level groups */}
-              {results.map((group, gi) => {
+              {groups.map((group, gi) => {
                 const Icon = levelIcons[group.level];
                 const colorClass = levelColors[group.level];
                 return (
@@ -212,7 +225,7 @@ const DistrictLookup = () => {
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {group.representatives.map((rep, ri) => (
-                        <RepCard key={rep.id} rep={rep} index={ri} />
+                        <CivicRepCard key={`${rep.name}-${rep.office}`} rep={rep} index={ri} />
                       ))}
                     </div>
                   </motion.section>
@@ -220,8 +233,7 @@ const DistrictLookup = () => {
               })}
 
               <p className="font-body text-[10px] italic text-muted-foreground/60">
-                District matching is approximate and based on address keywords.
-                For official district maps visit{" "}
+                Data provided by Google Civic Information API. For official district maps visit{" "}
                 <a
                   href="https://www.nvsos.gov"
                   target="_blank"
@@ -240,38 +252,54 @@ const DistrictLookup = () => {
   );
 };
 
-function RepCard({ rep, index }: { rep: Politician; index: number }) {
-  const navigate = useNavigate();
+function CivicRepCard({ rep, index }: { rep: CivicRep; index: number }) {
   return (
-    <motion.button
+    <motion.div
       initial={{ opacity: 0, x: 8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03, duration: 0.25 }}
-      onClick={() => navigate(`/politicians/${rep.id}`, { state: { politician: rep } })}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-surface-elevated"
+      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
+      {rep.photoUrl ? (
+        <img
+          src={rep.photoUrl}
+          alt={rep.name}
+          className="h-10 w-10 shrink-0 rounded-full object-cover bg-surface-elevated"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
+            (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+          }}
+        />
+      ) : null}
+      <div
+        className={`h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-sm font-bold text-muted-foreground ${rep.photoUrl ? "hidden" : "flex"}`}
+      >
         {rep.name
           .split(" ")
           .map((n) => n[0])
-          .join("")}
+          .join("")
+          .slice(0, 2)}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-sm font-semibold text-headline">
           {rep.name}
         </p>
         <p className="truncate font-body text-xs text-muted-foreground">
-          {rep.title}
+          {rep.office}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <div
-          className={`h-2 w-2 rounded-full ${partyColors[rep.party]}`}
+          className={`h-2 w-2 rounded-full ${partyColors[rep.party] || "bg-muted-foreground"}`}
           title={rep.party}
         />
-        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+        {rep.website && (
+          <a href={rep.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+            <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 

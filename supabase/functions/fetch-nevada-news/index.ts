@@ -88,13 +88,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Step 1: Fetch RSS feeds + optional Firecrawl in parallel ────────
+    // ── Step 1: Fetch RSS feeds + Firecrawl + NewsAPI in parallel ────────
     const rssPromises = RSS_FEEDS.map(fetchFeed);
     const firecrawlPromise = fetchFirecrawlResults();
+    const newsApiPromise = fetchNewsApiResults();
 
-    const [rssResults, firecrawlResults] = await Promise.all([
+    const [rssResults, firecrawlResults, newsApiResults] = await Promise.all([
       Promise.all(rssPromises),
       firecrawlPromise,
+      newsApiPromise,
     ]);
 
     const allResults: Array<{ title: string; url: string; description: string; source: string }> = [];
@@ -111,6 +113,11 @@ Deno.serve(async (req) => {
       allResults.push(item);
     }
 
+    // Add NewsAPI results
+    for (const item of newsApiResults) {
+      allResults.push(item);
+    }
+
     // Deduplicate by URL
     const seen = new Set<string>();
     const uniqueResults = allResults.filter((r) => {
@@ -119,7 +126,7 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log(`Found ${uniqueResults.length} unique results (RSS: ${allResults.length - firecrawlResults.length}, Firecrawl: ${firecrawlResults.length})`);
+    console.log(`Found ${uniqueResults.length} unique results (RSS: ${rssResults.flat().length}, Firecrawl: ${firecrawlResults.length}, NewsAPI: ${newsApiResults.length})`);
 
     if (uniqueResults.length === 0) {
       return new Response(
@@ -341,4 +348,56 @@ Return ONLY valid JSON, no markdown fences.`,
   }
 
   return result;
+}
+
+// ── NewsAPI (uses NEWSAPI_KEY if available) ──────────────────────────────
+async function fetchNewsApiResults(): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
+  const apiKey = Deno.env.get('NEWSAPI_KEY');
+  if (!apiKey) return [];
+
+  const results: Array<{ title: string; url: string; description: string; source: string }> = [];
+
+  const queries = [
+    'Nevada politics',
+    'Las Vegas government',
+    'Nevada legislature',
+  ];
+
+  for (const q of queries) {
+    try {
+      const params = new URLSearchParams({
+        q,
+        language: 'en',
+        sortBy: 'publishedAt',
+        pageSize: '10',
+        apiKey,
+      });
+
+      const resp = await fetch(`https://newsapi.org/v2/everything?${params}`, {
+        headers: { 'User-Agent': 'NevadaPoliticsBot/1.0' },
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.warn(`NewsAPI error for "${q}": ${resp.status} ${errText}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      for (const article of (data.articles || [])) {
+        if (article.url && article.title && article.title !== '[Removed]') {
+          results.push({
+            title: article.title,
+            url: article.url,
+            description: (article.description || '').slice(0, 400),
+            source: article.source?.name || 'NewsAPI',
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`NewsAPI fetch failed for "${q}":`, e);
+    }
+  }
+
+  return results;
 }

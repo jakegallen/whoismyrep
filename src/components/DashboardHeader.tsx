@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag, Menu, X } from "lucide-react";
+import { Newspaper, Users, FileText, MapPin, Flag, Building2, Menu, X } from "lucide-react";
 
 const navLinks = [
   { to: "/bills", icon: FileText, label: "Bills" },
   { to: "/politicians", icon: Users, label: "Politicians" },
+  { to: "/committees", icon: Building2, label: "Committees" },
   { to: "/midterms", icon: Flag, label: "2026 Midterms" },
   { to: "/district-lookup", icon: MapPin, label: "Find My Reps", primary: true },
 ];

@@ -9,70 +9,94 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    const apiKey = Deno.env.get('OPENSTATES_API_KEY');
     if (!apiKey) {
-      console.error('FIRECRAWL_API_KEY not configured');
       return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl connector not configured' }),
+        JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { session = '83rd2025', search } = await req.json().catch(() => ({}));
+    const { session, search, page = 1, per_page = 50 } = await req.json().catch(() => ({}));
 
-    // The /Bills/Prefiled page has structured content that Firecrawl can parse
-    const billListUrl = `https://www.leg.state.nv.us/App/NELIS/REL/${session}/Bills/Prefiled`;
-    console.log('Scraping bill list:', billListUrl);
+    // Build query params for OpenStates v3 REST API
+    const params = new URLSearchParams({
+      jurisdiction: 'Nevada',
+      per_page: String(per_page),
+      page: String(page),
+      sort: 'updated_desc',
+    });
+    params.append('include', 'sponsorships');
+    params.append('include', 'abstracts');
 
-    const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: billListUrl,
-        formats: ['markdown'],
-        onlyMainContent: true,
-        waitFor: 3000,
-      }),
+    if (session) params.set('session', session);
+    if (search) params.set('q', search);
+
+    const url = `https://v3.openstates.org/bills?${params}`;
+    console.log('Fetching bills from OpenStates:', url);
+
+    const resp = await fetch(url, {
+      headers: { 'X-API-KEY': apiKey },
     });
 
-    const scrapeData = await scrapeResponse.json();
-
-    if (!scrapeResponse.ok) {
-      console.error('Firecrawl API error:', scrapeData);
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`OpenStates API error: ${resp.status} ${errText}`);
       return new Response(
-        JSON.stringify({ success: false, error: scrapeData.error || 'Failed to scrape bills' }),
+        JSON.stringify({ success: false, error: `OpenStates API error: ${resp.status}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const markdown = scrapeData.data?.markdown || scrapeData.markdown || '';
-    console.log('Markdown length:', markdown.length, 'First 500 chars:', markdown.substring(0, 500));
+    const data = await resp.json();
+    const results = data.results || [];
 
-    // Parse bills from the structured markdown
-    const bills = parseBillsFromMarkdown(markdown, session);
+    const bills = results.map((bill: any) => {
+      const chamber = bill.from_organization?.classification === 'upper' ? 'Senate' : 'Assembly';
 
-    // Apply search filter if provided
-    let filteredBills = bills;
-    if (search) {
-      const q = search.toLowerCase();
-      filteredBills = bills.filter(
-        (b: any) =>
-          b.billNumber.toLowerCase().includes(q) ||
-          b.title.toLowerCase().includes(q)
-      );
-    }
+      // Determine bill type
+      let type = 'Bill';
+      const id = (bill.identifier || '').toUpperCase();
+      if (id.includes('JR')) type = 'Joint Resolution';
+      else if (id.includes('CR')) type = 'Concurrent Resolution';
+      else if (/^[AS]R\d/.test(id)) type = 'Resolution';
 
-    console.log(`Parsed ${bills.length} bills, returning ${filteredBills.length}`);
+      // Get sponsors
+      const sponsors = (bill.sponsorships || []).map((s: any) => s.name).filter(Boolean);
+
+      // Get latest action as status
+      const latestAction = bill.latest_action_description || bill.extras?.latest_action || 'Introduced';
+
+      // Get abstract/summary if available
+      const abstract = (bill.abstracts || [])[0]?.abstract || '';
+
+      return {
+        id: bill.id || id.toLowerCase(),
+        billNumber: bill.identifier || '',
+        title: bill.title || '',
+        chamber,
+        type,
+        session: bill.session || session || '',
+        status: latestAction,
+        dateIntroduced: bill.first_action_date || bill.created_at || '',
+        url: bill.openstates_url || `https://openstates.org/nv/bills/${bill.session}/${bill.identifier}/`,
+        sponsors,
+        abstract,
+        subject: bill.subject || [],
+        latestActionDate: bill.latest_action_date || '',
+      };
+    });
+
+    console.log(`Fetched ${bills.length} bills from OpenStates (page ${page})`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        bills: filteredBills,
-        total: bills.length,
-        session,
+        bills,
+        total: data.pagination?.total_items || bills.length,
+        page: data.pagination?.page || page,
+        maxPage: data.pagination?.max_page || 1,
+        session: session || '',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -84,102 +108,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-
-function parseBillsFromMarkdown(markdown: string, session: string): any[] {
-  const bills: any[] = [];
-  const lines = markdown.split('\n');
-
-  // Pattern: [AB1](url) followed by "Introduced DATE" then title text
-  // Each bill block is separated by "* * *" (horizontal rule)
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    
-    // Match lines like [AB1](https://...Overview) or [SB1](https://...Overview)
-    const linkMatch = line.match(/^\[((?:AB|SB|AJR|SJR|ACR|SCR|AR|SR)\d+)\]\((https?:\/\/[^\)]+)\)$/i);
-    if (linkMatch) {
-      const billNumber = linkMatch[1].toUpperCase();
-      const overviewUrl = linkMatch[2];
-      
-      // Next non-empty line should be "Introduced DATE"
-      let dateIntroduced = '';
-      let title = '';
-      let j = i + 1;
-      
-      // Skip empty lines
-      while (j < lines.length && lines[j].trim() === '') j++;
-      
-      // Check for introduced date
-      if (j < lines.length) {
-        const dateLine = lines[j].trim();
-        const dateMatch = dateLine.match(/^Introduced\s+(.+)$/i);
-        if (dateMatch) {
-          dateIntroduced = dateMatch[1];
-          j++;
-        }
-      }
-      
-      // Skip empty lines
-      while (j < lines.length && lines[j].trim() === '') j++;
-      
-      // Next non-empty line(s) should be the title/description
-      const titleParts: string[] = [];
-      while (j < lines.length) {
-        const tl = lines[j].trim();
-        if (tl === '' || tl === '* * *' || tl.match(/^\[(?:AB|SB|AJR|SJR|ACR|SCR|AR|SR)\d+\]/i)) break;
-        titleParts.push(tl);
-        j++;
-      }
-      title = titleParts.join(' ').trim();
-      
-      // Clean up title - remove BDR reference for cleaner display
-      const bdrMatch = title.match(/\(BDR\s+[\w\-]+\)\s*$/);
-      const bdr = bdrMatch ? bdrMatch[0] : '';
-      const cleanTitle = title.replace(/\s*\(BDR\s+[\w\-]+\)\s*$/, '').trim();
-      
-      if (!cleanTitle) {
-        i = j;
-        continue;
-      }
-
-      // Determine chamber from prefix
-      const chamber = billNumber.startsWith('S') ? 'Senate' : 'Assembly';
-
-      // Determine type
-      let type = 'Bill';
-      if (billNumber.includes('JR')) type = 'Joint Resolution';
-      else if (billNumber.includes('CR')) type = 'Concurrent Resolution';
-      else if (/^[AS]R\d/.test(billNumber)) type = 'Resolution';
-
-      bills.push({
-        id: billNumber.toLowerCase(),
-        billNumber,
-        title: cleanTitle.length > 200 ? cleanTitle.substring(0, 197) + '...' : cleanTitle,
-        chamber,
-        type,
-        session,
-        status: 'Introduced',
-        dateIntroduced,
-        bdr: bdr.replace(/[()]/g, '').trim(),
-        url: overviewUrl,
-        sponsors: [],
-      });
-      
-      i = j;
-    } else {
-      i++;
-    }
-  }
-
-  // Sort bills naturally
-  bills.sort((a, b) => {
-    const prefixA = a.billNumber.replace(/\d+/, '');
-    const prefixB = b.billNumber.replace(/\d+/, '');
-    if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
-    const numA = parseInt(a.billNumber.replace(/\D+/, ''));
-    const numB = parseInt(b.billNumber.replace(/\D+/, ''));
-    return numA - numB;
-  });
-
-  return bills;
-}

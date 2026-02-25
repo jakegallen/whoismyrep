@@ -1,1 +1,4 @@
 project_id = "ajwtxlsadnbewjkejbut"
+
+[functions.fetch-nevada-news]
+verify_jwt = false

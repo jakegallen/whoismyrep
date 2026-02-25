@@ -36,10 +36,22 @@ const NewsCard = ({ item, index }: { item: NewsItem; index: number }) => {
 
       <div className="mt-4 flex items-center justify-between">
         <span className="font-body text-xs text-tertiary">{item.source}</span>
-        <button className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground transition-colors hover:text-primary">
-          Read more
-          <ExternalLink className="h-3 w-3" />
-        </button>
+        {item.url ? (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            Read more
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : (
+          <span className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground">
+            Read more
+            <ExternalLink className="h-3 w-3" />
+          </span>
+        )}
       </div>
     </motion.article>
   );

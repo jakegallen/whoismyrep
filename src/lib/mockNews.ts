@@ -20,6 +20,14 @@ export interface TrendingTopic {
   trend: "up" | "down" | "stable";
 }
 
+export interface TrendingIndividual {
+  id: string;
+  name: string;
+  title: string;
+  mentions: number;
+  trend: "up" | "down" | "stable";
+}
+
 export const categoryLabels: Record<NewsCategory, string> = {
   law: "Laws & Legislation",
   policy: "Policy",
@@ -110,4 +118,13 @@ export const trendingTopics: TrendingTopic[] = [
   { id: "4", topic: "Gaming Reform", mentions: 1230, trend: "up" },
   { id: "5", topic: "Housing Crisis", mentions: 980, trend: "down" },
   { id: "6", topic: "Immigration EO", mentions: 870, trend: "up" },
+];
+
+export const mockTrendingIndividuals: TrendingIndividual[] = [
+  { id: "1", name: "Joe Lombardo", title: "Governor", mentions: 2100, trend: "up" },
+  { id: "2", name: "Catherine Cortez Masto", title: "U.S. Senator", mentions: 1750, trend: "stable" },
+  { id: "3", name: "Jacky Rosen", title: "U.S. Senator", mentions: 1420, trend: "up" },
+  { id: "4", name: "Shelley Berkley", title: "Mayor of Las Vegas", mentions: 1180, trend: "up" },
+  { id: "5", name: "Zach Conine", title: "State Treasurer", mentions: 960, trend: "up" },
+  { id: "6", name: "Steven Horsford", title: "U.S. Representative", mentions: 740, trend: "down" },
 ];

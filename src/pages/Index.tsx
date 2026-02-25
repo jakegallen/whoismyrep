@@ -11,7 +11,7 @@ import type { NewsCategory } from "@/lib/mockNews";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<NewsCategory | "all">("all");
-  const { news, trending, isLoading, error, refetch, lastUpdated } = useNevadaNews();
+  const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useNevadaNews();
 
   const filtered =
     activeCategory === "all"
@@ -92,7 +92,7 @@ const Index = () => {
 
           <div className="hidden lg:block">
             <div className="sticky top-8">
-              <TrendingSidebar topics={trending} />
+              <TrendingSidebar topics={trending} individuals={trendingIndividuals} />
             </div>
           </div>
         </div>

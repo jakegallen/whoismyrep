@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X, ChevronDown } from "lucide-react";
+import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X, ChevronDown, Home } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navLinks = [
+  { to: "/", icon: Home, label: "Home" },
   { to: "/district-lookup", icon: MapPin, label: "Find My Reps" },
   { to: "/bills", icon: FileText, label: "Bills" },
   { to: "/politicians", icon: Users, label: "Politicians" },

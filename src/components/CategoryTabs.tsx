@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { Scale, Landmark, Users, MessageCircle, LayoutGrid, Headphones } from "lucide-react";
+import { Scale, Landmark, Users, MessageCircle, LayoutGrid, Headphones, Youtube } from "lucide-react";
 import type { NewsCategory } from "@/lib/mockNews";
 
-export type TabKey = NewsCategory | "all" | "podcasts";
+export type TabKey = NewsCategory | "all" | "podcasts" | "youtube";
 
 interface CategoryTabsProps {
   active: TabKey;
@@ -16,6 +16,7 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "politician", label: "Politicians", icon: Users },
   { key: "social", label: "Social Media", icon: MessageCircle },
   { key: "podcasts", label: "Podcasts", icon: Headphones },
+  { key: "youtube", label: "YouTube", icon: Youtube },
 ];
 
 const CategoryTabs = ({ active, onChange }: CategoryTabsProps) => {

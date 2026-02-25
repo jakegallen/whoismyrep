@@ -6,20 +6,25 @@ import CategoryTabs from "@/components/CategoryTabs";
 import type { TabKey } from "@/components/CategoryTabs";
 import NewsCard from "@/components/NewsCard";
 import PodcastCard from "@/components/PodcastCard";
+import YouTubeCard from "@/components/YouTubeCard";
 import TrendingSidebar from "@/components/TrendingSidebar";
 import NewsCharts from "@/components/NewsCharts";
 import { useNevadaNews } from "@/hooks/useNevadaNews";
 import { usePodcasts } from "@/hooks/usePodcasts";
+import { useYouTube } from "@/hooks/useYouTube";
 import type { NewsCategory } from "@/lib/mockNews";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<TabKey>("all");
   const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useNevadaNews();
   const { episodes, isLoading: podcastsLoading, refetch: refetchPodcasts } = usePodcasts();
+  const { videos, isLoading: youtubeLoading, refetch: refetchYouTube } = useYouTube();
 
   const isPodcastTab = activeCategory === "podcasts";
+  const isYouTubeTab = activeCategory === "youtube";
+  const isMediaTab = isPodcastTab || isYouTubeTab;
 
-  const filtered = isPodcastTab
+  const filtered = isMediaTab
     ? []
     : activeCategory === "all"
       ? news
@@ -45,11 +50,11 @@ const Index = () => {
               </span>
             )}
             <button
-              onClick={() => { refetch(); refetchPodcasts(); }}
-              disabled={isLoading || podcastsLoading}
+              onClick={() => { refetch(); refetchPodcasts(); refetchYouTube(); }}
+              disabled={isLoading || podcastsLoading || youtubeLoading}
               className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-xs font-medium text-foreground transition-colors hover:bg-surface-hover disabled:opacity-50"
             >
-              {(isLoading || podcastsLoading) ? (
+              {(isLoading || podcastsLoading || youtubeLoading) ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -60,7 +65,7 @@ const Index = () => {
         </div>
 
         {/* Analytics charts */}
-        {!isLoading && !isPodcastTab && news.length > 0 && <NewsCharts news={news} />}
+        {!isLoading && !isMediaTab && news.length > 0 && <NewsCharts news={news} />}
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <motion.div
@@ -74,10 +79,7 @@ const Index = () => {
               <>
                 {podcastsLoading && episodes.length === 0 ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="animate-pulse rounded-xl border border-border bg-card p-5"
-                    >
+                    <div key={i} className="animate-pulse rounded-xl border border-border bg-card p-5">
                       <div className="flex gap-4">
                         <div className="h-16 w-16 rounded-lg bg-muted" />
                         <div className="flex-1">
@@ -95,9 +97,31 @@ const Index = () => {
                 )}
                 {!podcastsLoading && episodes.length === 0 && (
                   <div className="col-span-full flex items-center justify-center py-20">
-                    <p className="font-body text-muted-foreground">
-                      No podcast episodes available right now.
-                    </p>
+                    <p className="font-body text-muted-foreground">No podcast episodes available right now.</p>
+                  </div>
+                )}
+              </>
+            ) : isYouTubeTab ? (
+              <>
+                {youtubeLoading && videos.length === 0 ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="animate-pulse rounded-xl border border-border bg-card overflow-hidden">
+                      <div className="aspect-video w-full bg-muted" />
+                      <div className="p-4">
+                        <div className="mb-2 h-4 w-20 rounded bg-muted" />
+                        <div className="mb-2 h-5 w-3/4 rounded bg-muted" />
+                        <div className="h-4 w-full rounded bg-muted" />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  videos.map((video, i) => (
+                    <YouTubeCard key={video.id} video={video} index={i} />
+                  ))
+                )}
+                {!youtubeLoading && videos.length === 0 && (
+                  <div className="col-span-full flex items-center justify-center py-20">
+                    <p className="font-body text-muted-foreground">No YouTube videos available right now.</p>
                   </div>
                 )}
               </>
@@ -105,10 +129,7 @@ const Index = () => {
               <>
                 {isLoading && news.length === 0 ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="animate-pulse rounded-xl border border-border bg-card p-5"
-                    >
+                    <div key={i} className="animate-pulse rounded-xl border border-border bg-card p-5">
                       <div className="mb-3 h-4 w-20 rounded bg-muted" />
                       <div className="mb-2 h-6 w-3/4 rounded bg-muted" />
                       <div className="h-4 w-full rounded bg-muted" />
@@ -122,9 +143,7 @@ const Index = () => {
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <div className="col-span-full flex items-center justify-center py-20">
-                    <p className="font-body text-muted-foreground">
-                      No stories in this category right now.
-                    </p>
+                    <p className="font-body text-muted-foreground">No stories in this category right now.</p>
                   </div>
                 )}
               </>

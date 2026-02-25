@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.summarize-bill]
 verify_jwt = false
+
+[functions.send-alert-email]
+verify_jwt = false

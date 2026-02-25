@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag, ArrowLeftRight } from "lucide-react";
+import { Newspaper, Users, FileText, MapPin, Flag, ArrowLeftRight, Bell } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const DashboardHeader = () => {
+  const { user } = useAuth();
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -56,6 +58,13 @@ const DashboardHeader = () => {
               >
                 <Flag className="h-4 w-4" />
                 <span className="hidden sm:inline">2026 Midterms</span>
+              </Link>
+              <Link
+                to={user ? "/alerts" : "/auth"}
+                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="hidden sm:inline">Alerts</span>
               </Link>
               <Link
                 to="/district-lookup"

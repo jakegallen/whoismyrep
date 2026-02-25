@@ -69,7 +69,7 @@ const Index = () => {
         </div>
 
         {/* Analytics charts */}
-        {!isLoading && !isMediaTab && news.length > 0 && <NewsCharts news={news} />}
+        
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <motion.div

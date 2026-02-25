@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Newspaper, Users } from "lucide-react";
+import { Newspaper, Users, FileText } from "lucide-react";
 
 const DashboardHeader = () => {
   const today = new Date().toLocaleDateString("en-US", {
@@ -28,13 +28,22 @@ const DashboardHeader = () => {
                 Nevada Political Pulse
               </h1>
             </div>
-            <Link
-              to="/politicians"
-              className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
-            >
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Politicians</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/bills"
+                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Bills</span>
+              </Link>
+              <Link
+                to="/politicians"
+                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Politicians</span>
+              </Link>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <p className="font-body text-sm text-secondary-custom">{today}</p>

@@ -16,6 +16,7 @@ import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
+import AccountabilityTimeline from "@/components/AccountabilityTimeline";
 import type { Politician } from "@/lib/politicians";
 
 const PoliticianDetail = () => {
@@ -252,6 +253,15 @@ const PoliticianDetail = () => {
             politicianId={politician.id}
             party={politician.party}
             level={politician.level}
+          />
+
+          <div className="my-8 h-px bg-border" />
+
+          {/* Accountability Timeline */}
+          <AccountabilityTimeline
+            politicianName={politician.name}
+            chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
+            twitterHandle={politician.socialHandles?.x}
           />
 
           <div className="my-8 h-px bg-border" />

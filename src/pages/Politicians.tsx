@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe } from "lucide-react";
+import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X } from "lucide-react";
 import { nevadaPoliticians } from "@/lib/politicians";
 import PoliticianCard from "@/components/PoliticianCard";
+import { Input } from "@/components/ui/input";
 
 const levelConfig = {
   federal: { label: "Federal", icon: Globe, description: "U.S. Senators & Representatives" },
@@ -19,10 +20,25 @@ const levels: Level[] = ["federal", "state", "county", "local"];
 const Politicians = () => {
   const navigate = useNavigate();
   const [activeLevel, setActiveLevel] = useState<Level | "all">("all");
+  const [search, setSearch] = useState("");
 
-  const filtered = activeLevel === "all"
-    ? nevadaPoliticians
-    : nevadaPoliticians.filter((p) => p.level === activeLevel);
+  const filtered = useMemo(() => {
+    let list = activeLevel === "all"
+      ? nevadaPoliticians
+      : nevadaPoliticians.filter((p) => p.level === activeLevel);
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.party.toLowerCase().includes(q) ||
+          p.title.toLowerCase().includes(q) ||
+          (p.region && p.region.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [activeLevel, search]);
 
   const grouped = levels
     .map((level) => ({
@@ -67,7 +83,7 @@ const Politicians = () => {
 
       <main className="container mx-auto px-4 py-8">
         {/* Level filter tabs */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveLevel("all")}
             className={`relative flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
@@ -98,6 +114,25 @@ const Politicians = () => {
               </button>
             );
           })}
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, party, title, or region…"
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Grouped sections */}

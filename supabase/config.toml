@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.fetch-youtube]
 verify_jwt = false
+
+[functions.fetch-social-media]
+verify_jwt = false

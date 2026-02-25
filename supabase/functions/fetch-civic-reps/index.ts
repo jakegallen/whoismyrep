@@ -46,17 +46,8 @@ serve(async (req) => {
       );
     }
 
-    const params = new URLSearchParams({
-      key: apiKey,
-      address,
-      levels: "country",
-      // We'll actually request all levels; the API returns what matches
-    });
-    // Remove the levels param so we get everything
-    params.delete("levels");
-
-    const url = `https://www.googleapis.com/civicinfo/v2/representatives?${params}`;
-    console.log("Fetching Google Civic data for:", address);
+    const url = `https://civicinfo.googleapis.com/civicinfo/v2/representatives?key=${encodeURIComponent(apiKey)}&address=${encodeURIComponent(address)}`;
+    console.log("Fetching Google Civic data for:", address, "URL:", url.replace(apiKey, "***"));
 
     const resp = await fetch(url);
     if (!resp.ok) {

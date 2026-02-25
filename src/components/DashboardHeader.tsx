@@ -1,19 +1,26 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X } from "lucide-react";
+import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const navLinks = [
+  { to: "/district-lookup", icon: MapPin, label: "Find My Reps" },
   { to: "/bills", icon: FileText, label: "Bills" },
   { to: "/politicians", icon: Users, label: "Politicians" },
   { to: "/committees", icon: Building2, label: "Committees" },
   { to: "/campaign-finance", icon: DollarSign, label: "Finance" },
   { to: "/midterms", icon: Flag, label: "2026 Midterms" },
-  { to: "/district-lookup", icon: MapPin, label: "Find My Reps", primary: true },
 ];
 
 const DashboardHeader = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -40,22 +47,26 @@ const DashboardHeader = () => {
               </h1>
             </div>
 
-            {/* Desktop nav */}
-            <div className="hidden md:flex items-center gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
-                    link.primary
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-surface-elevated text-foreground hover:bg-surface-hover"
-                  }`}
-                >
-                  <link.icon className="h-4 w-4" />
-                  {link.label}
-                </Link>
-              ))}
+            {/* Desktop dropdown */}
+            <div className="hidden md:block">
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+                  Explore
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {navLinks.map((link) => (
+                    <DropdownMenuItem
+                      key={link.to}
+                      onClick={() => navigate(link.to)}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <link.icon className="h-4 w-4" />
+                      {link.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Mobile hamburger */}
@@ -84,11 +95,7 @@ const DashboardHeader = () => {
                       key={link.to}
                       to={link.to}
                       onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg px-4 py-3 font-body text-sm font-medium transition-colors ${
-                        link.primary
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "bg-surface-elevated text-foreground hover:bg-surface-hover"
-                      }`}
+                      className="flex items-center gap-3 rounded-lg px-4 py-3 font-body text-sm font-medium bg-surface-elevated text-foreground hover:bg-surface-hover transition-colors"
                     >
                       <link.icon className="h-4 w-4" />
                       {link.label}

@@ -21,11 +21,19 @@ interface RepResult {
   divisionId: string;
 }
 
+// --- Fetch with timeout helper ---
+
+function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // --- Geocode address using Nominatim (free, no key) ---
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number; display: string } | null> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=us`;
-  const resp = await fetch(url, {
+  const resp = await fetchWithTimeout(url, {
     headers: { "User-Agent": "NevadaPoliticalDashboard/1.0" },
   });
   if (!resp.ok) {
@@ -66,7 +74,7 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
   try {
     const url = `https://v3.openstates.org/people.geo?lat=${lat}&lng=${lng}&include=links`;
     console.log("Fetching Open States people.geo:", url.substring(0, 80));
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       headers: { "X-API-KEY": apiKey },
     });
     if (!resp.ok) {
@@ -84,11 +92,24 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
         .replace("Republican", "Republican");
 
       let office = "State Legislator";
+      let level: RepResult["level"] = "state";
       const roles = person.current_role;
       if (roles) {
-        const chamber = roles.org_classification === "upper" ? "Senate" : "House";
+        const orgClass = roles.org_classification || "";
+        const chamber = orgClass === "upper" ? "Senate" : "House";
         const district = roles.district || "";
-        office = `Nevada State ${chamber} — District ${district}`;
+        // Detect federal vs state based on jurisdiction
+        const jurisdictionClass = person.jurisdiction?.classification || "";
+        if (jurisdictionClass === "government" || roles.title?.includes("U.S.") || roles.title?.includes("Senator")) {
+          level = "federal";
+          if (orgClass === "upper") {
+            office = `U.S. Senator`;
+          } else {
+            office = `U.S. Representative — District ${district}`;
+          }
+        } else {
+          office = `Nevada State ${chamber} — District ${district}`;
+        }
       }
 
       let phone: string | undefined;
@@ -108,7 +129,7 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
       results.push({
         name: person.name,
         office,
-        level: "state",
+        level,
         party,
         phone,
         email,
@@ -145,7 +166,7 @@ async function fetchFederalDelegation(): Promise<RepResult[]> {
   try {
     const url = "https://theunitedstates.io/congress-legislators/legislators-current.json";
     console.log("Fetching federal legislators from theunitedstates.io");
-    const resp = await fetch(url);
+    const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
       console.error("Federal data fetch error:", resp.status);
       console.log("Falling back to local federal data");
@@ -205,7 +226,7 @@ async function getCongressionalDistrict(address: string, googleKey: string): Pro
   try {
     const url = `https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress?key=${encodeURIComponent(googleKey)}&address=${encodeURIComponent(address)}`;
     console.log("Fetching divisions by address");
-    const resp = await fetch(url);
+    const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
       console.error("Divisions API error:", resp.status, await resp.text());
       return null;
@@ -280,8 +301,16 @@ serve(async (req) => {
     // Clean up internal fields
     const cleanFederal: RepResult[] = federalReps.map(({ _district, ...rest }: any) => rest);
 
-    // Step 4: Build response groups
-    const allReps = [...cleanFederal, ...stateLegislators];
+    // Step 4: Deduplicate by name (Open States may return federal reps too)
+    const seen = new Set<string>();
+    const allReps: RepResult[] = [];
+    for (const rep of [...cleanFederal, ...stateLegislators]) {
+      const key = rep.name.toLowerCase().replace(/[^a-z]/g, "");
+      if (!seen.has(key)) {
+        seen.add(key);
+        allReps.push(rep);
+      }
+    }
 
     const levelOrder: RepResult["level"][] = ["federal", "state", "county", "local"];
     const levelLabels: Record<string, string> = {

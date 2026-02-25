@@ -5,6 +5,7 @@ import DashboardHeader from "@/components/DashboardHeader";
 import CategoryTabs from "@/components/CategoryTabs";
 import NewsCard from "@/components/NewsCard";
 import TrendingSidebar from "@/components/TrendingSidebar";
+import NewsCharts from "@/components/NewsCharts";
 import { useNevadaNews } from "@/hooks/useNevadaNews";
 import type { NewsCategory } from "@/lib/mockNews";
 
@@ -50,6 +51,9 @@ const Index = () => {
             </button>
           </div>
         </div>
+
+        {/* Analytics charts */}
+        {!isLoading && news.length > 0 && <NewsCharts news={news} />}
 
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <motion.div

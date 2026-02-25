@@ -3,20 +3,83 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// ── Free RSS feed sources (no API key needed) ──────────────────────────
+const RSS_FEEDS = [
+  { name: 'Las Vegas Sun', url: 'https://lasvegassun.com/feeds/headlines/all/' },
+  { name: 'Las Vegas Sun Politics', url: 'https://lasvegassun.com/feeds/headlines/politics/' },
+  { name: 'KTNV Las Vegas', url: 'https://www.ktnv.com/feeds/rssFeed?obfType=RSS_FEED&siteId=10073&categoryId=501' },
+  { name: 'Reno Gazette Journal', url: 'https://rssfeeds.rgj.com/reno/news' },
+  { name: 'US News Nevada', url: 'https://www.usnews.com/rss/news/nevada' },
+];
+
+// ── Lightweight XML → items parser (no deps) ───────────────────────────
+function parseRssItems(xml: string, sourceName: string): Array<{ title: string; url: string; description: string; pubDate: string; source: string }> {
+  const items: Array<{ title: string; url: string; description: string; pubDate: string; source: string }> = [];
+  const itemRegex = /<item[\s>]([\s\S]*?)<\/item>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const title = extractTag(block, 'title');
+    const link = extractTag(block, 'link');
+    const description = extractTag(block, 'description');
+    const pubDate = extractTag(block, 'pubDate');
+
+    if (title && link) {
+      items.push({
+        title: stripCdata(title),
+        url: link.trim(),
+        description: stripCdata(description || '').replace(/<[^>]*>/g, '').slice(0, 400),
+        pubDate: pubDate || '',
+        source: sourceName,
+      });
+    }
+  }
+  return items;
+}
+
+function extractTag(xml: string, tag: string): string | null {
+  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const m = xml.match(re);
+  return m ? m[1] : null;
+}
+
+function stripCdata(s: string): string {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim();
+}
+
+// ── Fetch a single RSS feed with timeout ────────────────────────────────
+async function fetchFeed(feed: { name: string; url: string }): Promise<Array<{ title: string; url: string; description: string; pubDate: string; source: string }>> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const resp = await fetch(feed.url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'NevadaPoliticsBot/1.0' },
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      console.warn(`RSS feed ${feed.name} returned ${resp.status}`);
+      return [];
+    }
+
+    const xml = await resp.text();
+    return parseRssItems(xml, feed.name);
+  } catch (e) {
+    console.warn(`RSS feed ${feed.name} failed:`, e);
+    return [];
+  }
+}
+
+// ── Main handler ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!FIRECRAWL_API_KEY) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -25,40 +88,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Search for Nevada political news via Firecrawl
-    const searchQueries = [
-      'Nevada legislature law bill 2025 2026',
-      'Las Vegas politics policy mayor',
-      'Nevada politician controversy news',
-      'Las Vegas Nevada political social media',
-    ];
+    // ── Step 1: Fetch RSS feeds + optional Firecrawl in parallel ────────
+    const rssPromises = RSS_FEEDS.map(fetchFeed);
+    const firecrawlPromise = fetchFirecrawlResults();
 
-    const allResults: any[] = [];
+    const [rssResults, firecrawlResults] = await Promise.all([
+      Promise.all(rssPromises),
+      firecrawlPromise,
+    ]);
 
-    for (const query of searchQueries) {
-      try {
-        const searchResp = await fetch('https://api.firecrawl.dev/v1/search', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query,
-            limit: 5,
-            tbs: 'qdr:w', // last week
-          }),
-        });
+    const allResults: Array<{ title: string; url: string; description: string; source: string }> = [];
 
-        if (searchResp.ok) {
-          const searchData = await searchResp.json();
-          if (searchData.data) {
-            allResults.push(...searchData.data);
-          }
-        }
-      } catch (e) {
-        console.error(`Search failed for "${query}":`, e);
+    // Flatten RSS results
+    for (const feedItems of rssResults) {
+      for (const item of feedItems) {
+        allResults.push(item);
       }
+    }
+
+    // Add Firecrawl results
+    for (const item of firecrawlResults) {
+      allResults.push(item);
     }
 
     // Deduplicate by URL
@@ -69,33 +119,120 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log(`Found ${uniqueResults.length} unique results`);
+    console.log(`Found ${uniqueResults.length} unique results (RSS: ${allResults.length - firecrawlResults.length}, Firecrawl: ${firecrawlResults.length})`);
 
     if (uniqueResults.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, news: [], trending: [] }),
+        JSON.stringify({ success: true, news: [], trending: [], trendingIndividuals: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Step 2: Use AI to categorize and summarize the results
+    // ── Step 2: AI categorization ──────────────────────────────────────
     const articlesText = uniqueResults
-      .slice(0, 15) // limit to avoid token overflow
-      .map((r: any, i: number) => `[${i + 1}] Title: ${r.title || 'Untitled'}\nURL: ${r.url}\nDescription: ${r.description || 'No description'}\nContent snippet: ${(r.markdown || '').slice(0, 300)}`)
+      .slice(0, 20)
+      .map((r, i) => `[${i + 1}] Title: ${r.title}\nURL: ${r.url}\nSource: ${r.source}\nDescription: ${r.description}`)
       .join('\n\n');
 
-    const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a political news analyst specializing in Nevada and Las Vegas politics. You categorize and summarize political news articles.
+    const aiResult = await categorizeWithAI(articlesText, LOVABLE_API_KEY);
+    if ('error' in aiResult) {
+      return new Response(
+        JSON.stringify({ success: false, error: aiResult.error }),
+        { status: aiResult.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Add IDs and time info
+    const now = new Date();
+    aiResult.news = (aiResult.news || []).map((item: any, i: number) => ({
+      ...item,
+      id: `news-${i}-${Date.now()}`,
+      date: now.toISOString().split('T')[0],
+      timeAgo: 'Just now',
+    }));
+    aiResult.trending = (aiResult.trending || []).map((item: any, i: number) => ({
+      ...item,
+      id: `trend-${i}`,
+    }));
+    aiResult.trendingIndividuals = (aiResult.trendingIndividuals || []).map((item: any, i: number) => ({
+      ...item,
+      id: `individual-${i}`,
+    }));
+
+    return new Response(
+      JSON.stringify({ success: true, ...aiResult }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+
+// ── Firecrawl (optional, uses API key if available) ─────────────────────
+async function fetchFirecrawlResults(): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
+  const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+  if (!FIRECRAWL_API_KEY) return [];
+
+  const queries = [
+    'Nevada legislature law bill 2025 2026',
+    'Las Vegas politics policy mayor',
+    'Nevada politician controversy news',
+  ];
+
+  const results: Array<{ title: string; url: string; description: string; source: string }> = [];
+
+  for (const query of queries) {
+    try {
+      const resp = await fetch('https://api.firecrawl.dev/v1/search', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query, limit: 5, tbs: 'qdr:w' }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.data) {
+          for (const r of data.data) {
+            if (r.url && r.title) {
+              results.push({
+                title: r.title,
+                url: r.url,
+                description: r.description || (r.markdown || '').slice(0, 300),
+                source: 'Firecrawl',
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Firecrawl search failed for "${query}":`, e);
+    }
+  }
+
+  return results;
+}
+
+// ── AI categorization via Lovable gateway ───────────────────────────────
+async function categorizeWithAI(articlesText: string, apiKey: string): Promise<any> {
+  const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-3-flash-preview',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a political news analyst specializing in Nevada and Las Vegas politics. You categorize and summarize political news articles.
 
 Given a list of search results about Nevada politics, return a JSON response with:
 1. "news" - an array of news items, each with:
@@ -118,136 +255,90 @@ Given a list of search results about Nevada politics, return a JSON response wit
 
 Only include articles actually related to Nevada/Las Vegas politics. Skip irrelevant results.
 Return ONLY valid JSON, no markdown fences.`,
-          },
-          {
-            role: 'user',
-            content: `Here are the search results to analyze:\n\n${articlesText}`,
-          },
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'format_news',
-              description: 'Format categorized Nevada political news and trending topics',
-              parameters: {
-                type: 'object',
-                properties: {
-                  news: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        title: { type: 'string' },
-                        summary: { type: 'string' },
-                        category: { type: 'string', enum: ['law', 'policy', 'politician', 'social'] },
-                        source: { type: 'string' },
-                        url: { type: 'string' },
-                        isBreaking: { type: 'boolean' },
-                      },
-                      required: ['title', 'summary', 'category', 'source', 'url'],
+        },
+        {
+          role: 'user',
+          content: `Here are the search results to analyze:\n\n${articlesText}`,
+        },
+      ],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'format_news',
+            description: 'Format categorized Nevada political news and trending topics',
+            parameters: {
+              type: 'object',
+              properties: {
+                news: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      summary: { type: 'string' },
+                      category: { type: 'string', enum: ['law', 'policy', 'politician', 'social'] },
+                      source: { type: 'string' },
+                      url: { type: 'string' },
+                      isBreaking: { type: 'boolean' },
                     },
-                  },
-                  trending: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        topic: { type: 'string' },
-                        mentions: { type: 'number' },
-                        trend: { type: 'string', enum: ['up', 'down', 'stable'] },
-                      },
-                      required: ['topic', 'mentions', 'trend'],
-                    },
-                  },
-                  trendingIndividuals: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        name: { type: 'string' },
-                        title: { type: 'string' },
-                        party: { type: 'string', enum: ['R', 'D', 'I', 'L'] },
-                        mentions: { type: 'number' },
-                        trend: { type: 'string', enum: ['up', 'down', 'stable'] },
-                      },
-                      required: ['name', 'title', 'party', 'mentions', 'trend'],
-                    },
+                    required: ['title', 'summary', 'category', 'source', 'url'],
                   },
                 },
-                required: ['news', 'trending', 'trendingIndividuals'],
+                trending: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      topic: { type: 'string' },
+                      mentions: { type: 'number' },
+                      trend: { type: 'string', enum: ['up', 'down', 'stable'] },
+                    },
+                    required: ['topic', 'mentions', 'trend'],
+                  },
+                },
+                trendingIndividuals: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      title: { type: 'string' },
+                      party: { type: 'string', enum: ['R', 'D', 'I', 'L'] },
+                      mentions: { type: 'number' },
+                      trend: { type: 'string', enum: ['up', 'down', 'stable'] },
+                    },
+                    required: ['name', 'title', 'party', 'mentions', 'trend'],
+                  },
+                },
               },
+              required: ['news', 'trending', 'trendingIndividuals'],
             },
           },
-        ],
-        tool_choice: { type: 'function', function: { name: 'format_news' } },
-      }),
-    });
+        },
+      ],
+      tool_choice: { type: 'function', function: { name: 'format_news' } },
+    }),
+  });
 
-    if (!aiResp.ok) {
-      const errText = await aiResp.text();
-      console.error('AI gateway error:', aiResp.status, errText);
-
-      if (aiResp.status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (aiResp.status === 402) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'AI usage credits exhausted.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to process news' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const aiData = await aiResp.json();
-    
-    // Extract from tool call response
-    let result: any = { news: [], trending: [], trendingIndividuals: [] };
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      try {
-        result = JSON.parse(toolCall.function.arguments);
-      } catch (e) {
-        console.error('Failed to parse AI tool call:', e);
-      }
-    }
-
-    // Add IDs and time info
-    const now = new Date();
-    result.news = (result.news || []).map((item: any, i: number) => ({
-      ...item,
-      id: `news-${i}-${Date.now()}`,
-      date: now.toISOString().split('T')[0],
-      timeAgo: 'Just now',
-    }));
-
-    result.trending = (result.trending || []).map((item: any, i: number) => ({
-      ...item,
-      id: `trend-${i}`,
-    }));
-
-    result.trendingIndividuals = (result.trendingIndividuals || []).map((item: any, i: number) => ({
-      ...item,
-      id: `individual-${i}`,
-    }));
-
-    return new Response(
-      JSON.stringify({ success: true, ...result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error('Error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  if (!aiResp.ok) {
+    const errText = await aiResp.text();
+    console.error('AI gateway error:', aiResp.status, errText);
+    if (aiResp.status === 429) return { error: 'Rate limit exceeded. Please try again in a moment.', status: 429 };
+    if (aiResp.status === 402) return { error: 'AI usage credits exhausted.', status: 402 };
+    return { error: 'Failed to process news', status: 500 };
   }
-});
+
+  const aiData = await aiResp.json();
+  let result: any = { news: [], trending: [], trendingIndividuals: [] };
+  const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) {
+    try {
+      result = JSON.parse(toolCall.function.arguments);
+    } catch (e) {
+      console.error('Failed to parse AI tool call:', e);
+    }
+  }
+
+  return result;
+}

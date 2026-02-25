@@ -11,6 +11,10 @@ export interface Bill {
   status: string;
   url: string;
   sponsors: string[];
+  abstract?: string;
+  subject?: string[];
+  dateIntroduced?: string;
+  latestActionDate?: string;
 }
 
 interface UseBillsResult {

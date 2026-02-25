@@ -2,6 +2,17 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, Flame, Newspaper, User } from "lucide-react";
 import type { TrendingTopic, TrendingIndividual } from "@/lib/mockNews";
+import { nevadaPoliticians } from "@/lib/politicians";
+
+// Lookup party from our known politicians list, fall back to API data
+const getParty = (name: string, apiParty?: string): string => {
+  if (apiParty) return apiParty;
+  const match = nevadaPoliticians.find(
+    (p) => name.toLowerCase().includes(p.name.split(" ").pop()!.toLowerCase())
+  );
+  if (match) return match.party.charAt(0);
+  return "?";
+};
 
 const trendIcon = {
   up: <TrendingUp className="h-3.5 w-3.5 text-primary" />,
@@ -110,7 +121,7 @@ const TrendingSidebar = ({ topics, individuals }: TrendingSidebarProps) => {
                 </span>
                 <div className="min-w-0">
                   <span className="block truncate font-body text-sm font-medium text-foreground">
-                    {person.name} <span className="text-muted-foreground">({person.party})</span>
+                    {person.name} <span className="text-muted-foreground">({getParty(person.name, person.party)})</span>
                   </span>
                   <span className="block font-body text-[10px] text-muted-foreground">
                     {person.title}

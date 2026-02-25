@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Minus, Flame, Newspaper, User, Flag } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Flame, Newspaper, User, Flag, Bell } from "lucide-react";
 import type { TrendingTopic, TrendingIndividual } from "@/lib/mockNews";
 import { nevadaPoliticians } from "@/lib/politicians";
+import { useAuth } from "@/hooks/useAuth";
 
 // Lookup party from our known politicians list, fall back to API data
 const getParty = (name: string, apiParty?: string): string => {
@@ -50,6 +52,7 @@ interface PartyAggregate {
 }
 
 const TrendingSidebar = ({ topics, individuals }: TrendingSidebarProps) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("stories");
 
   // Aggregate individuals by party
@@ -95,9 +98,18 @@ const TrendingSidebar = ({ topics, individuals }: TrendingSidebarProps) => {
       transition={{ duration: 0.5, delay: 0.2 }}
       className="rounded-xl border border-border bg-card p-5 shadow-card"
     >
-      <div className="mb-4 flex items-center gap-2">
-        <Flame className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-bold text-headline">Trending</h2>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Flame className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-lg font-bold text-headline">Trending</h2>
+        </div>
+        <Link
+          to={user ? "/alerts" : "/auth"}
+          className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-2.5 py-1.5 font-body text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+        >
+          <Bell className="h-3 w-3" />
+          Alerts
+        </Link>
       </div>
 
       {/* Tabs */}

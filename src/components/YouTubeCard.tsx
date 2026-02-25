@@ -16,20 +16,24 @@ function timeAgo(dateStr: string): string {
 }
 
 const YouTubeCard = ({ video, index }: { video: YouTubeVideo; index: number }) => {
+  const openVideo = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (video.url) {
+      window.open(video.url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.06 }}
-      className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
+      className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-card transition-all hover:border-primary/30 hover:shadow-glow cursor-pointer"
+      onClick={openVideo}
     >
       {/* Thumbnail */}
-      <a
-        href={video.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="relative block aspect-video w-full overflow-hidden"
-      >
+      <div className="relative block aspect-video w-full overflow-hidden">
         <img
           src={video.thumbnail}
           alt={video.title}
@@ -41,7 +45,7 @@ const YouTubeCard = ({ video, index }: { video: YouTubeVideo; index: number }) =
             <Play className="h-5 w-5 text-primary-foreground" fill="currentColor" />
           </div>
         </div>
-      </a>
+      </div>
 
       <div className="p-4">
         {/* Badge + time */}
@@ -55,15 +59,8 @@ const YouTubeCard = ({ video, index }: { video: YouTubeVideo; index: number }) =
         </div>
 
         {/* Title */}
-        <h3 className="font-display text-base font-bold leading-snug text-foreground line-clamp-2">
-          <a
-            href={video.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-primary"
-          >
-            {video.title}
-          </a>
+        <h3 className="font-display text-base font-bold leading-snug text-foreground line-clamp-2 transition-colors group-hover:text-primary">
+          {video.title}
         </h3>
 
         {/* Description */}
@@ -76,15 +73,10 @@ const YouTubeCard = ({ video, index }: { video: YouTubeVideo; index: number }) =
         {/* Footer */}
         <div className="mt-3 flex items-center justify-between">
           <span className="font-body text-xs text-muted-foreground">{video.channelName}</span>
-          <a
-            href={video.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 font-body text-xs text-muted-foreground transition-colors hover:text-primary"
-          >
+          <span className="flex items-center gap-1 font-body text-xs text-muted-foreground transition-colors group-hover:text-primary">
             Watch
             <ExternalLink className="h-3 w-3" />
-          </a>
+          </span>
         </div>
       </div>
     </motion.article>

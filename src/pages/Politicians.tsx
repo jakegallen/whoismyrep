@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X } from "lucide-react";
+import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X, ArrowUpDown } from "lucide-react";
 import { nevadaPoliticians } from "@/lib/politicians";
 import PoliticianCard from "@/components/PoliticianCard";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const levelConfig = {
   federal: { label: "Federal", icon: Globe, description: "U.S. Senators & Representatives" },
@@ -21,10 +22,11 @@ const Politicians = () => {
   const navigate = useNavigate();
   const [activeLevel, setActiveLevel] = useState<Level | "all">("all");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"default" | "name" | "party" | "region">("default");
 
   const filtered = useMemo(() => {
     let list = activeLevel === "all"
-      ? nevadaPoliticians
+      ? [...nevadaPoliticians]
       : nevadaPoliticians.filter((p) => p.level === activeLevel);
 
     if (search.trim()) {
@@ -37,8 +39,17 @@ const Politicians = () => {
           (p.region && p.region.toLowerCase().includes(q))
       );
     }
+
+    if (sortBy === "name") {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === "party") {
+      list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
+    } else if (sortBy === "region") {
+      list.sort((a, b) => (a.region ?? "").localeCompare(b.region ?? "") || a.name.localeCompare(b.name));
+    }
+
     return list;
-  }, [activeLevel, search]);
+  }, [activeLevel, search, sortBy]);
 
   const grouped = levels
     .map((level) => ({
@@ -116,23 +127,37 @@ const Politicians = () => {
           })}
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, party, title, or region…"
-            className="pl-9 pr-9"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        {/* Search & Sort */}
+        <div className="mb-6 flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, party, title, or region…"
+              className="pl-9 pr-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="w-[160px] shrink-0">
+              <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="name">Name (A–Z)</SelectItem>
+              <SelectItem value="party">Party</SelectItem>
+              <SelectItem value="region">Region</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Grouped sections */}

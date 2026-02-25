@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
 
     const { session = '83rd2025', search } = await req.json().catch(() => ({}));
 
-    // Scrape the Nevada Legislature bill list page
-    const billListUrl = `https://www.leg.state.nv.us/App/NELIS/REL/${session}/BillsList`;
+    // The /Bills/Prefiled page has structured content that Firecrawl can parse
+    const billListUrl = `https://www.leg.state.nv.us/App/NELIS/REL/${session}/Bills/Prefiled`;
     console.log('Scraping bill list:', billListUrl);
 
     const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
@@ -49,8 +49,9 @@ Deno.serve(async (req) => {
     }
 
     const markdown = scrapeData.data?.markdown || scrapeData.markdown || '';
+    console.log('Markdown length:', markdown.length, 'First 500 chars:', markdown.substring(0, 500));
 
-    // Parse bills from the scraped markdown
+    // Parse bills from the structured markdown
     const bills = parseBillsFromMarkdown(markdown, session);
 
     // Apply search filter if provided
@@ -60,8 +61,7 @@ Deno.serve(async (req) => {
       filteredBills = bills.filter(
         (b: any) =>
           b.billNumber.toLowerCase().includes(q) ||
-          b.title.toLowerCase().includes(q) ||
-          (b.sponsors && b.sponsors.some((s: string) => s.toLowerCase().includes(q)))
+          b.title.toLowerCase().includes(q)
       );
     }
 
@@ -89,43 +89,58 @@ function parseBillsFromMarkdown(markdown: string, session: string): any[] {
   const bills: any[] = [];
   const lines = markdown.split('\n');
 
-  // Match patterns like "AB1", "AB 1", "SB1", "SB 1", "AJR1", "SJR1", etc.
-  const billPattern = /\b((?:AB|SB|AJR|SJR|ACR|SCR|AR|SR|AJR|SJR)\s*\d+)\b/gi;
-  const seen = new Set<string>();
-
-  for (let i = 0; i < lines.length; i++) {
+  // Pattern: [AB1](url) followed by "Introduced DATE" then title text
+  // Each bill block is separated by "* * *" (horizontal rule)
+  let i = 0;
+  while (i < lines.length) {
     const line = lines[i].trim();
-    const matches = line.match(billPattern);
-    if (!matches) continue;
-
-    for (const rawMatch of matches) {
-      const billNumber = rawMatch.replace(/\s+/g, '').toUpperCase();
-      if (seen.has(billNumber)) continue;
-      seen.add(billNumber);
-
-      // Try to extract a title from the surrounding text
+    
+    // Match lines like [AB1](https://...Overview) or [SB1](https://...Overview)
+    const linkMatch = line.match(/^\[((?:AB|SB|AJR|SJR|ACR|SCR|AR|SR)\d+)\]\((https?:\/\/[^\)]+)\)$/i);
+    if (linkMatch) {
+      const billNumber = linkMatch[1].toUpperCase();
+      const overviewUrl = linkMatch[2];
+      
+      // Next non-empty line should be "Introduced DATE"
+      let dateIntroduced = '';
       let title = '';
-      // Look at the rest of the line after the bill number
-      const afterBill = line.substring(line.toUpperCase().indexOf(billNumber) + billNumber.length).trim();
-      if (afterBill.length > 5) {
-        title = afterBill
-          .replace(/^[\s\-–—:|]+/, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\(.*?\)/g, '')
-          .trim();
-      }
-      // Also check the next line
-      if (!title && i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim();
-        if (nextLine && !nextLine.match(billPattern) && nextLine.length > 5) {
-          title = nextLine.replace(/^[\s\-–—:|]+/, '').trim();
+      let j = i + 1;
+      
+      // Skip empty lines
+      while (j < lines.length && lines[j].trim() === '') j++;
+      
+      // Check for introduced date
+      if (j < lines.length) {
+        const dateLine = lines[j].trim();
+        const dateMatch = dateLine.match(/^Introduced\s+(.+)$/i);
+        if (dateMatch) {
+          dateIntroduced = dateMatch[1];
+          j++;
         }
       }
-
-      if (!title) title = `${billNumber} — Nevada ${session.includes('2025') ? '83rd Session' : session}`;
-
-      // Truncate long titles
-      if (title.length > 200) title = title.substring(0, 197) + '...';
+      
+      // Skip empty lines
+      while (j < lines.length && lines[j].trim() === '') j++;
+      
+      // Next non-empty line(s) should be the title/description
+      const titleParts: string[] = [];
+      while (j < lines.length) {
+        const tl = lines[j].trim();
+        if (tl === '' || tl === '* * *' || tl.match(/^\[(?:AB|SB|AJR|SJR|ACR|SCR|AR|SR)\d+\]/i)) break;
+        titleParts.push(tl);
+        j++;
+      }
+      title = titleParts.join(' ').trim();
+      
+      // Clean up title - remove BDR reference for cleaner display
+      const bdrMatch = title.match(/\(BDR\s+[\w\-]+\)\s*$/);
+      const bdr = bdrMatch ? bdrMatch[0] : '';
+      const cleanTitle = title.replace(/\s*\(BDR\s+[\w\-]+\)\s*$/, '').trim();
+      
+      if (!cleanTitle) {
+        i = j;
+        continue;
+      }
 
       // Determine chamber from prefix
       const chamber = billNumber.startsWith('S') ? 'Senate' : 'Assembly';
@@ -134,23 +149,29 @@ function parseBillsFromMarkdown(markdown: string, session: string): any[] {
       let type = 'Bill';
       if (billNumber.includes('JR')) type = 'Joint Resolution';
       else if (billNumber.includes('CR')) type = 'Concurrent Resolution';
-      else if (billNumber.includes('R') && !billNumber.includes('JR') && !billNumber.includes('CR')) type = 'Resolution';
+      else if (/^[AS]R\d/.test(billNumber)) type = 'Resolution';
 
       bills.push({
-        id: billNumber.toLowerCase().replace(/\s/g, ''),
+        id: billNumber.toLowerCase(),
         billNumber,
-        title,
+        title: cleanTitle.length > 200 ? cleanTitle.substring(0, 197) + '...' : cleanTitle,
         chamber,
         type,
         session,
         status: 'Introduced',
-        url: `https://www.leg.state.nv.us/App/NELIS/REL/${session}/Bill/${billNumber.replace(/(\D+)(\d+)/, '$1/$2')}`,
+        dateIntroduced,
+        bdr: bdr.replace(/[()]/g, '').trim(),
+        url: overviewUrl,
         sponsors: [],
       });
+      
+      i = j;
+    } else {
+      i++;
     }
   }
 
-  // Sort bills naturally (AB1, AB2, ... AB10, etc.)
+  // Sort bills naturally
   bills.sort((a, b) => {
     const prefixA = a.billNumber.replace(/\d+/, '');
     const prefixB = b.billNumber.replace(/\d+/, '');

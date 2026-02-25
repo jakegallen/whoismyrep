@@ -41,65 +41,94 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
   };
 }
 
+// --- Fallback: hardcoded Nevada state officials ---
+
+const FALLBACK_STATE_REPS: RepResult[] = [
+  { name: "Joe Lombardo", office: "Governor of Nevada", level: "state", party: "Republican", website: "https://gov.nv.gov", photoUrl: "https://gov.nv.gov/wp-content/uploads/2024/02/jl-headshot-1-scaled.jpg", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Stavros Anthony", office: "Lt. Governor of Nevada", level: "state", party: "Republican", website: "https://ltgov.nv.gov", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Aaron D. Ford", office: "Nevada Attorney General", level: "state", party: "Democrat", website: "https://ag.nv.gov", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Francisco Aguilar", office: "Nevada Secretary of State", level: "state", party: "Democrat", website: "https://www.nvsos.gov", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Zach Conine", office: "Nevada State Treasurer", level: "state", party: "Democrat", website: "https://www.nevadatreasurer.gov", divisionId: "ocd-division/country:us/state:nv" },
+];
+
+const FALLBACK_FEDERAL_REPS: RepResult[] = [
+  { name: "Catherine Cortez Masto", office: "U.S. Senator — Senior Seat", level: "federal", party: "Democrat", website: "https://www.cortezmasto.senate.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/C/C001113.jpg", phone: "(202) 224-3542", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Jacky Rosen", office: "U.S. Senator — Junior Seat", level: "federal", party: "Democrat", website: "https://www.rosen.senate.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/R/R000608.jpg", phone: "(202) 224-6244", divisionId: "ocd-division/country:us/state:nv" },
+  { name: "Dina Titus", office: "U.S. Representative — District 1", level: "federal", party: "Democrat", website: "https://titus.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/T/T000468.jpg", divisionId: "ocd-division/country:us/state:nv/cd:1" },
+  { name: "Mark Amodei", office: "U.S. Representative — District 2", level: "federal", party: "Republican", website: "https://amodei.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/A/A000369.jpg", divisionId: "ocd-division/country:us/state:nv/cd:2" },
+  { name: "Susie Lee", office: "U.S. Representative — District 3", level: "federal", party: "Democrat", website: "https://susielee.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/L/L000590.jpg", divisionId: "ocd-division/country:us/state:nv/cd:3" },
+  { name: "Steven Horsford", office: "U.S. Representative — District 4", level: "federal", party: "Democrat", website: "https://horsford.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/H/H001066.jpg", divisionId: "ocd-division/country:us/state:nv/cd:4" },
+];
+
 // --- Open States people.geo for state legislators ---
 
 async function fetchStateLegislators(lat: number, lng: number, apiKey: string): Promise<RepResult[]> {
-  const url = `https://v3.openstates.org/people.geo?lat=${lat}&lng=${lng}&include=links`;
-  console.log("Fetching Open States people.geo:", url.substring(0, 80));
-  const resp = await fetch(url, {
-    headers: { "X-API-KEY": apiKey },
-  });
-  if (!resp.ok) {
-    const text = await resp.text();
-    console.error("Open States error:", resp.status, text);
-    return [];
-  }
-  const data = await resp.json();
-  const results: RepResult[] = [];
-
-  for (const person of data.results || []) {
-    const party = (person.party || "Unknown")
-      .replace("Democratic", "Democrat")
-      .replace("Republican", "Republican");
-
-    // Determine office from current roles
-    let office = "State Legislator";
-    const roles = person.current_role;
-    if (roles) {
-      const chamber = roles.org_classification === "upper" ? "Senate" : "House";
-      const district = roles.district || "";
-      office = `Nevada State ${chamber} — District ${district}`;
-    }
-
-    // Extract contact info
-    let phone: string | undefined;
-    let email: string | undefined;
-    let website: string | undefined;
-
-    for (const office_entry of person.offices || []) {
-      if (office_entry.voice && !phone) phone = office_entry.voice;
-      if (office_entry.email && !email) email = office_entry.email;
-    }
-    email = email || person.email || undefined;
-
-    for (const link of person.links || []) {
-      if (link.url && !website) website = link.url;
-    }
-
-    results.push({
-      name: person.name,
-      office,
-      level: "state",
-      party,
-      phone,
-      email,
-      website,
-      photoUrl: person.image || undefined,
-      divisionId: person.jurisdiction?.id || "",
+  try {
+    const url = `https://v3.openstates.org/people.geo?lat=${lat}&lng=${lng}&include=links`;
+    console.log("Fetching Open States people.geo:", url.substring(0, 80));
+    const resp = await fetch(url, {
+      headers: { "X-API-KEY": apiKey },
     });
-  }
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("Open States error:", resp.status, text);
+      console.log("Falling back to local state official data");
+      return FALLBACK_STATE_REPS;
+    }
+    const data = await resp.json();
+    const results: RepResult[] = [];
 
-  return results;
+    for (const person of data.results || []) {
+      const party = (person.party || "Unknown")
+        .replace("Democratic", "Democrat")
+        .replace("Republican", "Republican");
+
+      let office = "State Legislator";
+      const roles = person.current_role;
+      if (roles) {
+        const chamber = roles.org_classification === "upper" ? "Senate" : "House";
+        const district = roles.district || "";
+        office = `Nevada State ${chamber} — District ${district}`;
+      }
+
+      let phone: string | undefined;
+      let email: string | undefined;
+      let website: string | undefined;
+
+      for (const office_entry of person.offices || []) {
+        if (office_entry.voice && !phone) phone = office_entry.voice;
+        if (office_entry.email && !email) email = office_entry.email;
+      }
+      email = email || person.email || undefined;
+
+      for (const link of person.links || []) {
+        if (link.url && !website) website = link.url;
+      }
+
+      results.push({
+        name: person.name,
+        office,
+        level: "state",
+        party,
+        phone,
+        email,
+        website,
+        photoUrl: person.image || undefined,
+        divisionId: person.jurisdiction?.id || "",
+      });
+    }
+
+    if (results.length === 0) {
+      console.log("Open States returned 0 results, using fallback");
+      return FALLBACK_STATE_REPS;
+    }
+
+    return results;
+  } catch (e) {
+    console.error("Open States fetch failed:", e);
+    console.log("Falling back to local state official data");
+    return FALLBACK_STATE_REPS;
+  }
 }
 
 // --- Fetch current Nevada federal delegation from GitHub (unitedstates project) ---
@@ -119,7 +148,8 @@ async function fetchFederalDelegation(): Promise<RepResult[]> {
     const resp = await fetch(url);
     if (!resp.ok) {
       console.error("Federal data fetch error:", resp.status);
-      return [];
+      console.log("Falling back to local federal data");
+      return FALLBACK_FEDERAL_REPS;
     }
     const all = await resp.json();
 
@@ -164,7 +194,8 @@ async function fetchFederalDelegation(): Promise<RepResult[]> {
     return results;
   } catch (e) {
     console.error("Error fetching federal delegation:", e);
-    return [];
+    console.log("Falling back to local federal data");
+    return FALLBACK_FEDERAL_REPS;
   }
 }
 

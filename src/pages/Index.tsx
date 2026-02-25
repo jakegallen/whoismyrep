@@ -180,10 +180,8 @@ const Index = () => {
             )}
           </motion.div>
 
-          <div className="hidden lg:block">
-            <div className="sticky top-8">
-              <TrendingSidebar topics={trending} individuals={trendingIndividuals} />
-            </div>
+          <div className="lg:sticky lg:top-8">
+            <TrendingSidebar topics={trending} individuals={trendingIndividuals} />
           </div>
         </div>
       </main>

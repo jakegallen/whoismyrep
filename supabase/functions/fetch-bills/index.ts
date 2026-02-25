@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { session, search, page = 1, per_page = 50 } = await req.json().catch(() => ({}));
+    const { session, search, page = 1, per_page = 20 } = await req.json().catch(() => ({}));
 
     // Build query params for OpenStates v3 REST API
     const params = new URLSearchParams({

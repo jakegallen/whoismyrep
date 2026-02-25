@@ -105,9 +105,14 @@ Given a list of search results about Nevada politics, return a JSON response wit
    - "source": the publication/source name extracted from the URL domain
    - "url": the article URL
    - "isBreaking": true only if it seems very recent and significant
-2. "trending" - an array of 6 trending topic objects:
+2. "trending" - an array of 6 trending story/topic objects:
    - "topic": short topic name (2-4 words)
    - "mentions": estimated relevance score (100-3000)
+   - "trend": "up", "down", or "stable"
+3. "trendingIndividuals" - an array of up to 6 politicians/political figures most mentioned across the articles, ranked by frequency:
+   - "name": full name of the politician
+   - "title": their political title (e.g. "Governor", "U.S. Senator")
+   - "mentions": estimated number of mentions across articles (100-3000)
    - "trend": "up", "down", or "stable"
 
 Only include articles actually related to Nevada/Las Vegas politics. Skip irrelevant results.
@@ -154,8 +159,21 @@ Return ONLY valid JSON, no markdown fences.`,
                       required: ['topic', 'mentions', 'trend'],
                     },
                   },
+                  trendingIndividuals: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: { type: 'string' },
+                        title: { type: 'string' },
+                        mentions: { type: 'number' },
+                        trend: { type: 'string', enum: ['up', 'down', 'stable'] },
+                      },
+                      required: ['name', 'title', 'mentions', 'trend'],
+                    },
+                  },
                 },
-                required: ['news', 'trending'],
+                required: ['news', 'trending', 'trendingIndividuals'],
               },
             },
           },
@@ -190,7 +208,7 @@ Return ONLY valid JSON, no markdown fences.`,
     const aiData = await aiResp.json();
     
     // Extract from tool call response
-    let result = { news: [], trending: [] };
+    let result: any = { news: [], trending: [], trendingIndividuals: [] };
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       try {
@@ -212,6 +230,11 @@ Return ONLY valid JSON, no markdown fences.`,
     result.trending = (result.trending || []).map((item: any, i: number) => ({
       ...item,
       id: `trend-${i}`,
+    }));
+
+    result.trendingIndividuals = (result.trendingIndividuals || []).map((item: any, i: number) => ({
+      ...item,
+      id: `individual-${i}`,
     }));
 
     return new Response(

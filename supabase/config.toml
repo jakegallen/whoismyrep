@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.fetch-podcasts]
 verify_jwt = false
+
+[functions.fetch-youtube]
+verify_jwt = false

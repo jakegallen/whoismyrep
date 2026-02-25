@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCivicReps, type CivicRep, type CivicGroup } from "@/hooks/useCivicReps";
+import { nevadaPoliticians } from "@/lib/politicians";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -52,6 +53,15 @@ const DistrictLookup = () => {
   const navigate = useNavigate();
   const [address, setAddress] = useState("");
   const { groups, normalizedAddress, totalReps, isLoading, error, lookup, reset } = useCivicReps();
+
+  // Build a lookup map: normalized name -> politician object
+  const politicianByName = useMemo(() => {
+    const map = new Map<string, (typeof nevadaPoliticians)[number]>();
+    for (const p of nevadaPoliticians) {
+      map.set(p.name.toLowerCase().replace(/[^a-z]/g, ""), p);
+    }
+    return map;
+  }, []);
 
   const handleLookup = (addr?: string) => {
     const query = addr || address;
@@ -227,7 +237,7 @@ const DistrictLookup = () => {
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {group.representatives.map((rep, ri) => (
-                        <CivicRepCard key={`${rep.name}-${rep.office}`} rep={rep} index={ri} />
+                        <CivicRepCard key={`${rep.name}-${rep.office}`} rep={rep} index={ri} politicianByName={politicianByName} navigate={navigate} />
                       ))}
                     </div>
                   </motion.section>
@@ -254,13 +264,24 @@ const DistrictLookup = () => {
   );
 };
 
-function CivicRepCard({ rep, index }: { rep: CivicRep; index: number }) {
+function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRep; index: number; politicianByName: Map<string, import("@/lib/politicians").Politician>; navigate: ReturnType<typeof useNavigate> }) {
+  const nameKey = rep.name.toLowerCase().replace(/[^a-z]/g, "");
+  const matchedPolitician = politicianByName.get(nameKey);
+  const isClickable = !!matchedPolitician;
+
+  const handleClick = () => {
+    if (matchedPolitician) {
+      navigate(`/politicians/${matchedPolitician.id}`, { state: { politician: matchedPolitician } });
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03, duration: 0.25 }}
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left"
+      onClick={isClickable ? handleClick : undefined}
+      className={`flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left ${isClickable ? "cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/80" : ""}`}
     >
       {rep.photoUrl ? (
         <img

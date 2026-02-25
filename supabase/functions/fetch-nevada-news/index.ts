@@ -112,6 +112,7 @@ Given a list of search results about Nevada politics, return a JSON response wit
 3. "trendingIndividuals" - an array of up to 6 politicians/political figures most mentioned across the articles, ranked by frequency:
    - "name": full name of the politician
    - "title": their political title (e.g. "Governor", "U.S. Senator")
+   - "party": single letter party abbreviation: "R" for Republican, "D" for Democrat, "I" for Independent, "L" for Libertarian
    - "mentions": estimated number of mentions across articles (100-3000)
    - "trend": "up", "down", or "stable"
 
@@ -166,10 +167,11 @@ Return ONLY valid JSON, no markdown fences.`,
                       properties: {
                         name: { type: 'string' },
                         title: { type: 'string' },
+                        party: { type: 'string', enum: ['R', 'D', 'I', 'L'] },
                         mentions: { type: 'number' },
                         trend: { type: 'string', enum: ['up', 'down', 'stable'] },
                       },
-                      required: ['name', 'title', 'mentions', 'trend'],
+                      required: ['name', 'title', 'party', 'mentions', 'trend'],
                     },
                   },
                 },

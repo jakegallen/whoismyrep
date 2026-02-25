@@ -110,7 +110,7 @@ const TrendingSidebar = ({ topics, individuals }: TrendingSidebarProps) => {
                 </span>
                 <div className="min-w-0">
                   <span className="block truncate font-body text-sm font-medium text-foreground">
-                    {person.name}
+                    {person.name} <span className="text-muted-foreground">({person.party})</span>
                   </span>
                   <span className="block font-body text-[10px] text-muted-foreground">
                     {person.title}

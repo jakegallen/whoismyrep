@@ -10,6 +10,7 @@ import PoliticianDetail from "./pages/PoliticianDetail";
 import Bills from "./pages/Bills";
 import BillDetail from "./pages/BillDetail";
 import DistrictLookup from "./pages/DistrictLookup";
+import Midterms from "./pages/Midterms";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/bills" element={<Bills />} />
           <Route path="/bills/:id" element={<BillDetail />} />
           <Route path="/district-lookup" element={<DistrictLookup />} />
+          <Route path="/midterms" element={<Midterms />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

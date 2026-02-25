@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   DollarSign,
@@ -13,6 +14,7 @@ import {
   Building2,
   Landmark,
   BarChart3,
+  ArrowLeft,
 } from "lucide-react";
 import {
   BarChart,
@@ -57,6 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const CampaignFinanceExplorer = () => {
+  const navigate = useNavigate();
   // Pre-populate with federal politicians
   const federalPoliticians = nevadaPoliticians.filter((p) => p.level === "federal");
   const [selectedName, setSelectedName] = useState(federalPoliticians[0]?.name || "");
@@ -85,6 +88,13 @@ const CampaignFinanceExplorer = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </button>
           <div className="flex items-center gap-3 mb-2">
             <DollarSign className="h-7 w-7 text-primary" />
             <h1 className="font-display text-3xl font-bold text-headline">

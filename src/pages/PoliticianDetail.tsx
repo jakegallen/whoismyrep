@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
+import VotingScorecard from "@/components/VotingScorecard";
 import type { Politician } from "@/lib/politicians";
 
 const PoliticianDetail = () => {
@@ -133,6 +134,15 @@ const PoliticianDetail = () => {
               </a>
             )}
           </div>
+
+          <div className="my-8 h-px bg-border" />
+
+          {/* Voting Scorecard */}
+          <VotingScorecard
+            politicianId={politician.id}
+            keyIssues={politician.keyIssues}
+            party={politician.party}
+          />
 
           <div className="my-8 h-px bg-border" />
 

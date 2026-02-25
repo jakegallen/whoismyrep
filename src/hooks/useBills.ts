@@ -37,7 +37,7 @@ export function useBills(search?: string): UseBillsResult {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-bills", {
-        body: { session: "83rd2025", search },
+        body: { search },
       });
 
       if (fnError) throw new Error(fnError.message);

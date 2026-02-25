@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, MapPin, ExternalLink, Loader2, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+  Globe,
+  Phone,
+  Mail,
+  MessageSquare,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import VotingScorecard from "@/components/VotingScorecard";
@@ -121,18 +131,105 @@ const PoliticianDetail = () => {
             ))}
           </div>
 
-          {/* Links */}
-          <div className="mt-4 flex gap-3">
-            {politician.socialHandles?.x && (
-              <a
-                href={`https://x.com/${politician.socialHandles.x}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 font-body text-sm font-medium text-primary hover:text-crimson-glow"
-              >
-                @{politician.socialHandles.x}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+          {/* Contact & Social Links */}
+          <div className="mt-6 space-y-3">
+            {/* Official website + contact */}
+            <div className="flex flex-wrap gap-2">
+              {politician.website && (
+                <a
+                  href={politician.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+                >
+                  <Globe className="h-4 w-4 text-primary" />
+                  Official Website
+                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                </a>
+              )}
+              {politician.phone && (
+                <a
+                  href={`tel:${politician.phone}`}
+                  className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+                >
+                  <Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />
+                  {politician.phone}
+                </a>
+              )}
+              {politician.email && (
+                <a
+                  href={`mailto:${politician.email}`}
+                  className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+                >
+                  <Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />
+                  Email
+                </a>
+              )}
+              {politician.contactForm && (
+                <a
+                  href={politician.contactForm}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+                >
+                  <MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />
+                  Contact Form
+                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                </a>
+              )}
+            </div>
+
+            {/* Social media handles */}
+            {politician.socialHandles && Object.keys(politician.socialHandles).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {politician.socialHandles.x && (
+                  <SocialLink
+                    href={`https://x.com/${politician.socialHandles.x}`}
+                    icon="𝕏"
+                    label={`@${politician.socialHandles.x}`}
+                  />
+                )}
+                {politician.socialHandles.facebook && (
+                  <SocialLink
+                    href={`https://facebook.com/${politician.socialHandles.facebook}`}
+                    icon="f"
+                    label="Facebook"
+                    color="hsl(210,80%,55%)"
+                  />
+                )}
+                {politician.socialHandles.instagram && (
+                  <SocialLink
+                    href={`https://instagram.com/${politician.socialHandles.instagram}`}
+                    icon="📷"
+                    label="Instagram"
+                    color="hsl(330,70%,55%)"
+                  />
+                )}
+                {politician.socialHandles.youtube && (
+                  <SocialLink
+                    href={`https://youtube.com/@${politician.socialHandles.youtube}`}
+                    icon="▶"
+                    label="YouTube"
+                    color="hsl(0,72%,51%)"
+                  />
+                )}
+                {politician.socialHandles.linkedin && (
+                  <SocialLink
+                    href={`https://linkedin.com/in/${politician.socialHandles.linkedin}`}
+                    icon="in"
+                    label="LinkedIn"
+                    color="hsl(210,80%,55%)"
+                  />
+                )}
+                {politician.socialHandles.threads && (
+                  <SocialLink
+                    href={`https://threads.net/@${politician.socialHandles.threads}`}
+                    icon="@"
+                    label="Threads"
+                    color="hsl(0,0%,70%)"
+                  />
+                )}
+              </div>
             )}
           </div>
 
@@ -212,5 +309,35 @@ const PoliticianDetail = () => {
     </div>
   );
 };
+
+function SocialLink({
+  href,
+  icon,
+  label,
+  color,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  color?: string;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 font-body text-xs font-medium text-secondary-custom transition-colors hover:bg-surface-elevated"
+    >
+      <span
+        className="flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold"
+        style={{ color: color || "hsl(var(--foreground))" }}
+      >
+        {icon}
+      </span>
+      {label}
+      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+    </a>
+  );
+}
 
 export default PoliticianDetail;

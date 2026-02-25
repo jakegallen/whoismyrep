@@ -9,9 +9,18 @@ export interface Politician {
   imageUrl?: string;
   bio: string;
   keyIssues: string[];
+  website?: string;
   socialHandles?: {
     x?: string;
+    facebook?: string;
+    instagram?: string;
+    youtube?: string;
+    linkedin?: string;
+    threads?: string;
   };
+  phone?: string;
+  email?: string;
+  contactForm?: string;
 }
 
 export const nevadaPoliticians: Politician[] = [
@@ -29,7 +38,10 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/C/C001113.jpg",
     bio: "Catherine Cortez Masto is the senior U.S. Senator from Nevada, first elected in 2016. She is the first Latina elected to the U.S. Senate and focuses on immigration, healthcare, and clean energy.",
     keyIssues: ["Immigration Reform", "Healthcare", "Clean Energy", "Public Lands"],
-    socialHandles: { x: "SenCortezMasto" },
+    website: "https://www.cortezmasto.senate.gov",
+    socialHandles: { x: "SenCortezMasto", facebook: "SenatorCortezMasto", instagram: "sencortezmasto", youtube: "SenatorCortezMasto" },
+    phone: "(202) 224-3542",
+    contactForm: "https://www.cortezmasto.senate.gov/contact",
   },
   {
     id: "rosen",
@@ -42,7 +54,10 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/R/R000608.jpg",
     bio: "Jacky Rosen is the junior U.S. Senator from Nevada, elected in 2018 and re-elected in 2024. A former computer programmer, she champions technology, veterans' issues, and workforce development.",
     keyIssues: ["Technology", "Veterans Affairs", "Workforce Development", "Small Business"],
-    socialHandles: { x: "SenJackyRosen" },
+    website: "https://www.rosen.senate.gov",
+    socialHandles: { x: "SenJackyRosen", facebook: "SenJackyRosen", instagram: "senjackyrosen", youtube: "SenatorJackyRosen" },
+    phone: "(202) 224-6244",
+    contactForm: "https://www.rosen.senate.gov/contact",
   },
 
   // ═══════════════════════════════════════════════════════
@@ -59,7 +74,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/T/T000468.jpg",
     bio: "Dina Titus represents Nevada's 1st Congressional District covering central Las Vegas, including the Strip. A former political science professor, she focuses on tourism, transportation, and veterans' affairs.",
     keyIssues: ["Tourism", "Transportation", "Veterans Affairs", "Foreign Affairs"],
-    socialHandles: { x: "RepDinaTitus" },
+    website: "https://titus.house.gov",
+    socialHandles: { x: "RepDinaTitus", facebook: "CongresswomanTitus", instagram: "repdinatitus" },
+    phone: "(202) 225-5965",
   },
   {
     id: "amodei",
@@ -72,7 +89,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/A/A000369.jpg",
     bio: "Mark Amodei represents Nevada's 2nd Congressional District covering Reno and rural northern Nevada. He focuses on public lands, mining, and fiscal responsibility.",
     keyIssues: ["Public Lands", "Mining", "Fiscal Responsibility", "Water Rights"],
-    socialHandles: { x: "MarkAmodeiNV2" },
+    website: "https://amodei.house.gov",
+    socialHandles: { x: "MarkAmodeiNV2", facebook: "MarkAmodeiNV2" },
+    phone: "(202) 225-6155",
   },
   {
     id: "lee",
@@ -85,7 +104,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/L/L000590.jpg",
     bio: "Susie Lee represents Nevada's 3rd Congressional District covering suburban Las Vegas and Henderson. She focuses on education, healthcare, and environmental protection.",
     keyIssues: ["Education", "Healthcare", "Environment", "Gun Safety"],
-    socialHandles: { x: "RepSusieLee" },
+    website: "https://susielee.house.gov",
+    socialHandles: { x: "RepSusieLee", facebook: "RepSusieLee", instagram: "repsusielee" },
+    phone: "(202) 225-3252",
   },
   {
     id: "horsford",
@@ -98,7 +119,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://bioguide.congress.gov/bioguide/photo/H/H001066.jpg",
     bio: "Steven Horsford represents Nevada's 4th Congressional District. He focuses on economic equity, labor rights, and community investment in underserved areas.",
     keyIssues: ["Labor Rights", "Economic Equity", "Community Investment", "Healthcare Access"],
-    socialHandles: { x: "RepHorsford" },
+    website: "https://horsford.house.gov",
+    socialHandles: { x: "RepHorsford", facebook: "RepHorsford", instagram: "rephorsford" },
+    phone: "(202) 225-9894",
   },
 
   // ═══════════════════════════════════════════════════════
@@ -115,7 +138,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://gov.nv.gov/wp-content/uploads/2024/02/jl-headshot-1-scaled.jpg",
     bio: "Joe Lombardo is the 31st Governor of Nevada, having taken office in January 2023. A former Clark County Sheriff, he focuses on public safety, economic growth, and education reform.",
     keyIssues: ["Public Safety", "Economic Development", "Education", "Water Conservation"],
-    socialHandles: { x: "JoeLombardoNV" },
+    website: "https://gov.nv.gov",
+    socialHandles: { x: "JoeLombardoNV", facebook: "JoeLombardoNV", instagram: "joelombardonv" },
+    phone: "(775) 684-5670",
   },
   {
     id: "anthony",
@@ -128,7 +153,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://ltgov.nv.gov/wp-content/uploads/2023/01/stavros-anthony-headshot.jpg",
     bio: "Stavros Anthony is the Lieutenant Governor of Nevada. A former Las Vegas City Councilman and UNLV professor, he presides over the Nevada Senate and chairs the Nevada Commission on Tourism.",
     keyIssues: ["Tourism", "Economic Development", "Small Business", "Veterans"],
-    socialHandles: { x: "prior_stavros" },
+    website: "https://ltgov.nv.gov",
+    socialHandles: { x: "prior_stavros", facebook: "StavrosAnthonyNV" },
+    phone: "(775) 684-7111",
   },
   {
     id: "ford",
@@ -141,7 +168,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://ag.nv.gov/wp-content/uploads/2024/09/AGFord_Official-scaled.jpg",
     bio: "Aaron D. Ford is Nevada's 34th Attorney General, taking office in 2019. He focuses on consumer protection, criminal justice reform, and protecting Nevada's elections.",
     keyIssues: ["Consumer Protection", "Criminal Justice Reform", "Election Integrity", "Civil Rights"],
-    socialHandles: { x: "AaronDFordNV" },
+    website: "https://ag.nv.gov",
+    socialHandles: { x: "AaronDFordNV", facebook: "AaronDFordNV", instagram: "aaronfordnv" },
+    phone: "(702) 486-3420",
   },
   {
     id: "aguilar",
@@ -154,7 +183,9 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://www.nvsos.gov/sos/images/SOS-Official-Photo.jpg",
     bio: "Cisco Aguilar is Nevada's Secretary of State, taking office in 2023. He oversees elections, business filings, and securities regulation for the state.",
     keyIssues: ["Election Security", "Business Development", "Voter Access", "Government Transparency"],
-    socialHandles: { x: "nvabornsecofstate" },
+    website: "https://www.nvsos.gov",
+    socialHandles: { x: "nvabornsecofstate", facebook: "NVSecretaryofState" },
+    phone: "(775) 684-5708",
   },
   {
     id: "conine",
@@ -166,7 +197,9 @@ export const nevadaPoliticians: Politician[] = [
     level: "state",
     bio: "Zach Conine serves as Nevada's State Treasurer, managing state investments and financial programs. He focuses on college savings and fiscal transparency.",
     keyIssues: ["State Finance", "College Savings", "Fiscal Transparency", "Federal Policy"],
-    socialHandles: { x: "ZachConine" },
+    website: "https://www.nevadatreasurer.gov",
+    socialHandles: { x: "ZachConine", facebook: "NVTreasurer" },
+    phone: "(702) 486-2025",
   },
   {
     id: "marshall",
@@ -178,6 +211,8 @@ export const nevadaPoliticians: Politician[] = [
     level: "state",
     bio: "Kate Marshall serves as Nevada's State Controller, responsible for state payments, debt collection, and financial reporting.",
     keyIssues: ["State Finance", "Government Accountability", "Fiscal Transparency", "Debt Management"],
+    website: "https://controller.nv.gov",
+    phone: "(775) 684-5750",
   },
 
   // ═══════════════════════════════════════════════════════
@@ -922,6 +957,8 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://www.clarkcountynv.gov/adobe/assets/urn:aaid:aem:98ac59fb-cddc-4305-aeeb-ab35a3d45278/as/naft.jpg",
     bio: "Michael Naft serves as Clark County Commissioner for District A. He focuses on public safety, transportation, and community services in the southern Las Vegas valley.",
     keyIssues: ["Public Safety", "Transportation", "Community Services", "Infrastructure"],
+    website: "https://www.clarkcountynv.gov/government/county_commissioners/district_a/index.php",
+    socialHandles: { x: "MichaelNaft" },
   },
   {
     id: "kirkpatrick",
@@ -934,6 +971,7 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://www.clarkcountynv.gov/adobe/assets/urn:aaid:aem:b5c9eed3-ba3e-4bad-980e-9cb8a022f8c2/as/kirkpatrick.jpg",
     bio: "Marilyn Kirkpatrick serves as Clark County Commissioner for District B. A former State Assembly Speaker, she focuses on economic development and infrastructure.",
     keyIssues: ["Economic Development", "Infrastructure", "Housing", "Public Lands"],
+    website: "https://www.clarkcountynv.gov/government/county_commissioners/district_b/index.php",
   },
   {
     id: "becker",
@@ -1046,7 +1084,9 @@ export const nevadaPoliticians: Politician[] = [
     level: "local",
     bio: "Shelley Berkley serves as Mayor of Las Vegas. A former U.S. Representative, she focuses on downtown revitalization, tourism economy, and housing affordability.",
     keyIssues: ["Downtown Development", "Tourism Economy", "Housing", "Infrastructure"],
-    socialHandles: { x: "MayorBerkley" },
+    website: "https://www.lasvegasnevada.gov/Government/Mayor",
+    socialHandles: { x: "MayorBerkley", facebook: "MayorShelleyBerkley", instagram: "mayorberkley" },
+    phone: "(702) 229-6241",
   },
   {
     id: "knudsen",
@@ -1129,6 +1169,7 @@ export const nevadaPoliticians: Politician[] = [
     imageUrl: "https://www.cityofhenderson.com/home/showpublishedimage/12393/637768773816530000",
     bio: "Michelle Romero was elected Mayor of Henderson in 2022. She previously served on Henderson City Council and focuses on growth management, public safety, and quality of life.",
     keyIssues: ["Growth Management", "Public Safety", "Quality of Life", "Economic Development"],
+    website: "https://www.cityofhenderson.com/government/mayor-and-council/mayor",
   },
   {
     id: "larson",
@@ -1166,6 +1207,7 @@ export const nevadaPoliticians: Politician[] = [
     level: "local",
     bio: "Pamela Goynes-Brown is the Mayor of North Las Vegas. A former councilwoman, she focuses on economic development, community investment, and infrastructure modernization.",
     keyIssues: ["Economic Development", "Community Investment", "Infrastructure", "Public Safety"],
+    website: "https://www.cityofnorthlasvegas.com/government/mayor",
   },
   {
     id: "barron",
@@ -1225,6 +1267,8 @@ export const nevadaPoliticians: Politician[] = [
     level: "local",
     bio: "Hillary Schieve has served as Mayor of Reno since 2014. She focuses on economic diversification, homelessness, and downtown revitalization. She is term-limited in 2026.",
     keyIssues: ["Economic Diversification", "Homelessness", "Downtown Revitalization", "Technology"],
+    website: "https://www.reno.gov/government/mayor",
+    socialHandles: { x: "MayorSchieve", facebook: "MayorSchieve", instagram: "hillaryschieve" },
   },
   {
     id: "lawson",
@@ -1236,5 +1280,6 @@ export const nevadaPoliticians: Politician[] = [
     level: "local",
     bio: "Ed Lawson has served as Mayor of Sparks since 2020 and on the city council since 2010. He focuses on managing rapid growth, infrastructure, and public safety.",
     keyIssues: ["Growth Management", "Infrastructure", "Public Safety", "Budget"],
+    website: "https://www.cityofsparks.us/government/mayor-and-city-council/mayor/",
   },
 ];

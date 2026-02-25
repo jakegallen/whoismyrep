@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { ExternalLink, Heart, MessageCircle, Share2 } from "lucide-react";
+import { ExternalLink, Heart } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { SocialPost } from "@/hooks/useSocialMedia";
 
 const platformConfig: Record<string, { label: string; color: string; icon: string }> = {
@@ -41,10 +42,17 @@ const SocialMediaCard = ({ post, index }: { post: SocialPost; index: number }) =
       className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
     >
       <div className="flex gap-3">
-        {/* Platform avatar */}
-        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-sm ${config.color}`}>
-          {config.icon}
-        </div>
+        {/* Avatar */}
+        {post.avatarUrl ? (
+          <Avatar className="h-10 w-10 flex-shrink-0">
+            <AvatarImage src={post.avatarUrl} alt={post.author} />
+            <AvatarFallback className={`font-bold text-sm ${config.color}`}>{config.icon}</AvatarFallback>
+          </Avatar>
+        ) : (
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-sm ${config.color}`}>
+            {config.icon}
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           {/* Header: author + platform + time */}

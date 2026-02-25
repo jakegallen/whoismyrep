@@ -24,6 +24,7 @@ export interface TrendingIndividual {
   id: string;
   name: string;
   title: string;
+  party: string;
   mentions: number;
   trend: "up" | "down" | "stable";
 }
@@ -121,10 +122,10 @@ export const trendingTopics: TrendingTopic[] = [
 ];
 
 export const mockTrendingIndividuals: TrendingIndividual[] = [
-  { id: "1", name: "Joe Lombardo", title: "Governor", mentions: 2100, trend: "up" },
-  { id: "2", name: "Catherine Cortez Masto", title: "U.S. Senator", mentions: 1750, trend: "stable" },
-  { id: "3", name: "Jacky Rosen", title: "U.S. Senator", mentions: 1420, trend: "up" },
-  { id: "4", name: "Shelley Berkley", title: "Mayor of Las Vegas", mentions: 1180, trend: "up" },
-  { id: "5", name: "Zach Conine", title: "State Treasurer", mentions: 960, trend: "up" },
-  { id: "6", name: "Steven Horsford", title: "U.S. Representative", mentions: 740, trend: "down" },
+  { id: "1", name: "Joe Lombardo", title: "Governor", party: "R", mentions: 2100, trend: "up" },
+  { id: "2", name: "Catherine Cortez Masto", title: "U.S. Senator", party: "D", mentions: 1750, trend: "stable" },
+  { id: "3", name: "Jacky Rosen", title: "U.S. Senator", party: "D", mentions: 1420, trend: "up" },
+  { id: "4", name: "Shelley Berkley", title: "Mayor of Las Vegas", party: "D", mentions: 1180, trend: "up" },
+  { id: "5", name: "Zach Conine", title: "State Treasurer", party: "D", mentions: 960, trend: "up" },
+  { id: "6", name: "Steven Horsford", title: "U.S. Representative", party: "D", mentions: 740, trend: "down" },
 ];

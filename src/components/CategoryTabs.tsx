@@ -10,11 +10,7 @@ interface CategoryTabsProps {
 }
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: "all", label: "All News", icon: LayoutGrid },
-  { key: "law", label: "Laws", icon: Scale },
-  { key: "policy", label: "Policy", icon: Landmark },
-  { key: "politician", label: "Politicians", icon: Users },
-  { key: "social", label: "Social News", icon: MessageCircle },
+  { key: "all", label: "News", icon: LayoutGrid },
   { key: "social-media", label: "Social Media", icon: Share2 },
   { key: "podcasts", label: "Podcasts", icon: Headphones },
   { key: "youtube", label: "YouTube", icon: Youtube },

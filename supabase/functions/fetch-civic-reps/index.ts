@@ -98,9 +98,14 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
         const orgClass = roles.org_classification || "";
         const chamber = orgClass === "upper" ? "Senate" : "House";
         const district = roles.district || "";
-        // Detect federal vs state based on jurisdiction
+        // Open States jurisdiction.classification: "government" = federal, "state" = state legislature
         const jurisdictionClass = person.jurisdiction?.classification || "";
-        if (jurisdictionClass === "government" || roles.title?.includes("U.S.") || roles.title?.includes("Senator")) {
+        const jurisdictionName = (person.jurisdiction?.name || "").toLowerCase();
+        const isFederal = jurisdictionClass === "government" || jurisdictionName.includes("united states");
+        
+        console.log(`  ${person.name}: jurisdiction=${jurisdictionClass}/${jurisdictionName}, org=${orgClass}, district=${district}`);
+        
+        if (isFederal) {
           level = "federal";
           if (orgClass === "upper") {
             office = `U.S. Senator`;

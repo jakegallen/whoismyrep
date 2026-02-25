@@ -1,8 +1,17 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Newspaper, Users, FileText, MapPin, Flag, Menu, X } from "lucide-react";
+
+const navLinks = [
+  { to: "/bills", icon: FileText, label: "Bills" },
+  { to: "/politicians", icon: Users, label: "Politicians" },
+  { to: "/midterms", icon: Flag, label: "2026 Midterms" },
+  { to: "/district-lookup", icon: MapPin, label: "Find My Reps", primary: true },
+];
 
 const DashboardHeader = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -28,37 +37,66 @@ const DashboardHeader = () => {
                 Nevada Political Pulse
               </h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Link
-                to="/bills"
-                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
-              >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Bills</span>
-              </Link>
-              <Link
-                to="/politicians"
-                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
-              >
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Politicians</span>
-              </Link>
-              <Link
-                to="/midterms"
-                className="flex items-center gap-2 rounded-lg bg-surface-elevated px-4 py-2.5 font-body text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
-              >
-                <Flag className="h-4 w-4" />
-                <span className="hidden sm:inline">2026 Midterms</span>
-              </Link>
-              <Link
-                to="/district-lookup"
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <MapPin className="h-4 w-4" />
-                <span className="hidden sm:inline">Find My Reps</span>
-              </Link>
+
+            {/* Desktop nav */}
+            <div className="hidden md:flex items-center gap-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
+                    link.primary
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "bg-surface-elevated text-foreground hover:bg-surface-hover"
+                  }`}
+                >
+                  <link.icon className="h-4 w-4" />
+                  {link.label}
+                </Link>
+              ))}
             </div>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="flex md:hidden h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated text-foreground transition-colors hover:bg-surface-hover"
+              aria-label="Toggle navigation"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
+
+          {/* Mobile nav dropdown */}
+          <AnimatePresence>
+            {mobileOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden md:hidden"
+              >
+                <div className="flex flex-col gap-2 pt-2">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 rounded-lg px-4 py-3 font-body text-sm font-medium transition-colors ${
+                        link.primary
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : "bg-surface-elevated text-foreground hover:bg-surface-hover"
+                      }`}
+                    >
+                      <link.icon className="h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex items-center gap-4">
             <p className="font-body text-sm text-secondary-custom">{today}</p>
             <span className="text-tertiary">•</span>

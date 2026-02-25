@@ -9,6 +9,7 @@ export interface NewsItem {
   date: string;
   timeAgo: string;
   isBreaking?: boolean;
+  url?: string;
   imageUrl?: string;
 }
 

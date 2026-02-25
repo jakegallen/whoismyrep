@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, Flame } from "lucide-react";
-import { trendingTopics } from "@/lib/mockNews";
+import type { TrendingTopic } from "@/lib/mockNews";
 
 const trendIcon = {
   up: <TrendingUp className="h-3.5 w-3.5 text-primary" />,
@@ -8,7 +8,7 @@ const trendIcon = {
   stable: <Minus className="h-3.5 w-3.5 text-muted-foreground" />,
 };
 
-const TrendingSidebar = () => {
+const TrendingSidebar = ({ topics }: { topics: TrendingTopic[] }) => {
   return (
     <motion.aside
       initial={{ opacity: 0, x: 20 }}
@@ -22,7 +22,7 @@ const TrendingSidebar = () => {
       </div>
 
       <div className="space-y-3">
-        {trendingTopics.map((topic, i) => (
+        {topics.map((topic, i) => (
           <div
             key={topic.id}
             className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover"

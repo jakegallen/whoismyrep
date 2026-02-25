@@ -13,6 +13,8 @@ import {
   Users,
   Loader2,
   AlertCircle,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -293,9 +295,19 @@ function CivicRepCard({ rep, index }: { rep: CivicRep; index: number }) {
           className={`h-2 w-2 rounded-full ${partyColors[rep.party] || "bg-muted-foreground"}`}
           title={rep.party}
         />
+        {rep.phone && (
+          <a href={`tel:${rep.phone}`} title={rep.phone} onClick={(e) => e.stopPropagation()} className="rounded-md p-1 transition-colors hover:bg-surface-elevated">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
+        {rep.email && (
+          <a href={`mailto:${rep.email}`} title={rep.email} onClick={(e) => e.stopPropagation()} className="rounded-md p-1 transition-colors hover:bg-surface-elevated">
+            <Mail className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+          </a>
+        )}
         {rep.website && (
-          <a href={rep.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-            <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+          <a href={rep.website} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="rounded-md p-1 transition-colors hover:bg-surface-elevated">
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
           </a>
         )}
       </div>

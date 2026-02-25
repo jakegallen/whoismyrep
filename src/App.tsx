@@ -11,6 +11,7 @@ import Bills from "./pages/Bills";
 import BillDetail from "./pages/BillDetail";
 import DistrictLookup from "./pages/DistrictLookup";
 import Midterms from "./pages/Midterms";
+import Compare from "./pages/Compare";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/bills/:id" element={<BillDetail />} />
           <Route path="/district-lookup" element={<DistrictLookup />} />
           <Route path="/midterms" element={<Midterms />} />
+          <Route path="/compare" element={<Compare />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

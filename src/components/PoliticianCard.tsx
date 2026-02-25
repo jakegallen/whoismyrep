@@ -6,6 +6,7 @@ const partyColors: Record<string, string> = {
   Democrat: "bg-[hsl(210_80%_55%/0.15)] text-[hsl(210,80%,55%)]",
   Republican: "bg-[hsl(0_72%_51%/0.15)] text-[hsl(0,72%,51%)]",
   Independent: "bg-[hsl(43_90%_55%/0.15)] text-[hsl(43,90%,55%)]",
+  Nonpartisan: "bg-[hsl(260_50%_60%/0.15)] text-[hsl(260,50%,60%)]",
 };
 
 interface PoliticianCardProps {
@@ -24,8 +25,25 @@ const PoliticianCard = ({ politician, mentionCount, onClick }: PoliticianCardPro
       className="group cursor-pointer rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
     >
       <div className="flex items-start gap-4">
-        {/* Avatar placeholder */}
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-lg font-bold text-muted-foreground">
+        {/* Avatar */}
+        {politician.imageUrl ? (
+          <img
+            src={politician.imageUrl}
+            alt={politician.name}
+            className="h-14 w-14 shrink-0 rounded-full object-cover bg-surface-elevated"
+            loading="lazy"
+            onError={(e) => {
+              // Fallback to initials on image load failure
+              const target = e.currentTarget;
+              target.style.display = "none";
+              const fallback = target.nextElementSibling as HTMLElement;
+              if (fallback) fallback.style.display = "flex";
+            }}
+          />
+        ) : null}
+        <div
+          className={`${politician.imageUrl ? "hidden" : "flex"} h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-lg font-bold text-muted-foreground`}
+        >
           {politician.name.split(" ").map((n) => n[0]).join("")}
         </div>
 

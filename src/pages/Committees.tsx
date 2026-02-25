@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, FileText, Calendar, Users, Loader2, AlertCircle, ChevronDown } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Building2, FileText, Calendar, Users, Loader2, AlertCircle, ChevronDown, ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardHeader from "@/components/DashboardHeader";
 import { useCommittees } from "@/hooks/useCommittees";
 import type { Committee, CommitteeBill } from "@/hooks/useCommittees";
@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type ChamberFilter = "All" | "Senate" | "Assembly" | "Joint";
 
 const Committees = () => {
+  const navigate = useNavigate();
   const [chamberFilter, setChamberFilter] = useState<ChamberFilter>("All");
   const chamberParam = chamberFilter === "All" ? undefined : chamberFilter;
   const { data, isLoading, error } = useCommittees(chamberParam);
@@ -26,6 +27,13 @@ const Committees = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </button>
           <div className="flex items-center gap-3 mb-2">
             <Building2 className="h-7 w-7 text-primary" />
             <h1 className="font-display text-3xl font-bold text-headline">

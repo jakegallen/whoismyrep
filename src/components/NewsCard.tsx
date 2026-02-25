@@ -1,15 +1,23 @@
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ExternalLink, Zap } from "lucide-react";
+import { ExternalLink, Zap, ChevronRight } from "lucide-react";
 import type { NewsItem } from "@/lib/mockNews";
 import CategoryBadge from "./CategoryBadge";
 
 const NewsCard = ({ item, index }: { item: NewsItem; index: number }) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    navigate(`/article/${item.id}`, { state: { article: item } });
+  };
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.06 }}
-      className="group relative rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
+      onClick={handleClick}
+      className="group relative cursor-pointer rounded-xl border border-border bg-card p-5 shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
     >
       {item.isBreaking && (
         <div className="mb-3 flex items-center gap-1.5">
@@ -36,22 +44,10 @@ const NewsCard = ({ item, index }: { item: NewsItem; index: number }) => {
 
       <div className="mt-4 flex items-center justify-between">
         <span className="font-body text-xs text-tertiary">{item.source}</span>
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            Read more
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : (
-          <span className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground">
-            Read more
-            <ExternalLink className="h-3 w-3" />
-          </span>
-        )}
+        <span className="flex items-center gap-1 font-body text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary">
+          Read analysis
+          <ChevronRight className="h-3 w-3" />
+        </span>
       </div>
     </motion.article>
   );

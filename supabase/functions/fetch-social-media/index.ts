@@ -5,16 +5,32 @@ const corsHeaders = {
 
 // Nevada political X/Twitter accounts — username : display name
 const NEVADA_ACCOUNTS: Record<string, string> = {
+  // Federal Officials
   'GovLombardo': 'Gov. Joe Lombardo',
   'SenCortezMasto': 'Sen. Catherine Cortez Masto',
   'SenJackyRosen': 'Sen. Jacky Rosen',
   'RepHorsford': 'Rep. Steven Horsford',
   'RepSusieLee': 'Rep. Susie Lee',
-  'NevadaLeg': 'Nevada Legislature',
-  'LasVegasLocally': 'Las Vegas Locally',
   'RepMarkAmodei': 'Rep. Mark Amodei',
+  'RepDinaTitus': 'Rep. Dina Titus',
+  // State Legislature
+  'NevadaLeg': 'Nevada Legislature',
+  'Nicole4Nevada': 'State Sen. Nicole Cannizzaro',
+  // State Officials
+  'AaronDFordNV': 'AG Aaron Ford',
+  'NVSoS': 'NV Secretary of State',
+  // County & City
   'ClarkCountyNV': 'Clark County, NV',
   'CityOfLasVegas': 'City of Las Vegas',
+  'CityofReno': 'City of Reno',
+  'CityOfHenderson': 'City of Henderson',
+  // Political Media & Orgs
+  'LasVegasLocally': 'Las Vegas Locally',
+  'TheNVIndy': 'Nevada Independent',
+  'RalstonReports': 'Jon Ralston',
+  'NVDems': 'Nevada Dems',
+  'NevadaGOP': 'Nevada GOP',
+  'CulinaryUnion': 'Culinary Union 226',
 };
 
 interface Tweet {

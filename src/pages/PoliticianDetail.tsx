@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, ExternalLink, Loader2, AlertCircle } from "lucide-re
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import VotingScorecard from "@/components/VotingScorecard";
+import CampaignFinance from "@/components/CampaignFinance";
 import type { Politician } from "@/lib/politicians";
 
 const PoliticianDetail = () => {
@@ -146,7 +147,14 @@ const PoliticianDetail = () => {
 
           <div className="my-8 h-px bg-border" />
 
-          {/* AI analysis */}
+          {/* Campaign Finance */}
+          <CampaignFinance
+            politicianId={politician.id}
+            party={politician.party}
+            level={politician.level}
+          />
+
+          <div className="my-8 h-px bg-border" />
           <h2 className="mb-6 font-display text-xl font-bold text-headline">
             Recent Activity & Analysis
           </h2>

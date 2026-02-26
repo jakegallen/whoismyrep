@@ -13,6 +13,8 @@ interface AddressAutocompleteProps {
   onSelect: (address: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  inputClassName?: string;
+  iconClassName?: string;
 }
 
 export function AddressAutocomplete({
@@ -21,6 +23,8 @@ export function AddressAutocomplete({
   onSelect,
   placeholder = "Enter your address (e.g. 1600 Pennsylvania Ave NW, Washington, DC)",
   disabled = false,
+  inputClassName,
+  iconClassName,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -28,6 +32,7 @@ export function AddressAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const justSelectedRef = useRef(false);
 
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.length < 4) {
@@ -65,6 +70,10 @@ export function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(value), 350);
     return () => {
@@ -84,6 +93,7 @@ export function AddressAutocomplete({
   }, []);
 
   const handleSelect = (address: string) => {
+    justSelectedRef.current = true;
     onChange(address);
     setIsOpen(false);
     setSuggestions([]);
@@ -109,7 +119,7 @@ export function AddressAutocomplete({
 
   return (
     <div ref={wrapperRef} className="relative flex-1">
-      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <MapPin className={iconClassName || "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"} />
       {isSearching && (
         <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
       )}
@@ -121,7 +131,7 @@ export function AddressAutocomplete({
           if (suggestions.length > 0) setIsOpen(true);
         }}
         placeholder={placeholder}
-        className="pl-9 pr-9 font-body"
+        className={inputClassName || "pl-9 pr-9 font-body"}
         disabled={disabled}
         autoComplete="off"
       />

@@ -28,12 +28,12 @@ interface CommitteesResponse {
   error?: string;
 }
 
-export function useCommittees(chamber?: string, legislatorName?: string) {
+export function useCommittees(chamber?: string, legislatorName?: string, jurisdiction?: string, stateAbbr?: string) {
   return useQuery<CommitteesResponse>({
-    queryKey: ["committees", chamber, legislatorName],
+    queryKey: ["committees", chamber, legislatorName, jurisdiction],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-committees", {
-        body: { chamber, legislatorName },
+        body: { chamber, legislatorName, jurisdiction, stateAbbr },
       });
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch committees");

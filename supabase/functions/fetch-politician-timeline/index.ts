@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { legislatorName, chamber, twitterHandle } = await req.json().catch(() => ({}));
+    const { legislatorName, chamber, twitterHandle, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
     if (!legislatorName) {
       return new Response(
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     const events: TimelineEvent[] = [];
 
     // 1. Find legislator in OpenStates
-    const peopleUrl = `https://v3.openstates.org/people?jurisdiction=Nevada&name=${encodeURIComponent(legislatorName)}&per_page=5`;
+    const peopleUrl = `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(jurisdiction)}&name=${encodeURIComponent(legislatorName)}&per_page=5`;
     const peopleResp = await fetch(peopleUrl, { headers });
     let legislatorId = '';
 
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     // 2. Fetch sponsored bills
     if (legislatorId) {
       const billsUrl = new URL('https://v3.openstates.org/bills');
-      billsUrl.searchParams.set('jurisdiction', 'Nevada');
+      billsUrl.searchParams.set('jurisdiction', jurisdiction);
       billsUrl.searchParams.set('sponsor', legislatorId);
       billsUrl.searchParams.set('sort', 'updated_desc');
       billsUrl.searchParams.set('per_page', '10');

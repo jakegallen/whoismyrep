@@ -10,6 +10,7 @@ interface VotingScorecardProps {
   party: string;
   level: string;
   chamber?: string;
+  jurisdiction?: string;
 }
 
 const voteIcons: Record<string, { icon: typeof CheckCircle2; className: string }> = {
@@ -19,12 +20,13 @@ const voteIcons: Record<string, { icon: typeof CheckCircle2; className: string }
   "Not Voting": { icon: Clock, className: "text-muted-foreground" },
 };
 
-const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level, chamber }: VotingScorecardProps) => {
-  // Only fetch live data for state legislators
+const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level, chamber, jurisdiction }: VotingScorecardProps) => {
+  // Fetch live data for state legislators (any state)
   const isStateLegislator = level === "state" && (chamber === "Senate" || chamber === "Assembly" || !chamber);
   const { data, isLoading, error } = useVotingRecords(
     isStateLegislator ? politicianName : undefined,
-    chamber
+    chamber,
+    isStateLegislator ? jurisdiction : undefined
   );
 
   const hasLiveData = data?.legislatorFound && data.votes.length > 0;

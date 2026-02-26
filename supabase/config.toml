@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.fetch-congress]
 verify_jwt = false
+
+[functions.fetch-lobbying]
+verify_jwt = false

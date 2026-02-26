@@ -20,6 +20,7 @@ import DistrictMap from "./pages/DistrictMap";
 import FederalRegister from "./pages/FederalRegister";
 import CourtCases from "./pages/CourtCases";
 import CongressExplorer from "./pages/CongressExplorer";
+import LobbyingExplorer from "./pages/LobbyingExplorer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/federal-register" element={<FederalRegister />} />
           <Route path="/court-cases" element={<CourtCases />} />
           <Route path="/congress" element={<CongressExplorer />} />
+          <Route path="/lobbying" element={<LobbyingExplorer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

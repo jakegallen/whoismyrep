@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X, ChevronDown, Home, CalendarDays, Map as MapIcon, Landmark, Scale, Building } from "lucide-react";
+import { Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign, Menu, X, ChevronDown, Home, CalendarDays, Map as MapIcon, Landmark, Scale, Building, Briefcase } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -15,6 +15,7 @@ const navLinks = [
   { to: "/calendar", icon: CalendarDays, label: "Calendar" },
   { to: "/committees", icon: Building2, label: "Committees" },
   { to: "/campaign-finance", icon: DollarSign, label: "Finance" },
+  { to: "/lobbying", icon: Briefcase, label: "Lobbying" },
   { to: "/district-lookup", icon: MapPin, label: "Find My Reps" },
   { to: "/district-map", icon: MapIcon, label: "District Map" },
   { to: "/federal-register", icon: Landmark, label: "Federal Register" },

@@ -5,6 +5,8 @@ import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X, ArrowU
 import { nevadaPoliticians } from "@/lib/politicians";
 import PoliticianCard from "@/components/PoliticianCard";
 import CompareContent from "@/components/CompareContent";
+import { PollingSection } from "@/components/PollingWidgets";
+import { approvalRatings, racePolling } from "@/lib/pollingData";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -216,6 +218,15 @@ const Politicians = () => {
                 </div>
               </section>
             ))}
+
+            {/* Polling section */}
+            <PollingSection
+              approvalRatings={approvalRatings.filter((r) =>
+                activeLevel === "all" || (activeLevel === "federal" && ["U.S. Senator", "U.S. Representative"].some(t => r.title.includes(t))) ||
+                (activeLevel === "state" && ["Governor", "Attorney General", "Lt. Governor", "Secretary of State"].some(t => r.title.includes(t)))
+              )}
+              racePolling={racePolling}
+            />
           </>
         )}
       </main>

@@ -185,17 +185,55 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
   }
 }
 
-// --- Fetch current Nevada federal delegation from GitHub (unitedstates project) ---
+// --- Fetch current federal delegation from GitHub (unitedstates project) ---
 
 let federalCache: { data: any[] | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
+let socialCache: { data: Record<string, Record<string, string>> | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24h
+
+// Fetch social media handles from theunitedstates.io
+async function fetchFederalSocialMedia(): Promise<Record<string, Record<string, string>>> {
+  if (socialCache.data && Date.now() - socialCache.fetchedAt < CACHE_TTL) {
+    return socialCache.data;
+  }
+
+  try {
+    const url = "https://theunitedstates.io/congress-legislators/legislators-social-media.json";
+    console.log("Fetching federal social media data");
+    const resp = await fetchWithTimeout(url);
+    if (!resp.ok) return {};
+    const data = await resp.json();
+
+    const result: Record<string, Record<string, string>> = {};
+    for (const entry of data) {
+      const bioguide = entry.id?.bioguide;
+      if (!bioguide) continue;
+      const social: Record<string, string> = {};
+      if (entry.social?.twitter) social.x = entry.social.twitter;
+      if (entry.social?.facebook) social.facebook = entry.social.facebook;
+      if (entry.social?.instagram) social.instagram = entry.social.instagram;
+      if (entry.social?.youtube) social.youtube = entry.social.youtube;
+      if (entry.social?.youtube_id) social.youtube = social.youtube || entry.social.youtube_id;
+      result[bioguide] = social;
+    }
+
+    socialCache = { data: result, fetchedAt: Date.now() };
+    console.log(`Cached social media for ${Object.keys(result).length} legislators`);
+    return result;
+  } catch (e) {
+    console.error("Error fetching social media:", e);
+    return {};
+  }
+}
 
 async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
   const cacheKey = stateAbbr.toUpperCase();
   
+  // Fetch social media in parallel with main data
+  const socialMediaPromise = fetchFederalSocialMedia();
+  
   // Use cached data if fresh
   if (federalCache.data && Date.now() - federalCache.fetchedAt < CACHE_TTL) {
-    // Filter cached data for the requested state
     const cached = (federalCache.data as any[]).filter((r: any) => r._state === cacheKey);
     if (cached.length > 0) return cached as unknown as RepResult[];
   }
@@ -210,6 +248,7 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
       return [];
     }
     const all = await resp.json();
+    const socialMedia = await socialMediaPromise;
 
     // Cache ALL members, then filter for requested state
     const allResults: any[] = all.map((m: any) => {
@@ -218,6 +257,7 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
       const party = term.party === "Democrat" ? "Democrat" : term.party === "Republican" ? "Republican" : term.party || "Unknown";
       const name = `${m.name.first} ${m.name.last}${m.name.suffix ? ` ${m.name.suffix}` : ""}`;
       const st = (term.state || "").toUpperCase();
+      const bioguide = m.id?.bioguide;
 
       let office: string;
       if (isSenator) {
@@ -225,6 +265,9 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
       } else {
         office = `U.S. Representative — District ${term.district}`;
       }
+
+      // Get social handles from the social media dataset
+      const socials = bioguide && socialMedia[bioguide] ? { ...socialMedia[bioguide] } : {};
 
       return {
         name,
@@ -234,9 +277,10 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
         phone: term.phone || undefined,
         email: undefined,
         website: term.url || undefined,
-        photoUrl: m.id?.bioguide
-          ? `https://theunitedstates.io/images/congress/225x275/${m.id.bioguide}.jpg`
+        photoUrl: bioguide
+          ? `https://theunitedstates.io/images/congress/225x275/${bioguide}.jpg`
           : undefined,
+        socialHandles: Object.keys(socials).length > 0 ? socials : undefined,
         divisionId: isSenator
           ? `ocd-division/country:us/state:${st.toLowerCase()}`
           : `ocd-division/country:us/state:${st.toLowerCase()}/cd:${term.district}`,
@@ -446,6 +490,47 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
   return result;
 }
 
+// --- Fetch social media from Google Civic representativeInfoByAddress ---
+
+async function fetchGoogleCivicSocials(address: string, googleKey: string): Promise<Map<string, Record<string, string>>> {
+  const socialMap = new Map<string, Record<string, string>>();
+  try {
+    const url = `https://civicinfo.googleapis.com/civicinfo/v2/representatives?key=${encodeURIComponent(googleKey)}&address=${encodeURIComponent(address)}`;
+    console.log("Fetching Google Civic representatives for social media");
+    const resp = await fetchWithTimeout(url, {}, 10000);
+    if (!resp.ok) {
+      console.warn("Google Civic representatives API error:", resp.status);
+      return socialMap;
+    }
+    const data = await resp.json();
+
+    for (const official of data.officials || []) {
+      if (!official.name) continue;
+      const nameKey = official.name.toLowerCase().replace(/[^a-z]/g, "");
+      const socials: Record<string, string> = {};
+
+      for (const channel of official.channels || []) {
+        const type = (channel.type || "").toLowerCase();
+        const id = channel.id || "";
+        if (!id) continue;
+        if (type === "twitter") socials.x = id;
+        else if (type === "facebook") socials.facebook = id;
+        else if (type === "youtube") socials.youtube = id;
+        else if (type === "instagram") socials.instagram = id;
+        else if (type === "tiktok") socials.tiktok = id;
+      }
+
+      if (Object.keys(socials).length > 0) {
+        socialMap.set(nameKey, socials);
+      }
+    }
+    console.log(`Got social media for ${socialMap.size} officials from Google Civic`);
+  } catch (e) {
+    console.warn("Error fetching Google Civic socials:", e);
+  }
+  return socialMap;
+}
+
 // --- Main handler ---
 
 serve(async (req) => {
@@ -480,15 +565,16 @@ serve(async (req) => {
     }
     console.log(`Geocoded to ${geo.lat}, ${geo.lng}, state: ${geo.stateAbbr}`);
 
-    // Step 2: Fetch state legislators + federal delegation + election data in parallel
+    // Step 2: Fetch state legislators + federal delegation + election data + Google Civic socials in parallel
     const googleKey = Deno.env.get("GOOGLE_CIVIC_API_KEY");
 
-    const [stateLegislators, federalAll, district, elections, voterInfo] = await Promise.all([
+    const [stateLegislators, federalAll, district, elections, voterInfo, googleSocials] = await Promise.all([
       fetchStateLegislators(geo.lat, geo.lng, openStatesKey),
       fetchFederalDelegation(geo.stateAbbr),
       googleKey ? getCongressionalDistrict(address, googleKey) : Promise.resolve(null),
       googleKey ? fetchElections(googleKey) : Promise.resolve([]),
       googleKey ? fetchVoterInfo(address, googleKey) : Promise.resolve(null),
+      googleKey ? fetchGoogleCivicSocials(address, googleKey) : Promise.resolve(new Map()),
     ]);
 
     // Step 3: Filter federal reps to relevant district
@@ -503,13 +589,18 @@ serve(async (req) => {
 
     const cleanFederal: RepResult[] = federalReps.map(({ _district, ...rest }: any) => rest);
 
-    // Step 4: Deduplicate by name
+    // Step 4: Deduplicate by name and merge social media from Google Civic
     const seen = new Set<string>();
     const allReps: RepResult[] = [];
     for (const rep of [...cleanFederal, ...stateLegislators]) {
       const key = rep.name.toLowerCase().replace(/[^a-z]/g, "");
       if (!seen.has(key)) {
         seen.add(key);
+        // Merge Google Civic social handles (fills gaps from theunitedstates.io)
+        const googleHandles = googleSocials.get(key);
+        if (googleHandles) {
+          rep.socialHandles = { ...googleHandles, ...(rep.socialHandles || {}) };
+        }
         allReps.push(rep);
       }
     }

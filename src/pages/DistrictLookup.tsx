@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SocialIcons } from "@/components/SocialIcons";
 import { useCivicReps, type CivicRep, type CivicGroup, type PollingLocation, type Contest, type VoterInfo, type ElectionInfo } from "@/hooks/useCivicReps";
 
 const levelIcons: Record<string, typeof Landmark> = {
@@ -476,6 +477,7 @@ function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRe
         <p className="truncate font-body text-xs text-muted-foreground">
           {rep.office}
         </p>
+        <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-0.5" />
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <div

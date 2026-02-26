@@ -28,6 +28,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import SiteNav from "@/components/SiteNav";
+import { SocialIcons } from "@/components/SocialIcons";
 import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
@@ -267,22 +268,7 @@ const PoliticianDetail = () => {
               </div>
 
               {/* Social links */}
-              {politician.socialHandles && Object.keys(politician.socialHandles).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {politician.socialHandles.x && (
-                    <SocialLink href={`https://x.com/${politician.socialHandles.x}`} icon="𝕏" label={`@${politician.socialHandles.x}`} />
-                  )}
-                  {politician.socialHandles.facebook && (
-                    <SocialLink href={`https://facebook.com/${politician.socialHandles.facebook}`} icon="f" label="Facebook" color="hsl(210,80%,55%)" />
-                  )}
-                  {politician.socialHandles.instagram && (
-                    <SocialLink href={`https://instagram.com/${politician.socialHandles.instagram}`} icon="📷" label="Instagram" color="hsl(330,70%,55%)" />
-                  )}
-                  {politician.socialHandles.youtube && (
-                    <SocialLink href={`https://youtube.com/@${politician.socialHandles.youtube}`} icon="▶" label="YouTube" color="hsl(0,72%,51%)" />
-                  )}
-                </div>
-              )}
+              <SocialIcons socialHandles={politician.socialHandles} size="md" className="mt-3" />
             </div>
 
             {/* Right: Polymarket widget */}

@@ -22,6 +22,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCivicReps, type CivicRep, type CivicGroup, type PollingLocation, type Contest, type VoterInfo, type ElectionInfo } from "@/hooks/useCivicReps";
@@ -121,15 +122,12 @@ const DistrictLookup = () => {
             }}
             className="flex gap-2"
           >
-            <div className="relative flex-1">
-              <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Enter your address (e.g. 1600 Pennsylvania Ave NW, Washington, DC)"
-                className="pl-9 font-body"
-              />
-            </div>
+            <AddressAutocomplete
+              value={address}
+              onChange={setAddress}
+              onSelect={(addr) => handleLookup(addr)}
+              disabled={isLoading}
+            />
             <Button type="submit" disabled={!address.trim() || isLoading}>
               {isLoading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

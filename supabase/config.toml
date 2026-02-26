@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.fetch-civic-reps]
 verify_jwt = false
+
+[functions.fetch-federal-register]
+verify_jwt = false

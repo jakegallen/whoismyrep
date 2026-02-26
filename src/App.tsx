@@ -17,6 +17,7 @@ import Committees from "./pages/Committees";
 import CampaignFinanceExplorer from "./pages/CampaignFinanceExplorer";
 import LegislativeCalendar from "./pages/LegislativeCalendar";
 import DistrictMap from "./pages/DistrictMap";
+import FederalRegister from "./pages/FederalRegister";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/campaign-finance" element={<CampaignFinanceExplorer />} />
           <Route path="/calendar" element={<LegislativeCalendar />} />
           <Route path="/district-map" element={<DistrictMap />} />
+          <Route path="/federal-register" element={<FederalRegister />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

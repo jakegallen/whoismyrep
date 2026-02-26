@@ -20,14 +20,12 @@ Deno.serve(async (req) => {
         page: String(page),
         page_size: '20',
         ordering: '-dt_posted',
+        // LDA API requires at least one filter param — default to current year
+        filing_year: String(filing_year || new Date().getFullYear()),
       });
 
-      // Filter for Nevada-related lobbying
       if (search) {
         params.set('client_name', search);
-      }
-      if (filing_year) {
-        params.set('filing_year', String(filing_year));
       }
       if (filing_type) {
         params.set('filing_type', filing_type);

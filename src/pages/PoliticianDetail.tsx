@@ -28,6 +28,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import SiteNav from "@/components/SiteNav";
+import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
@@ -285,12 +286,7 @@ function OverviewTab({
       {/* AI Analysis */}
       <h2 className="font-display text-xl font-bold text-headline">Recent Activity & Analysis</h2>
 
-      {isLoading && (
-        <div className="flex flex-col items-center gap-4 py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="font-body text-sm text-muted-foreground">Researching recent activity...</p>
-        </div>
-      )}
+      {isLoading && <AnalysisSkeleton />}
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-5">
@@ -341,12 +337,7 @@ function BillsTab({ politicianName }: { politicianName: string }) {
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{bills.length} found</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Searching bills...</span>
-        </div>
-      )}
+      {isLoading && <CardListSkeleton />}
 
       {error && <ErrorBox message={error} />}
 
@@ -418,12 +409,7 @@ function CommitteesTab({ politicianName, chamber }: { politicianName: string; ch
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{legislatorCommittees.length} committees</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Loading committee data...</span>
-        </div>
-      )}
+      {isLoading && <CommitteeSkeleton />}
 
       {commError && <ErrorBox message={commError instanceof Error ? commError.message : "Failed to load"} />}
 
@@ -540,12 +526,7 @@ function LobbyingTab({ politicianName }: { politicianName: string }) {
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{data?.total ?? 0} filings</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Searching lobbying filings...</span>
-        </div>
-      )}
+      {isLoading && <CardListSkeleton />}
 
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
@@ -615,12 +596,7 @@ function CourtCasesTab({ politicianName }: { politicianName: string }) {
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{data?.total ?? 0} results</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Searching court records...</span>
-        </div>
-      )}
+      {isLoading && <CardListSkeleton />}
 
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
@@ -691,12 +667,7 @@ function CalendarTab({ politicianName, chamber }: { politicianName: string; cham
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{events.length} events</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Loading calendar...</span>
-        </div>
-      )}
+      {isLoading && <CardListSkeleton count={4} />}
 
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
@@ -749,12 +720,7 @@ function FederalRegisterTab({ politicianName }: { politicianName: string }) {
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{data?.total ?? 0} documents</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Searching federal register...</span>
-        </div>
-      )}
+      {isLoading && <CardListSkeleton />}
 
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
@@ -818,12 +784,7 @@ function NewsTab({ politicianName }: { politicianName: string }) {
         {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{filtered.length} articles</span>}
       </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-3 py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Loading news...</span>
-        </div>
-      )}
+      {isLoading && <NewsSkeleton />}
 
       {error && <ErrorBox message={error} />}
 

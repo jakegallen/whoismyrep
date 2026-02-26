@@ -86,7 +86,6 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteNav />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -96,27 +95,27 @@ const HomePage = () => {
           <div className="absolute right-0 top-32 h-[400px] w-[400px] rounded-full bg-[hsl(168,80%,55%/0.05)] blur-[100px]" />
         </div>
 
-        <div className="container relative mx-auto px-4 pb-20 pt-20 md:pt-32">
+        <div className="container relative mx-auto px-4 pb-10 pt-8 md:pt-14">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="mx-auto max-w-3xl text-center"
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated px-4 py-1.5">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated px-4 py-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <span className="font-body text-xs text-muted-foreground">
                 Nevada's most comprehensive rep tracker
               </span>
             </div>
 
-            <h1 className="font-display text-5xl font-bold leading-tight text-headline md:text-7xl">
+            <h1 className="font-display text-4xl font-bold leading-tight text-headline md:text-6xl">
               Know who{" "}
               <span className="text-gradient-brand">represents</span>
               {" "}you
             </h1>
 
-            <p className="mx-auto mt-6 max-w-xl font-body text-lg text-secondary-custom">
+            <p className="mx-auto mt-4 max-w-xl font-body text-base text-secondary-custom">
               Enter your address to instantly find your representatives at every level — federal, state, county, and local — with voting records, campaign finance, and more.
             </p>
 
@@ -125,7 +124,7 @@ const HomePage = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="mx-auto mt-10 max-w-xl"
+              className="mx-auto mt-6 max-w-xl"
             >
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -175,7 +174,7 @@ const HomePage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="mx-auto mt-16 grid max-w-2xl grid-cols-3 gap-4"
+            className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-4"
           >
             {STATS.map((stat) => (
               <div key={stat.label} className="text-center">

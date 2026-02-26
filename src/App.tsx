@@ -20,9 +20,7 @@ import LegislativeCalendar from "./pages/LegislativeCalendar";
 import DistrictMap from "./pages/DistrictMap";
 import FederalRegister from "./pages/FederalRegister";
 import CourtCases from "./pages/CourtCases";
-import CongressExplorer from "./pages/CongressExplorer";
 import LobbyingExplorer from "./pages/LobbyingExplorer";
-import UnifiedSearch from "./pages/UnifiedSearch";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,9 +49,7 @@ const App = () => (
           <Route path="/district-map" element={<DistrictMap />} />
           <Route path="/federal-register" element={<FederalRegister />} />
           <Route path="/court-cases" element={<CourtCases />} />
-          <Route path="/congress" element={<CongressExplorer />} />
           <Route path="/lobbying" element={<LobbyingExplorer />} />
-          <Route path="/search" element={<UnifiedSearch />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -22,6 +22,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
 import { useCivicReps, type CivicRep } from "@/hooks/useCivicReps";
@@ -160,16 +161,20 @@ const HomePage = () => {
               className="mx-auto mt-8 max-w-xl"
             >
               <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter your U.S. address…"
-                    className="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                  />
-                </div>
+                <AddressAutocomplete
+                  value={address}
+                  onChange={setAddress}
+                  onSelect={(addr) => {
+                    setAddress(addr);
+                    lookup(addr);
+                    setTimeout(() => {
+                      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 300);
+                  }}
+                  placeholder="Enter your U.S. address…"
+                  disabled={isLoading}
+                  inputClassName="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                />
                 <Button
                   onClick={handleSearch}
                   disabled={isLoading || !address.trim()}

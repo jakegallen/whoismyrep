@@ -27,6 +27,7 @@ Deno.serve(async (req) => {
     params.append('include', 'links');
     params.append('include', 'sources');
     params.append('include', 'other_names');
+    params.append('include', 'other_identifiers');
 
     if (chamber === 'upper' || chamber === 'senate') {
       params.set('org_classification', 'upper');
@@ -62,27 +63,78 @@ Deno.serve(async (req) => {
       const district = currentRole.district || '';
       const title = currentRole.title || (chamber === 'Senate' ? 'Senator' : 'Assembly Member');
 
-      // Extract links
-      const links = (person.links || []).reduce((acc: Record<string, string>, link: any) => {
-        if (link.url) {
-          const lUrl = link.url.toLowerCase();
-          const lNote = (link.note || '').toLowerCase();
-          if (lNote.includes('twitter') || lUrl.includes('x.com') || lUrl.includes('twitter.com')) {
-            acc.x = link.url;
-          } else if (lUrl.includes('facebook.com')) {
-            acc.facebook = link.url;
-          } else if (lUrl.includes('instagram.com')) {
-            acc.instagram = link.url;
-          } else if (lUrl.includes('youtube.com')) {
-            acc.youtube = link.url;
-          } else if (lUrl.includes('tiktok.com')) {
-            acc.tiktok = link.url;
-          } else if (!acc.website) {
-            acc.website = link.url;
-          }
+      // Extract social handles from links array
+      const socialFromLinks: Record<string, string> = {};
+      let website: string | undefined;
+      for (const link of (person.links || [])) {
+        if (!link.url) continue;
+        const lUrl = link.url.toLowerCase();
+        const lNote = (link.note || '').toLowerCase();
+        if (lNote.includes('twitter') || lUrl.includes('x.com') || lUrl.includes('twitter.com')) {
+          socialFromLinks.x = link.url;
+        } else if (lUrl.includes('facebook.com')) {
+          socialFromLinks.facebook = link.url;
+        } else if (lUrl.includes('instagram.com')) {
+          socialFromLinks.instagram = link.url;
+        } else if (lUrl.includes('youtube.com')) {
+          socialFromLinks.youtube = link.url;
+        } else if (lUrl.includes('tiktok.com')) {
+          socialFromLinks.tiktok = link.url;
+        } else if (!website) {
+          website = link.url;
         }
-        return acc;
-      }, {} as Record<string, string>);
+      }
+
+      // Extract social handles from ids array (OpenStates stores twitter/facebook/youtube/instagram as ids)
+      const socialFromIds: Record<string, string> = {};
+      for (const idObj of (person.ids || [])) {
+        const scheme = (idObj.identifier_type || idObj.scheme || '').toLowerCase();
+        const value = idObj.identifier || idObj.id || '';
+        if (!value) continue;
+        if (scheme === 'twitter' || scheme === 'x') {
+          socialFromIds.x = value.replace(/^@/, '');
+        } else if (scheme === 'facebook') {
+          socialFromIds.facebook = value;
+        } else if (scheme === 'instagram') {
+          socialFromIds.instagram = value;
+        } else if (scheme === 'youtube') {
+          socialFromIds.youtube = value;
+        } else if (scheme === 'tiktok') {
+          socialFromIds.tiktok = value;
+        }
+      }
+
+      // Also check other_identifiers field (some OpenStates versions use this)
+      for (const idObj of (person.other_identifiers || [])) {
+        const scheme = (idObj.scheme || '').toLowerCase();
+        const value = idObj.identifier || '';
+        if (!value) continue;
+        if (scheme === 'twitter' || scheme === 'x') {
+          socialFromIds.x = socialFromIds.x || value.replace(/^@/, '');
+        } else if (scheme === 'facebook') {
+          socialFromIds.facebook = socialFromIds.facebook || value;
+        } else if (scheme === 'instagram') {
+          socialFromIds.instagram = socialFromIds.instagram || value;
+        } else if (scheme === 'youtube') {
+          socialFromIds.youtube = socialFromIds.youtube || value;
+        } else if (scheme === 'tiktok') {
+          socialFromIds.tiktok = socialFromIds.tiktok || value;
+        }
+      }
+
+      // Merge: ids take priority (cleaner handles), links as fallback (full URLs)
+      const merged: Record<string, string> = { ...socialFromLinks, ...socialFromIds };
+      const socialHandles = Object.fromEntries(
+        Object.entries(merged).filter(([, v]) => v)
+      );
+
+      // Log first legislator's raw data for debugging
+      if (results.indexOf(person) === 0) {
+        console.log('Sample person ids:', JSON.stringify(person.ids || []));
+        console.log('Sample person other_identifiers:', JSON.stringify(person.other_identifiers || []));
+        console.log('Sample person links:', JSON.stringify(person.links || []));
+        console.log('Extracted socialHandles:', JSON.stringify(socialHandles));
+      }
 
       return {
         id: person.id,
@@ -96,16 +148,8 @@ Deno.serve(async (req) => {
         chamber,
         district,
         email: person.email || undefined,
-        website: links.website || undefined,
-        socialHandles: Object.fromEntries(
-          Object.entries({
-            x: links.x,
-            facebook: links.facebook,
-            instagram: links.instagram,
-            youtube: links.youtube,
-            tiktok: links.tiktok,
-          }).filter(([, v]) => v)
-        ),
+        website: website || undefined,
+        socialHandles,
         openstatesUrl: person.openstates_url || undefined,
       };
     });

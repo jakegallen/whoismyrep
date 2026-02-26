@@ -3,6 +3,7 @@ import SiteNav from "@/components/SiteNav";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { SocialIcons } from "@/components/SocialIcons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -266,6 +267,9 @@ function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClic
         </div>
         <p className="font-body text-xs text-muted-foreground truncate">{legislator.title}</p>
         <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{legislator.party} · {legislator.chamber}</p>
+        {legislator.socialHandles && Object.keys(legislator.socialHandles).length > 0 && (
+          <SocialIcons socialHandles={legislator.socialHandles} size="sm" className="mt-1" />
+        )}
       </div>
     </motion.button>
   );

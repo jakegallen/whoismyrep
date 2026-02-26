@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,66 +6,74 @@
 
 @layer base {
   :root {
-    --background: 220 20% 7%;
+    --background: 228 14% 6%;
     --foreground: 210 20% 92%;
 
-    --card: 220 18% 10%;
+    --card: 228 14% 9%;
     --card-foreground: 210 20% 92%;
 
-    --popover: 220 18% 10%;
+    --popover: 228 14% 9%;
     --popover-foreground: 210 20% 92%;
 
-    --primary: 0 72% 51%;
+    --primary: 250 85% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 16%;
+    --secondary: 228 12% 14%;
     --secondary-foreground: 210 20% 85%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 55%;
+    --muted: 228 10% 12%;
+    --muted-foreground: 220 10% 50%;
 
-    --accent: 220 16% 18%;
-    --accent-foreground: 210 20% 92%;
+    --accent: 250 40% 20%;
+    --accent-foreground: 250 85% 80%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 0 72% 51%;
+    --border: 228 12% 14%;
+    --input: 228 12% 16%;
+    --ring: 250 85% 65%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 220 18% 8%;
+    --sidebar-background: 228 14% 7%;
     --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary: 250 85% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 14%;
+    --sidebar-accent: 228 12% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 0 72% 51%;
+    --sidebar-border: 228 12% 14%;
+    --sidebar-ring: 250 85% 65%;
 
-    /* Custom tokens */
-    --crimson: 0 72% 51%;
-    --crimson-glow: 0 80% 60%;
+    /* Brand tokens */
+    --neon: 168 80% 55%;
+    --neon-foreground: 168 80% 10%;
+    --electric: 250 85% 65%;
+    --electric-glow: 250 100% 75%;
     --gold: 43 90% 55%;
     --gold-foreground: 43 10% 10%;
-    --surface-elevated: 220 18% 12%;
-    --surface-hover: 220 16% 15%;
-    --text-headline: 210 25% 96%;
-    --text-secondary: 215 12% 60%;
-    --text-tertiary: 215 10% 40%;
-    --badge-law: 210 80% 55%;
-    --badge-law-foreground: 210 80% 95%;
-    --badge-policy: 280 60% 55%;
-    --badge-policy-foreground: 280 60% 95%;
-    --badge-politician: 0 72% 51%;
-    --badge-politician-foreground: 0 0% 100%;
-    --badge-social: 160 60% 45%;
-    --badge-social-foreground: 160 60% 95%;
-    --gradient-hero: linear-gradient(135deg, hsl(0 72% 51% / 0.15), hsl(220 20% 7%));
-    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 20px hsl(0 72% 51% / 0.15);
+    --surface-elevated: 228 14% 11%;
+    --surface-hover: 228 12% 15%;
+    --text-headline: 0 0% 98%;
+    --text-secondary: 220 10% 60%;
+    --text-tertiary: 220 8% 38%;
+    --gradient-hero: linear-gradient(160deg, hsl(250 85% 65% / 0.12) 0%, hsl(168 80% 55% / 0.06) 50%, hsl(228 14% 6%) 100%);
+    --gradient-brand: linear-gradient(135deg, hsl(250 85% 65%), hsl(168 80% 55%));
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 30px hsl(250 85% 65% / 0.15);
+    --shadow-neon: 0 0 30px hsl(168 80% 55% / 0.15);
+
+    /* Level colors */
+    --level-federal: 250 85% 65%;
+    --level-state: 210 80% 55%;
+    --level-county: 168 80% 55%;
+    --level-local: 43 90% 55%;
+
+    /* Party colors */
+    --party-democrat: 210 80% 55%;
+    --party-republican: 0 72% 51%;
+    --party-independent: 43 90% 55%;
+    --party-nonpartisan: 220 10% 50%;
   }
 }
 
@@ -75,21 +83,26 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Inter', sans-serif;
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
   }
   .font-body {
     font-family: 'Inter', sans-serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
   }
   .text-headline {
     color: hsl(var(--text-headline));
@@ -112,7 +125,19 @@
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
+  .shadow-neon {
+    box-shadow: var(--shadow-neon);
+  }
   .gradient-hero {
     background: var(--gradient-hero);
+  }
+  .gradient-brand {
+    background: var(--gradient-brand);
+  }
+  .text-gradient-brand {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }

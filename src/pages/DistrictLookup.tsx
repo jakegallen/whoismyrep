@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -57,6 +57,7 @@ const EXAMPLE_ADDRESSES = [
 
 const DistrictLookup = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [address, setAddress] = useState("");
   const { groups, normalizedAddress, totalReps, isLoading, error, elections, voterInfo, lookup, reset } = useCivicReps();
 
@@ -68,6 +69,16 @@ const DistrictLookup = () => {
     if (!query.trim()) return;
     lookup(query);
   };
+
+  // Auto-lookup if address passed via query param (from homepage)
+  useEffect(() => {
+    const paramAddress = searchParams.get("address");
+    if (paramAddress && !groups && !isLoading) {
+      setAddress(paramAddress);
+      lookup(paramAddress);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

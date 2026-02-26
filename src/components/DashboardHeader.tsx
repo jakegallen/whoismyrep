@@ -14,6 +14,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const navGroups = [
   {
@@ -53,6 +55,7 @@ const navGroups = [
 
 const DashboardHeader = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [address, setAddress] = useState("");
   const navigate = useNavigate();
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -165,12 +168,34 @@ const DashboardHeader = () => {
             <p className="font-body text-sm text-secondary-custom">{today}</p>
             <span className="text-tertiary">•</span>
             <p className="font-body text-sm text-secondary-custom">
-              Las Vegas & State of Nevada
+              U.S. Political News
             </p>
           </div>
           <p className="mt-1 max-w-2xl font-body text-sm text-tertiary">
-            Real-time aggregation of political news, legislation, policy changes, and social media discourse across Nevada.
+            Real-time aggregation of political news, legislation, policy changes, and social media discourse across the United States.
           </p>
+
+          {/* Address autocomplete for quick rep lookup */}
+          <div className="mt-4 flex max-w-xl gap-2">
+            <AddressAutocomplete
+              value={address}
+              onChange={setAddress}
+              onSelect={(addr) => navigate(`/district-lookup?address=${encodeURIComponent(addr)}`)}
+              placeholder="Find your reps — enter your address"
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (address.trim()) {
+                  navigate(`/district-lookup?address=${encodeURIComponent(address)}`);
+                }
+              }}
+              disabled={!address.trim()}
+            >
+              <MapPin className="mr-1.5 h-4 w-4" />
+              Find Reps
+            </Button>
+          </div>
         </motion.div>
       </div>
     </header>

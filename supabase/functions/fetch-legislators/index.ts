@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { chamber, search, page = 1, per_page = 100, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
+    const { chamber, search, page = 1, per_page = 50, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
     const params = new URLSearchParams({
       jurisdiction,

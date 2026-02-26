@@ -251,7 +251,12 @@ const HomePage = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: gi * 0.1 + ri * 0.05 }}
                             className={`group relative rounded-xl border ${style.border} bg-card p-4 transition-colors hover:bg-surface-hover ${politicianId ? "cursor-pointer" : ""}`}
-                            onClick={() => politicianId && navigate(`/politicians/${politicianId}`)}
+                            onClick={() => {
+                              if (politicianId) {
+                                const pol = nevadaPoliticians.find((p) => p.id === politicianId);
+                                navigate(`/politicians/${politicianId}`, { state: { politician: pol } });
+                              }
+                            }}
                           >
                             <div className="flex items-start gap-3">
                               {rep.photoUrl ? (
@@ -318,7 +323,7 @@ const HomePage = () => {
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.06 }}
-                      onClick={() => navigate(`/politicians/${pol.id}`)}
+                      onClick={() => navigate(`/politicians/${pol.id}`, { state: { politician: pol } })}
                       className="group cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-hover"
                     >
                       <div className="flex items-start gap-3">

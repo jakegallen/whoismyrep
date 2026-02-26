@@ -17,8 +17,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    const body = await req.json().catch(() => ({}));
+    const stateAbbr = (body.stateAbbr || 'nv').toLowerCase();
+
     const headers = { 'X-API-KEY': apiKey };
-    const jurisdiction = 'ocd-jurisdiction/country:us/state:nv/government';
+    const jurisdiction = stateAbbr === 'dc'
+      ? 'ocd-jurisdiction/country:us/district:dc/government'
+      : `ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
+    const jurisdictionName = body.jurisdiction || 'Nevada';
 
     // Fetch events from OpenStates
     const eventsUrl = new URL('https://v3.openstates.org/events');
@@ -73,7 +79,7 @@ Deno.serve(async (req) => {
     let billEvents: any[] = [];
     if (currentSession) {
       const billsUrl = new URL('https://v3.openstates.org/bills');
-      billsUrl.searchParams.set('jurisdiction', 'Nevada');
+      billsUrl.searchParams.set('jurisdiction', jurisdictionName);
       billsUrl.searchParams.set('session', currentSession);
       billsUrl.searchParams.set('sort', 'updated_desc');
       billsUrl.searchParams.set('per_page', '30');

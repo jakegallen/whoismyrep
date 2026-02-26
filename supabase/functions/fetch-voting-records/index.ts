@@ -3,6 +3,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/** Map OpenStates jurisdiction name → 2-letter state abbreviation for OCD slug */
+function jurisdictionToAbbr(jurisdiction: string): string {
+  const map: Record<string, string> = {
+    'Alabama': 'al', 'Alaska': 'ak', 'Arizona': 'az', 'Arkansas': 'ar', 'California': 'ca',
+    'Colorado': 'co', 'Connecticut': 'ct', 'Delaware': 'de', 'Florida': 'fl', 'Georgia': 'ga',
+    'Hawaii': 'hi', 'Idaho': 'id', 'Illinois': 'il', 'Indiana': 'in', 'Iowa': 'ia',
+    'Kansas': 'ks', 'Kentucky': 'ky', 'Louisiana': 'la', 'Maine': 'me', 'Maryland': 'md',
+    'Massachusetts': 'ma', 'Michigan': 'mi', 'Minnesota': 'mn', 'Mississippi': 'ms', 'Missouri': 'mo',
+    'Montana': 'mt', 'Nebraska': 'ne', 'Nevada': 'nv', 'New Hampshire': 'nh', 'New Jersey': 'nj',
+    'New Mexico': 'nm', 'New York': 'ny', 'North Carolina': 'nc', 'North Dakota': 'nd', 'Ohio': 'oh',
+    'Oklahoma': 'ok', 'Oregon': 'or', 'Pennsylvania': 'pa', 'Rhode Island': 'ri',
+    'South Carolina': 'sc', 'South Dakota': 'sd', 'Tennessee': 'tn', 'Texas': 'tx', 'Utah': 'ut',
+    'Vermont': 'vt', 'Virginia': 'va', 'Washington': 'wa', 'West Virginia': 'wv', 'Wisconsin': 'wi',
+    'Wyoming': 'wy', 'District of Columbia': 'dc', 'Puerto Rico': 'pr',
+  };
+  return map[jurisdiction] || jurisdiction.toLowerCase().slice(0, 2);
+}
+
 interface VoteDetail {
   billId: string;
   billNumber: string;
@@ -30,7 +48,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { legislatorName, chamber, page = 1 } = await req.json().catch(() => ({}));
+    const { legislatorName, chamber, page = 1, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
     if (!legislatorName) {
       return new Response(
@@ -42,7 +60,7 @@ Deno.serve(async (req) => {
     console.log(`Fetching voting records for: ${legislatorName}, chamber: ${chamber}`);
 
     // Step 1: Find the legislator in OpenStates to get their ID
-    const peoplePath = `https://v3.openstates.org/people?jurisdiction=Nevada&name=${encodeURIComponent(legislatorName)}&per_page=5`;
+    const peoplePath = `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(jurisdiction)}&name=${encodeURIComponent(legislatorName)}&per_page=5`;
     const peopleResp = await fetch(peoplePath, {
       headers: { 'X-API-KEY': apiKey },
     });
@@ -74,7 +92,8 @@ Deno.serve(async (req) => {
     // Step 2: Fetch bills with votes where this legislator voted
     // OpenStates v3 bills endpoint with include=votes
     // First, discover available sessions
-    const sessionsUrl = `https://v3.openstates.org/jurisdictions/ocd-jurisdiction/country:us/state:nv/government`;
+    const stateAbbr = jurisdictionToAbbr(jurisdiction);
+    const sessionsUrl = `https://v3.openstates.org/jurisdictions/ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
     console.log('Fetching jurisdiction info for sessions...');
     
     let sessionIds: string[] = [];
@@ -104,7 +123,7 @@ Deno.serve(async (req) => {
 
     for (const session of sessionIds) {
       const billsUrl = new URL('https://v3.openstates.org/bills');
-      billsUrl.searchParams.set('jurisdiction', 'Nevada');
+      billsUrl.searchParams.set('jurisdiction', jurisdiction);
       billsUrl.searchParams.set('session', session);
       billsUrl.searchParams.set('include', 'votes');
       billsUrl.searchParams.set('per_page', '20');

@@ -17,11 +17,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { session, search, page = 1, per_page = 20 } = await req.json().catch(() => ({}));
+    const { session, search, page = 1, per_page = 20, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
     // Build query params for OpenStates v3 REST API
     const params = new URLSearchParams({
-      jurisdiction: 'Nevada',
+      jurisdiction,
       per_page: String(per_page),
       page: String(page),
       sort: 'updated_desc',
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
         session: bill.session || session || '',
         status: latestAction,
         dateIntroduced: bill.first_action_date || bill.created_at || '',
-        url: bill.openstates_url || `https://openstates.org/nv/bills/${bill.session}/${bill.identifier}/`,
+        url: bill.openstates_url || `https://openstates.org/${(jurisdiction || 'Nevada').toLowerCase().replace(/\s+/g, '-')}/bills/${bill.session}/${bill.identifier}/`,
         sponsors,
         abstract,
         subject: bill.subject || [],

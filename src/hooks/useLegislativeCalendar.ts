@@ -19,8 +19,10 @@ interface CalendarResponse {
   session: string;
 }
 
-async function fetchCalendar(): Promise<CalendarResponse> {
-  const { data, error } = await supabase.functions.invoke("fetch-legislative-calendar");
+async function fetchCalendar(stateAbbr?: string, jurisdiction?: string): Promise<CalendarResponse> {
+  const { data, error } = await supabase.functions.invoke("fetch-legislative-calendar", {
+    body: { stateAbbr, jurisdiction },
+  });
 
   if (error) throw new Error(error.message);
   if (!data?.success) throw new Error(data?.error || "Failed to fetch calendar");
@@ -31,10 +33,10 @@ async function fetchCalendar(): Promise<CalendarResponse> {
   };
 }
 
-export function useLegislativeCalendar() {
+export function useLegislativeCalendar(stateAbbr?: string, jurisdiction?: string) {
   return useQuery({
-    queryKey: ["legislative-calendar"],
-    queryFn: fetchCalendar,
+    queryKey: ["legislative-calendar", stateAbbr],
+    queryFn: () => fetchCalendar(stateAbbr, jurisdiction),
     staleTime: 1000 * 60 * 15,
     retry: 1,
   });

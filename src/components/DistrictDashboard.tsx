@@ -55,7 +55,7 @@ export default function DistrictDashboard({ address, voterInfo }: Props) {
       // Fetch bills and news in parallel
       const [billsResult, newsResult] = await Promise.allSettled([
         supabase.functions.invoke("fetch-bills", {
-          body: { search: "Nevada", per_page: 6 },
+          body: { search: regionKeyword, per_page: 6 },
         }),
         supabase.functions.invoke("fetch-nevada-news", {
           body: { search: regionKeyword },
@@ -106,7 +106,7 @@ export default function DistrictDashboard({ address, voterInfo }: Props) {
         <DashboardCard
           icon={FileText}
           title="Active Bills"
-          subtitle="Recent legislation in Nevada"
+          subtitle="Recent legislation in your area"
           accentClass="text-[hsl(var(--electric))]"
           bgClass="bg-[hsl(var(--electric)/0.1)]"
         >
@@ -227,12 +227,12 @@ export default function DistrictDashboard({ address, voterInfo }: Props) {
                 No upcoming elections found for your district
               </p>
               <a
-                href="https://www.nvsos.gov/sos/elections/voters"
+                href="https://www.vote.org/polling-place-locator/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-body text-xs text-primary hover:underline"
               >
-                Check NV Secretary of State
+                Find Your Polling Place
               </a>
             </div>
           )}
@@ -340,15 +340,13 @@ function EmptyState({ label }: { label: string }) {
 }
 
 function extractRegion(address: string): string {
-  const a = address.toLowerCase();
-  if (a.includes("reno")) return "Reno";
-  if (a.includes("sparks")) return "Sparks";
-  if (a.includes("carson city")) return "Carson City";
-  if (a.includes("henderson")) return "Henderson";
-  if (a.includes("north las vegas")) return "North Las Vegas";
-  if (a.includes("las vegas")) return "Las Vegas";
-  if (a.includes("elko")) return "Elko";
-  if (a.includes("pahrump")) return "Pahrump";
-  if (a.includes("mesquite")) return "Mesquite";
-  return "Nevada";
+  // Try to extract city from address format "Street, City, State ZIP"
+  const parts = address.split(",").map((p) => p.trim());
+  if (parts.length >= 2) {
+    // Second part is usually the city
+    const city = parts[1].replace(/\d{5}(-\d{4})?/, "").trim();
+    if (city.length > 1) return city;
+  }
+  // Fallback: return first meaningful part
+  return parts[0] || "your area";
 }

@@ -239,7 +239,11 @@ const HomePage = () => {
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: gi * 0.1 + ri * 0.05 }}
-                            className={`group relative rounded-xl border ${style.border} bg-card p-4 transition-colors hover:bg-surface-hover`}
+                            className={`group relative cursor-pointer rounded-xl border ${style.border} bg-card p-4 transition-colors hover:bg-surface-hover`}
+                            onClick={() => {
+                              const repId = rep.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+                              navigate(`/politicians/${repId}`, { state: { civicRep: rep } });
+                            }}
                           >
                             <div className="flex items-start gap-3">
                               {rep.photoUrl ? (
@@ -264,11 +268,7 @@ const HomePage = () => {
                                 <p className="font-body text-xs text-muted-foreground">{rep.office}</p>
                                 <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{rep.party}</p>
                               </div>
-                              {rep.website && (
-                                <a href={rep.website} target="_blank" rel="noopener noreferrer" className="mt-1 shrink-0">
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                                </a>
-                              )}
+                              <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                             </div>
                           </motion.div>
                         );

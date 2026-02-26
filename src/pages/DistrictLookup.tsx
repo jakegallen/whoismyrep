@@ -428,11 +428,14 @@ const DistrictLookup = () => {
 function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRep; index: number; politicianByName: Map<string, import("@/lib/politicians").Politician>; navigate: ReturnType<typeof useNavigate> }) {
   const nameKey = rep.name.toLowerCase().replace(/[^a-z]/g, "");
   const matchedPolitician = politicianByName.get(nameKey);
-  const isClickable = !!matchedPolitician;
 
   const handleClick = () => {
     if (matchedPolitician) {
       navigate(`/politicians/${matchedPolitician.id}`, { state: { politician: matchedPolitician } });
+    } else {
+      // Dynamic profile from API data
+      const repId = rep.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      navigate(`/politicians/${repId}`, { state: { civicRep: rep } });
     }
   };
 
@@ -441,8 +444,8 @@ function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRe
       initial={{ opacity: 0, x: 8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03, duration: 0.25 }}
-      onClick={isClickable ? handleClick : undefined}
-      className={`flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left ${isClickable ? "cursor-pointer transition-colors hover:border-primary/40 hover:bg-card/80" : ""}`}
+      onClick={handleClick}
+      className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-card/80"
     >
       {rep.photoUrl ? (
         <img

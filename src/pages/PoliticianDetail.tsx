@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -44,6 +44,47 @@ import { useNevadaNews } from "@/hooks/useNevadaNews";
 import { midtermRaces, electionCalendar } from "@/lib/midterms";
 import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
+import { nevadaPoliticians } from "@/lib/politicians";
+import type { CivicRep } from "@/hooks/useCivicReps";
+
+/** Unified profile shape that works with both static Politician data and dynamic CivicRep API data */
+interface RepProfile {
+  id: string;
+  name: string;
+  title: string;
+  party: string;
+  office: string;
+  region: string;
+  level: "federal" | "state" | "county" | "local";
+  imageUrl?: string;
+  bio: string;
+  keyIssues: string[];
+  website?: string;
+  phone?: string;
+  email?: string;
+  contactForm?: string;
+  socialHandles?: Record<string, string>;
+}
+
+/** Convert a CivicRep (from API) into a RepProfile */
+function civicRepToProfile(rep: CivicRep): RepProfile {
+  return {
+    id: rep.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+    name: rep.name,
+    title: rep.office,
+    party: rep.party,
+    office: rep.office,
+    region: rep.divisionId || "",
+    level: rep.level,
+    imageUrl: rep.photoUrl,
+    bio: "",
+    keyIssues: [],
+    website: rep.website,
+    phone: rep.phone,
+    email: rep.email,
+    socialHandles: rep.socialHandles,
+  };
+}
 
 const tabs = [
   { id: "overview", label: "Overview", icon: User },
@@ -65,16 +106,32 @@ type TabId = (typeof tabs)[number]["id"];
 const PoliticianDetail = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const politician = location.state?.politician as Politician | undefined;
+  const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   const [analysis, setAnalysis] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Build profile from either: router state Politician, router state CivicRep, or URL param lookup
+  const politician: RepProfile | undefined = (() => {
+    const statePol = location.state?.politician as Politician | undefined;
+    if (statePol?.id) return { ...statePol } as RepProfile;
+
+    const stateRep = location.state?.civicRep as CivicRep | undefined;
+    if (stateRep) return civicRepToProfile(stateRep);
+
+    // Fallback: try to find in Nevada static data by URL id
+    if (id) {
+      const found = nevadaPoliticians.find((p) => p.id === id);
+      if (found) return { ...found } as RepProfile;
+    }
+    return undefined;
+  })();
+
   useEffect(() => {
     if (!politician) {
-      navigate("/politicians");
+      navigate("/");
       return;
     }
 
@@ -82,13 +139,14 @@ const PoliticianDetail = () => {
       setIsLoading(true);
       setError(null);
       try {
+        const searchQuery = politician.socialHandles?.x
+          ? `https://x.com/${politician.socialHandles.x}`
+          : `https://www.google.com/search?q=${encodeURIComponent(politician.name + " politics")}`;
         const { data, error: fnError } = await supabase.functions.invoke("analyze-article", {
           body: {
-            url: politician.socialHandles?.x
-              ? `https://x.com/${politician.socialHandles.x}`
-              : `https://www.google.com/search?q=${encodeURIComponent(politician.name + " Nevada politics")}`,
+            url: searchQuery,
             title: `${politician.name} — ${politician.title}`,
-            summary: politician.bio,
+            summary: politician.bio || `${politician.name} is a ${politician.party} serving as ${politician.title}.`,
             category: "politician",
           },
         });
@@ -104,7 +162,7 @@ const PoliticianDetail = () => {
     };
 
     fetchProfile();
-  }, [politician, navigate]);
+  }, [politician?.name, navigate]);
 
   if (!politician) return null;
 
@@ -273,7 +331,7 @@ function OverviewTab({
   isLoading,
   error,
 }: {
-  politician: Politician;
+  politician: RepProfile;
   analysis: string;
   isLoading: boolean;
   error: string | null;
@@ -281,16 +339,20 @@ function OverviewTab({
   return (
     <div className="space-y-8">
       {/* Bio */}
-      <p className="font-body text-sm leading-relaxed text-secondary-custom">{politician.bio}</p>
+      {politician.bio && (
+        <p className="font-body text-sm leading-relaxed text-secondary-custom">{politician.bio}</p>
+      )}
 
       {/* Key issues */}
-      <div className="flex flex-wrap gap-2">
-        {politician.keyIssues.map((issue) => (
-          <span key={issue} className="rounded-lg bg-surface-elevated px-3 py-1.5 font-body text-xs font-medium text-muted-foreground">
-            {issue}
-          </span>
-        ))}
-      </div>
+      {politician.keyIssues.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {politician.keyIssues.map((issue) => (
+            <span key={issue} className="rounded-lg bg-surface-elevated px-3 py-1.5 font-body text-xs font-medium text-muted-foreground">
+              {issue}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="h-px bg-border" />
 
@@ -839,7 +901,7 @@ function NewsTab({ politicianName }: { politicianName: string }) {
 /* ═══════════════════════════════════════════ */
 /*  Midterms Tab                               */
 /* ═══════════════════════════════════════════ */
-function MidtermsTab({ politician }: { politician: Politician }) {
+function MidtermsTab({ politician }: { politician: RepProfile }) {
   const relevantRaces = midtermRaces.filter(
     (r) =>
       r.incumbent?.toLowerCase() === politician.name.toLowerCase() ||

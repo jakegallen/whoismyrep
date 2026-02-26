@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
+import { SocialIcons } from "@/components/SocialIcons";
 import { useCivicReps, type CivicRep } from "@/hooks/useCivicReps";
 import DistrictDashboard from "@/components/DistrictDashboard";
 import { US_STATES } from "@/lib/usStates";
@@ -314,6 +315,7 @@ const HomePage = () => {
                                 </div>
                                 <p className="font-body text-xs text-muted-foreground">{rep.office}</p>
                                 <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{rep.party}</p>
+                                <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-1" />
                               </div>
                               <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                             </div>

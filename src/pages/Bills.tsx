@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBills, type Bill } from "@/hooks/useBills";
+import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
 
 const chamberConfig = {
   Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
@@ -28,6 +29,7 @@ const Bills = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [chamberFilter, setChamberFilter] = useState<"all" | "Assembly" | "Senate">("all");
+  const [pipelineStage, setPipelineStage] = useState<PipelineStage>("all");
 
   // Debounce search for edge function
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -41,9 +43,15 @@ const Bills = () => {
   const { bills, total, isLoading, error, refetch } = useBills(debouncedSearch || undefined);
 
   const filtered = useMemo(() => {
-    if (chamberFilter === "all") return bills;
-    return bills.filter((b) => b.chamber === chamberFilter);
-  }, [bills, chamberFilter]);
+    let result = bills;
+    if (chamberFilter !== "all") {
+      result = result.filter((b) => b.chamber === chamberFilter);
+    }
+    if (pipelineStage !== "all") {
+      result = result.filter((b) => categorizeBill(b) === pipelineStage);
+    }
+    return result;
+  }, [bills, chamberFilter, pipelineStage]);
 
   const assemblyCt = bills.filter((b) => b.chamber === "Assembly").length;
   const senateCt = bills.filter((b) => b.chamber === "Senate").length;
@@ -144,6 +152,15 @@ const Bills = () => {
             </button>
           )}
         </div>
+
+        {/* Pipeline dashboard */}
+        {!isLoading && bills.length > 0 && (
+          <BillPipeline
+            bills={chamberFilter === "all" ? bills : bills.filter((b) => b.chamber === chamberFilter)}
+            activeStage={pipelineStage}
+            onStageChange={setPipelineStage}
+          />
+        )}
 
         {/* Error state */}
         {error && (

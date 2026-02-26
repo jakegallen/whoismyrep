@@ -18,6 +18,8 @@ import {
   Briefcase,
   Clock,
   User,
+  Building2,
+  ScrollText,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,12 +30,16 @@ import AccountabilityTimeline from "@/components/AccountabilityTimeline";
 import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
+import { useCommittees } from "@/hooks/useCommittees";
+import { useCongress } from "@/hooks/useCongress";
+import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: User },
   { id: "voting", label: "Voting Record", icon: BarChart3 },
   { id: "bills", label: "Bills", icon: FileText },
+  { id: "committees", label: "Committees", icon: Building2 },
   { id: "finance", label: "Campaign Finance", icon: DollarSign },
   { id: "lobbying", label: "Lobbying", icon: Briefcase },
   { id: "court", label: "Court Cases", icon: Scale },
@@ -210,6 +216,7 @@ const PoliticianDetail = () => {
               />
             )}
             {activeTab === "bills" && <BillsTab politicianName={politician.name} />}
+            {activeTab === "committees" && <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} />}
             {activeTab === "finance" && (
               <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
             )}
@@ -369,6 +376,134 @@ function BillsTab({ politicianName }: { politicianName: string }) {
           </motion.div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/*  Committees Tab                             */
+/* ═══════════════════════════════════════════ */
+function CommitteesTab({ politicianName, chamber }: { politicianName: string; chamber?: string }) {
+  const { data: committeesData, isLoading: commLoading, error: commError } = useCommittees(chamber, politicianName);
+  const { data: reportsData, isLoading: reportsLoading } = useCongress("committee_reports", { congress: 119, limit: 10 });
+
+  const committees = committeesData?.committees || [];
+  const legislatorCommittees = committeesData?.legislatorCommittees || [];
+  const recentBills = committeesData?.recentBills || [];
+  const reports = reportsData?.items || [];
+
+  const isLoading = commLoading;
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center gap-3">
+        <Building2 className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">Committee Assignments</h2>
+        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{legislatorCommittees.length} committees</span>}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">Loading committee data...</span>
+        </div>
+      )}
+
+      {commError && <ErrorBox message={commError instanceof Error ? commError.message : "Failed to load"} />}
+
+      {/* Committees this rep serves on */}
+      {!isLoading && legislatorCommittees.length > 0 && (
+        <div className="space-y-3">
+          {committees
+            .filter((c) => legislatorCommittees.includes(c.name))
+            .map((committee, idx) => (
+              <motion.div
+                key={committee.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                className="rounded-lg border border-border bg-card p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-display text-sm font-bold text-headline">{committee.name}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{committee.chamber}</Badge>
+                      <span className="font-body text-xs text-muted-foreground">{committee.memberCount} members</span>
+                    </div>
+                    {committee.members.length > 0 && (
+                      <p className="mt-2 font-body text-xs text-muted-foreground line-clamp-1">
+                        Members: {committee.members.slice(0, 5).map((m) => m.name).join(", ")}
+                        {committee.members.length > 5 && ` +${committee.members.length - 5} more`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+        </div>
+      )}
+
+      {!isLoading && legislatorCommittees.length === 0 && !commError && (
+        <p className="py-6 text-center font-body text-sm text-muted-foreground">No committee assignments found for this representative.</p>
+      )}
+
+      {/* Recent bills from their committees */}
+      {!isLoading && recentBills.length > 0 && (
+        <div>
+          <h3 className="mb-3 font-display text-lg font-semibold text-headline">Recent Bills from Committees</h3>
+          <div className="space-y-2">
+            {recentBills.slice(0, 10).map((bill, idx) => (
+              <motion.div
+                key={bill.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+                className="rounded-lg border border-border bg-card p-3"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-display text-xs font-bold text-headline">{bill.identifier}</span>
+                  <span className="font-body text-[10px] text-muted-foreground">{bill.chamber}</span>
+                </div>
+                <p className="font-body text-xs text-secondary-custom line-clamp-1">{bill.title}</p>
+                {bill.lastAction && (
+                  <p className="mt-1 font-body text-[10px] text-muted-foreground">Latest: {bill.lastAction}</p>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Federal Committee Reports */}
+      {!reportsLoading && reports.length > 0 && (
+        <div>
+          <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-headline">
+            <ScrollText className="h-4 w-4 text-primary" />
+            Federal Committee Reports
+          </h3>
+          <div className="space-y-2">
+            {reports.slice(0, 8).map((report: any, idx: number) => (
+              <motion.div
+                key={`${report.citation}-${idx}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+                className="rounded-lg border border-border bg-card p-3"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-[10px]">{report.chamber || "Congress"}</Badge>
+                  {report.citation && <span className="font-body text-[10px] text-muted-foreground">{report.citation}</span>}
+                </div>
+                <p className="font-body text-xs text-secondary-custom line-clamp-2">{report.title || `Report ${report.number}`}</p>
+                {report.updateDate && (
+                  <p className="mt-1 font-body text-[10px] text-muted-foreground">Updated: {report.updateDate}</p>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

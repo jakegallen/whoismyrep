@@ -36,7 +36,6 @@ const exploreGroups = [
       { to: "/bills", icon: FileText, label: "Bills" },
       { to: "/calendar", icon: CalendarDays, label: "Calendar" },
       { to: "/committees", icon: Building2, label: "Committees" },
-      { to: "/congress", icon: Building, label: "Congress" },
     ],
   },
   {
@@ -85,14 +84,6 @@ export default function SiteNav() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-1">
-          <button
-            onClick={() => navigate("/search")}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 font-body text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-          >
-            <Search className="h-4 w-4" />
-            Search
-          </button>
-
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg px-3 py-2 font-body text-sm text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground">
               Explore
@@ -142,14 +133,6 @@ export default function SiteNav() {
             className="overflow-hidden border-t border-border md:hidden bg-background"
           >
             <div className="container mx-auto flex flex-col gap-1 px-4 py-3">
-              <Link
-                to="/search"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 font-body text-sm text-foreground hover:bg-surface-hover"
-              >
-                <Search className="h-4 w-4 text-muted-foreground" />
-                Search Everything
-              </Link>
               {exploreGroups.map((group, gi) => (
                 <div key={group.label} className={gi > 0 ? "mt-2" : ""}>
                   <p className="mb-1 px-3 font-display text-[10px] uppercase tracking-wider text-muted-foreground">

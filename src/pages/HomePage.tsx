@@ -372,9 +372,7 @@ const HomePage = () => {
           <p className="font-body text-xs text-muted-foreground">
             © {new Date().getFullYear()} WhoIsMyRep.ai — Nevada Political Transparency Platform
           </p>
-          <p className="mt-1 font-body text-[10px] text-muted-foreground/60">
-            Data from OpenStates, FEC, Google Civic, CourtListener, Federal Register & Senate LDA
-          </p>
+        
         </div>
       </footer>
     </div>

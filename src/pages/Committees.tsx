@@ -1,4 +1,5 @@
 import { useState } from "react";
+import SiteNav from "@/components/SiteNav";
 import { motion, AnimatePresence } from "framer-motion";
 import { Building2, FileText, Calendar, Users, Loader2, AlertCircle, ChevronDown, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -19,7 +20,7 @@ const Committees = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
+      <SiteNav />
 
       <main className="container mx-auto max-w-5xl px-4 py-8">
         <motion.div
@@ -33,7 +34,7 @@ const Committees = () => {
               className="flex items-center gap-1.5 font-body text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to News
+              Back to Home
             </button>
           </div>
           <div className="flex items-center gap-3 mb-2">

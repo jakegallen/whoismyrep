@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import SiteNav from "@/components/SiteNav";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -58,6 +59,7 @@ const Bills = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
           <motion.div
@@ -71,7 +73,7 @@ const Bills = () => {
                 className="flex items-center gap-1.5 font-body text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to News
+                Back to Home
               </button>
             </div>
             <div className="flex items-center gap-3">

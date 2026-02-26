@@ -4,6 +4,7 @@ import {
   Briefcase, ExternalLink, Search, Loader2, FileText, Users, Building2, DollarSign, ChevronDown, ChevronUp,
 } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
+import SiteNav from "@/components/SiteNav";
 import { useLobbying, type LobbyingEndpoint, type LobbyingFiling } from "@/hooks/useLobbying";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ const LobbyingExplorer = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
       <DashboardHeader />
 
       <main className="container mx-auto px-4 py-8">

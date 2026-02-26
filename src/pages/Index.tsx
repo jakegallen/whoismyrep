@@ -12,7 +12,7 @@ import TrendingSidebar from "@/components/TrendingSidebar";
 import VoterRegistration from "@/components/VoterRegistration";
 import NewsCharts from "@/components/NewsCharts";
 import SocialMediaCard from "@/components/SocialMediaCard";
-import { useNevadaNews } from "@/hooks/useNevadaNews";
+import { useStateNews } from "@/hooks/useStateNews";
 import { usePodcasts } from "@/hooks/usePodcasts";
 import { useYouTube } from "@/hooks/useYouTube";
 import { useSocialMedia } from "@/hooks/useSocialMedia";
@@ -20,7 +20,7 @@ import type { NewsCategory } from "@/lib/mockNews";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<TabKey>("all");
-  const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useNevadaNews();
+  const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useStateNews();
   const { episodes, isLoading: podcastsLoading, refetch: refetchPodcasts } = usePodcasts();
   const { videos, isLoading: youtubeLoading, refetch: refetchYouTube } = useYouTube();
   const { posts: socialPosts, isLoading: socialLoading, refetch: refetchSocial } = useSocialMedia();

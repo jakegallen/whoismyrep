@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { NewsItem, TrendingTopic, TrendingIndividual } from "@/lib/mockNews";
 import { mockNews, trendingTopics as mockTrending, mockTrendingIndividuals } from "@/lib/mockNews";
 
-interface UseNevadaNewsResult {
+interface UseStateNewsResult {
   news: NewsItem[];
   trending: TrendingTopic[];
   trendingIndividuals: TrendingIndividual[];
@@ -13,7 +13,7 @@ interface UseNevadaNewsResult {
   lastUpdated: Date | null;
 }
 
-export function useNevadaNews(): UseNevadaNewsResult {
+export function useStateNews(stateName?: string): UseStateNewsResult {
   const [news, setNews] = useState<NewsItem[]>(mockNews);
   const [trending, setTrending] = useState<TrendingTopic[]>(mockTrending);
   const [trendingIndividuals, setTrendingIndividuals] = useState<TrendingIndividual[]>(mockTrendingIndividuals);
@@ -26,7 +26,9 @@ export function useNevadaNews(): UseNevadaNewsResult {
     setError(null);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-nevada-news");
+      const { data, error: fnError } = await supabase.functions.invoke("fetch-state-news", {
+        body: { state: stateName || "United States" },
+      });
 
       if (fnError) throw new Error(fnError.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch news");
@@ -41,7 +43,7 @@ export function useNevadaNews(): UseNevadaNewsResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [stateName]);
 
   useEffect(() => {
     fetchNews();

@@ -57,8 +57,8 @@ export default function DistrictDashboard({ address, voterInfo }: Props) {
         supabase.functions.invoke("fetch-bills", {
           body: { search: regionKeyword, per_page: 6 },
         }),
-        supabase.functions.invoke("fetch-nevada-news", {
-          body: { search: regionKeyword },
+        supabase.functions.invoke("fetch-state-news", {
+          body: { state: regionKeyword, search: regionKeyword },
         }),
       ]);
 

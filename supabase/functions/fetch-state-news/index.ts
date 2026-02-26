@@ -3,15 +3,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ── Free RSS feed sources (no API key needed) ──────────────────────────
-const RSS_FEEDS = [
-  { name: 'Las Vegas Sun', url: 'https://lasvegassun.com/feeds/headlines/all/' },
-  { name: 'Las Vegas Sun Politics', url: 'https://lasvegassun.com/feeds/headlines/politics/' },
-  { name: 'KTNV Las Vegas', url: 'https://www.ktnv.com/feeds/rssFeed?obfType=RSS_FEED&siteId=10073&categoryId=501' },
-  { name: 'Reno Gazette Journal', url: 'https://rssfeeds.rgj.com/reno/news' },
-  { name: 'US News Nevada', url: 'https://www.usnews.com/rss/news/nevada' },
-];
-
 // ── Lightweight XML → items parser (no deps) ───────────────────────────
 function parseRssItems(xml: string, sourceName: string): Array<{ title: string; url: string; description: string; pubDate: string; source: string }> {
   const items: Array<{ title: string; url: string; description: string; pubDate: string; source: string }> = [];
@@ -56,7 +47,7 @@ async function fetchFeed(feed: { name: string; url: string }): Promise<Array<{ t
 
     const resp = await fetch(feed.url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'NevadaPoliticsBot/1.0' },
+      headers: { 'User-Agent': 'PoliticsTrackerBot/1.0' },
     });
     clearTimeout(timeout);
 
@@ -71,6 +62,23 @@ async function fetchFeed(feed: { name: string; url: string }): Promise<Array<{ t
     console.warn(`RSS feed ${feed.name} failed:`, e);
     return [];
   }
+}
+
+// ── Google News RSS for any state ───────────────────────────────────────
+function getGoogleNewsFeeds(stateName: string): Array<{ name: string; url: string }> {
+  const encoded = encodeURIComponent(`${stateName} politics`);
+  return [
+    { name: `Google News - ${stateName} Politics`, url: `https://news.google.com/rss/search?q=${encoded}&hl=en-US&gl=US&ceid=US:en` },
+    { name: `Google News - ${stateName} Legislature`, url: `https://news.google.com/rss/search?q=${encodeURIComponent(`${stateName} legislature law bill`)}&hl=en-US&gl=US&ceid=US:en` },
+  ];
+}
+
+// ── US News RSS (works for many states) ─────────────────────────────────
+function getUsNewsRss(stateName: string): Array<{ name: string; url: string }> {
+  const slug = stateName.toLowerCase().replace(/\s+/g, '-');
+  return [
+    { name: `US News - ${stateName}`, url: `https://www.usnews.com/rss/news/${slug}` },
+  ];
 }
 
 // ── Main handler ────────────────────────────────────────────────────────
@@ -88,10 +96,29 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse state from request body
+    let stateName = 'United States';
+    let search = '';
+    try {
+      const body = await req.json();
+      if (body.state) stateName = body.state;
+      if (body.search) search = body.search;
+    } catch {
+      // No body provided, use defaults
+    }
+
+    console.log(`Fetching political news for: ${stateName}${search ? ` (search: ${search})` : ''}`);
+
+    // Build dynamic RSS feeds based on state
+    const rssFeeds = [
+      ...getGoogleNewsFeeds(stateName),
+      ...getUsNewsRss(stateName),
+    ];
+
     // ── Step 1: Fetch RSS feeds + Firecrawl + NewsAPI in parallel ────────
-    const rssPromises = RSS_FEEDS.map(fetchFeed);
-    const firecrawlPromise = fetchFirecrawlResults();
-    const newsApiPromise = fetchNewsApiResults();
+    const rssPromises = rssFeeds.map(fetchFeed);
+    const firecrawlPromise = fetchFirecrawlResults(stateName, search);
+    const newsApiPromise = fetchNewsApiResults(stateName, search);
 
     const [rssResults, firecrawlResults, newsApiResults] = await Promise.all([
       Promise.all(rssPromises),
@@ -101,19 +128,14 @@ Deno.serve(async (req) => {
 
     const allResults: Array<{ title: string; url: string; description: string; source: string }> = [];
 
-    // Flatten RSS results
     for (const feedItems of rssResults) {
       for (const item of feedItems) {
         allResults.push(item);
       }
     }
-
-    // Add Firecrawl results
     for (const item of firecrawlResults) {
       allResults.push(item);
     }
-
-    // Add NewsAPI results
     for (const item of newsApiResults) {
       allResults.push(item);
     }
@@ -126,7 +148,7 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    console.log(`Found ${uniqueResults.length} unique results (RSS: ${rssResults.flat().length}, Firecrawl: ${firecrawlResults.length}, NewsAPI: ${newsApiResults.length})`);
+    console.log(`Found ${uniqueResults.length} unique results for ${stateName}`);
 
     if (uniqueResults.length === 0) {
       return new Response(
@@ -141,7 +163,7 @@ Deno.serve(async (req) => {
       .map((r, i) => `[${i + 1}] Title: ${r.title}\nURL: ${r.url}\nSource: ${r.source}\nDescription: ${r.description}`)
       .join('\n\n');
 
-    const aiResult = await categorizeWithAI(articlesText, LOVABLE_API_KEY);
+    const aiResult = await categorizeWithAI(articlesText, LOVABLE_API_KEY, stateName);
     if ('error' in aiResult) {
       return new Response(
         JSON.stringify({ success: false, error: aiResult.error }),
@@ -180,14 +202,14 @@ Deno.serve(async (req) => {
 });
 
 // ── Firecrawl (optional, uses API key if available) ─────────────────────
-async function fetchFirecrawlResults(): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
+async function fetchFirecrawlResults(stateName: string, search: string): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
   const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
   if (!FIRECRAWL_API_KEY) return [];
 
   const queries = [
-    'Nevada legislature law bill 2025 2026',
-    'Las Vegas politics policy mayor',
-    'Nevada politician controversy news',
+    `${stateName} legislature law bill 2025 2026`,
+    `${stateName} politics policy governor`,
+    search ? `${stateName} ${search} politics` : `${stateName} politician news`,
   ];
 
   const results: Array<{ title: string; url: string; description: string; source: string }> = [];
@@ -227,7 +249,7 @@ async function fetchFirecrawlResults(): Promise<Array<{ title: string; url: stri
 }
 
 // ── AI categorization via Lovable gateway ───────────────────────────────
-async function categorizeWithAI(articlesText: string, apiKey: string): Promise<any> {
+async function categorizeWithAI(articlesText: string, apiKey: string, stateName: string): Promise<any> {
   const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -239,9 +261,9 @@ async function categorizeWithAI(articlesText: string, apiKey: string): Promise<a
       messages: [
         {
           role: 'system',
-          content: `You are a political news analyst specializing in Nevada and Las Vegas politics. You categorize and summarize political news articles.
+          content: `You are a political news analyst specializing in U.S. state politics. You categorize and summarize political news articles for ${stateName}.
 
-Given a list of search results about Nevada politics, return a JSON response with:
+Given a list of search results about ${stateName} politics, return a JSON response with:
 1. "news" - an array of news items, each with:
    - "title": a clear, concise headline (keep original if good, improve if needed)
    - "summary": 1-2 sentence summary of the article (max 200 chars)
@@ -260,7 +282,7 @@ Given a list of search results about Nevada politics, return a JSON response wit
    - "mentions": estimated number of mentions across articles (100-3000)
    - "trend": "up", "down", or "stable"
 
-Only include articles actually related to Nevada/Las Vegas politics. Skip irrelevant results.
+Only include articles actually related to ${stateName} politics. Skip irrelevant results.
 Return ONLY valid JSON, no markdown fences.`,
         },
         {
@@ -273,7 +295,7 @@ Return ONLY valid JSON, no markdown fences.`,
           type: 'function',
           function: {
             name: 'format_news',
-            description: 'Format categorized Nevada political news and trending topics',
+            description: `Format categorized ${stateName} political news and trending topics`,
             parameters: {
               type: 'object',
               properties: {
@@ -351,16 +373,16 @@ Return ONLY valid JSON, no markdown fences.`,
 }
 
 // ── NewsAPI (uses NEWSAPI_KEY if available) ──────────────────────────────
-async function fetchNewsApiResults(): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
+async function fetchNewsApiResults(stateName: string, search: string): Promise<Array<{ title: string; url: string; description: string; source: string }>> {
   const apiKey = Deno.env.get('NEWSAPI_KEY');
   if (!apiKey) return [];
 
   const results: Array<{ title: string; url: string; description: string; source: string }> = [];
 
   const queries = [
-    'Nevada politics',
-    'Las Vegas government',
-    'Nevada legislature',
+    `${stateName} politics`,
+    `${stateName} government`,
+    search ? `${stateName} ${search}` : `${stateName} legislature`,
   ];
 
   for (const q of queries) {
@@ -374,7 +396,7 @@ async function fetchNewsApiResults(): Promise<Array<{ title: string; url: string
       });
 
       const resp = await fetch(`https://newsapi.org/v2/everything?${params}`, {
-        headers: { 'User-Agent': 'NevadaPoliticsBot/1.0' },
+        headers: { 'User-Agent': 'PoliticsTrackerBot/1.0' },
       });
 
       if (!resp.ok) {

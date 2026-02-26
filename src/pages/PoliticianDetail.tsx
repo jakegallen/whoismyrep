@@ -40,7 +40,7 @@ import { useCommittees } from "@/hooks/useCommittees";
 import { useCongress } from "@/hooks/useCongress";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import { useFederalRegister } from "@/hooks/useFederalRegister";
-import { useNevadaNews } from "@/hooks/useNevadaNews";
+
 import { midtermRaces, electionCalendar } from "@/lib/midterms";
 import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
@@ -64,17 +64,45 @@ interface RepProfile {
   email?: string;
   contactForm?: string;
   socialHandles?: Record<string, string>;
+  /** State abbreviation for scoping API calls (e.g. "NY", "CA") */
+  stateAbbr?: string;
+  /** OpenStates jurisdiction name (e.g. "New York", "California") */
+  jurisdiction?: string;
+}
+
+/** Extract state abbreviation from divisionId like "ocd-jurisdiction/country:us/state:ny/government" */
+function extractStateFromDivisionId(divisionId?: string): { stateAbbr: string; jurisdiction: string } | null {
+  if (!divisionId) return null;
+  const match = divisionId.match(/state:([a-z]{2})/);
+  if (!match) return null;
+  const abbr = match[1].toUpperCase();
+  // Import would be circular, so inline a simple lookup
+  const stateNames: Record<string, string> = {
+    AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+    CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+    HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+    KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+    MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+    MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+    NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+    OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+    SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+    VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+    DC: "District of Columbia", PR: "Puerto Rico",
+  };
+  return { stateAbbr: abbr, jurisdiction: stateNames[abbr] || abbr };
 }
 
 /** Convert a CivicRep (from API) into a RepProfile */
 function civicRepToProfile(rep: CivicRep): RepProfile {
+  const stateInfo = extractStateFromDivisionId(rep.divisionId);
   return {
     id: rep.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
     name: rep.name,
     title: rep.office,
     party: rep.party,
     office: rep.office,
-    region: rep.divisionId || "",
+    region: stateInfo?.jurisdiction || rep.divisionId || "",
     level: rep.level,
     imageUrl: rep.photoUrl,
     bio: "",
@@ -83,6 +111,8 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     phone: rep.phone,
     email: rep.email,
     socialHandles: rep.socialHandles,
+    stateAbbr: stateInfo?.stateAbbr,
+    jurisdiction: stateInfo?.jurisdiction,
   };
 }
 
@@ -116,7 +146,7 @@ const PoliticianDetail = () => {
   // Build profile from either: router state Politician, router state CivicRep, or URL param lookup
   const politician: RepProfile | undefined = (() => {
     const statePol = location.state?.politician as Politician | undefined;
-    if (statePol?.id) return { ...statePol } as RepProfile;
+    if (statePol?.id) return { ...statePol, stateAbbr: "NV", jurisdiction: "Nevada" } as RepProfile;
 
     const stateRep = location.state?.civicRep as CivicRep | undefined;
     if (stateRep) return civicRepToProfile(stateRep);
@@ -124,7 +154,7 @@ const PoliticianDetail = () => {
     // Fallback: try to find in Nevada static data by URL id
     if (id) {
       const found = nevadaPoliticians.find((p) => p.id === id);
-      if (found) return { ...found } as RepProfile;
+      if (found) return { ...found, stateAbbr: "NV", jurisdiction: "Nevada" } as RepProfile;
     }
     return undefined;
   })();
@@ -295,16 +325,17 @@ const PoliticianDetail = () => {
                 party={politician.party}
                 level={politician.level}
                 chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
+                jurisdiction={politician.jurisdiction}
               />
             )}
-            {activeTab === "bills" && <BillsTab politicianName={politician.name} />}
-            {activeTab === "committees" && <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} />}
+            {activeTab === "bills" && <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} />}
+            {activeTab === "committees" && <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />}
             {activeTab === "finance" && (
               <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
             )}
             {activeTab === "lobbying" && <LobbyingTab politicianName={politician.name} />}
             {activeTab === "court" && <CourtCasesTab politicianName={politician.name} />}
-            {activeTab === "calendar" && <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} />}
+            {activeTab === "calendar" && <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} stateAbbr={politician.stateAbbr} jurisdiction={politician.jurisdiction} />}
             {activeTab === "federal" && <FederalRegisterTab politicianName={politician.name} />}
             {activeTab === "news" && <NewsTab politicianName={politician.name} />}
             {activeTab === "midterms" && <MidtermsTab politician={politician} />}
@@ -313,6 +344,7 @@ const PoliticianDetail = () => {
                 politicianName={politician.name}
                 chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
                 twitterHandle={politician.socialHandles?.x}
+                jurisdiction={politician.jurisdiction}
               />
             )}
           </div>
@@ -399,8 +431,8 @@ function OverviewTab({
 /* ═══════════════════════════════════════════ */
 /*  Bills Tab                                  */
 /* ═══════════════════════════════════════════ */
-function BillsTab({ politicianName }: { politicianName: string }) {
-  const { bills, isLoading, error } = useBills(politicianName);
+function BillsTab({ politicianName, jurisdiction }: { politicianName: string; jurisdiction?: string }) {
+  const { bills, isLoading, error } = useBills(politicianName, jurisdiction);
 
   return (
     <div className="space-y-6">
@@ -463,8 +495,8 @@ function BillsTab({ politicianName }: { politicianName: string }) {
 /* ═══════════════════════════════════════════ */
 /*  Committees Tab                             */
 /* ═══════════════════════════════════════════ */
-function CommitteesTab({ politicianName, chamber }: { politicianName: string; chamber?: string }) {
-  const { data: committeesData, isLoading: commLoading, error: commError } = useCommittees(chamber, politicianName);
+function CommitteesTab({ politicianName, chamber, jurisdiction, stateAbbr }: { politicianName: string; chamber?: string; jurisdiction?: string; stateAbbr?: string }) {
+  const { data: committeesData, isLoading: commLoading, error: commError } = useCommittees(chamber, politicianName, jurisdiction, stateAbbr);
   const { data: reportsData, isLoading: reportsLoading } = useCongress("committee_reports", { congress: 119, limit: 10 });
 
   const committees = committeesData?.committees || [];
@@ -715,8 +747,8 @@ function CourtCasesTab({ politicianName }: { politicianName: string }) {
 /* ═══════════════════════════════════════════ */
 /*  Calendar Tab                               */
 /* ═══════════════════════════════════════════ */
-function CalendarTab({ politicianName, chamber }: { politicianName: string; chamber?: string }) {
-  const { data, isLoading, error } = useLegislativeCalendar();
+function CalendarTab({ politicianName, chamber, stateAbbr, jurisdiction }: { politicianName: string; chamber?: string; stateAbbr?: string; jurisdiction?: string }) {
+  const { data, isLoading, error } = useLegislativeCalendar(stateAbbr?.toLowerCase(), jurisdiction);
   const events = (data?.events || []).filter(
     (e) =>
       !chamber ||
@@ -840,33 +872,54 @@ function FederalRegisterTab({ politicianName }: { politicianName: string }) {
 /*  News Tab                                   */
 /* ═══════════════════════════════════════════ */
 function NewsTab({ politicianName }: { politicianName: string }) {
-  const { news, isLoading, error } = useNevadaNews();
-  const lastName = politicianName.split(" ").pop()?.toLowerCase() || "";
-  const filtered = news.filter(
-    (n) =>
-      n.title?.toLowerCase().includes(lastName) ||
-      n.summary?.toLowerCase().includes(lastName) ||
-      n.source?.toLowerCase().includes(lastName)
-  );
+  const [articles, setArticles] = useState<{ id: string; title: string; url: string; source: string; date: string; summary: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("fetch-politician-news", {
+          body: { politicianName },
+        });
+        if (cancelled) return;
+        if (fnError) throw new Error(fnError.message);
+        if (!data?.success) throw new Error(data?.error || "Failed to fetch news");
+        setArticles(data.articles || []);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("News fetch error:", e);
+        setError(e instanceof Error ? e.message : "Failed to fetch news");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [politicianName]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Newspaper className="h-5 w-5 text-primary" />
         <h2 className="font-display text-xl font-bold text-headline">News Coverage</h2>
-        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{filtered.length} articles</span>}
+        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{articles.length} articles</span>}
       </div>
 
       {isLoading && <NewsSkeleton />}
 
       {error && <ErrorBox message={error} />}
 
-      {!isLoading && filtered.length === 0 && !error && (
+      {!isLoading && articles.length === 0 && !error && (
         <p className="py-8 text-center font-body text-sm text-muted-foreground">No recent news articles found mentioning this representative.</p>
       )}
 
       <div className="space-y-3">
-        {filtered.slice(0, 20).map((article, idx) => (
+        {articles.slice(0, 20).map((article, idx) => (
           <motion.div
             key={article.id}
             initial={{ opacity: 0, y: 8 }}
@@ -875,25 +928,23 @@ function NewsTab({ politicianName }: { politicianName: string }) {
             className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-surface-elevated cursor-pointer"
             onClick={() => article.url && window.open(article.url, "_blank")}
           >
-            <div className="flex items-start gap-3">
-              {article.imageUrl && (
-                <img src={article.imageUrl} alt="" className="h-16 w-24 shrink-0 rounded-lg object-cover" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  {article.category && (
-                    <Badge variant="outline" className="text-[10px]">{article.category}</Badge>
-                  )}
-                  <span className="font-body text-[10px] text-muted-foreground">{article.source}</span>
-                  <span className="font-body text-[10px] text-muted-foreground">{article.date}</span>
-                </div>
-                <p className="font-display text-sm font-bold text-headline line-clamp-2">{article.title}</p>
-                <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{article.summary}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-body text-[10px] text-muted-foreground">{article.source}</span>
+                <span className="font-body text-[10px] text-muted-foreground">{article.date}</span>
               </div>
+              <p className="font-display text-sm font-bold text-headline line-clamp-2">{article.title}</p>
+              {article.summary && (
+                <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{article.summary}</p>
+              )}
             </div>
           </motion.div>
         ))}
       </div>
+
+      <p className="font-body text-[10px] text-muted-foreground/60 italic">
+        News sourced from Google News RSS. Results may vary.
+      </p>
     </div>
   );
 }

@@ -38,16 +38,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { chamber, legislatorName } = await req.json().catch(() => ({}));
-    console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}`);
+    const { chamber, legislatorName, jurisdiction = 'Nevada', stateAbbr = 'nv' } = await req.json().catch(() => ({}));
+    console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}, jurisdiction=${jurisdiction}`);
 
     const headers = { 'X-API-KEY': apiKey };
-    const jurisdiction = 'ocd-jurisdiction/country:us/state:nv/government';
+    const ocdJurisdiction = stateAbbr === 'dc'
+      ? 'ocd-jurisdiction/country:us/district:dc/government'
+      : `ocd-jurisdiction/country:us/state:${stateAbbr.toLowerCase()}/government`;
 
     // Fetch committees by chamber to correctly label them
     const buildUrl = (ch?: string) => {
       const url = new URL('https://v3.openstates.org/committees');
-      url.searchParams.set('jurisdiction', jurisdiction);
+      url.searchParams.set('jurisdiction', ocdJurisdiction);
       url.searchParams.set('per_page', '20');
       url.searchParams.set('include', 'memberships');
       if (ch) url.searchParams.set('chamber', ch);
@@ -109,7 +111,7 @@ Deno.serve(async (req) => {
     committees.sort((a: any, b: any) => a.name.localeCompare(b.name));
 
     // Fetch session info for bills
-    const sessionsUrl = `https://v3.openstates.org/jurisdictions/${jurisdiction}`;
+    const sessionsUrl = `https://v3.openstates.org/jurisdictions/${ocdJurisdiction}`;
     let currentSession = '';
     try {
       const sessResp = await fetch(sessionsUrl, { headers });
@@ -129,7 +131,7 @@ Deno.serve(async (req) => {
     let recentBills: any[] = [];
     if (currentSession) {
       const billsUrl = new URL('https://v3.openstates.org/bills');
-      billsUrl.searchParams.set('jurisdiction', 'Nevada');
+      billsUrl.searchParams.set('jurisdiction', jurisdiction);
       billsUrl.searchParams.set('session', currentSession);
       billsUrl.searchParams.set('sort', 'updated_desc');
       billsUrl.searchParams.set('per_page', '20');

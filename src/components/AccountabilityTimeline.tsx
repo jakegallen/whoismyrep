@@ -20,6 +20,7 @@ interface AccountabilityTimelineProps {
   politicianName: string;
   chamber?: string;
   twitterHandle?: string;
+  jurisdiction?: string;
 }
 
 const typeConfig: Record<
@@ -56,11 +57,13 @@ const AccountabilityTimeline = ({
   politicianName,
   chamber,
   twitterHandle,
+  jurisdiction,
 }: AccountabilityTimelineProps) => {
   const { data, isLoading, error } = useAccountabilityTimeline(
     politicianName,
     chamber,
-    twitterHandle
+    twitterHandle,
+    jurisdiction
   );
   const [filter, setFilter] = useState<TimelineEvent["type"] | "all">("all");
   const [showAll, setShowAll] = useState(false);

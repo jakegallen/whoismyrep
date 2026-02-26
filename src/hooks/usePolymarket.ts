@@ -19,12 +19,12 @@ export interface PolymarketMarket {
   url: string | null;
 }
 
-export function usePolymarket(politicianName?: string) {
+export function usePolymarket(politicianName?: string, state?: string) {
   return useQuery<PolymarketMarket[]>({
-    queryKey: ["polymarket", politicianName],
+    queryKey: ["polymarket", politicianName, state],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-polymarket", {
-        body: { politicianName },
+        body: { politicianName, state },
       });
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch Polymarket data");

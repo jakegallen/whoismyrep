@@ -19,7 +19,7 @@ export default function PolymarketWidget({ politicianName }: Props) {
 
   if (error || !markets || markets.length === 0) return null;
 
-  const top = markets.slice(0, 2);
+  const top = markets.slice(0, 1);
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -37,9 +37,9 @@ export default function PolymarketWidget({ politicianName }: Props) {
         ))}
       </div>
 
-      {markets.length > 2 && (
+      {markets.length > 1 && (
         <p className="text-center font-body text-[11px] text-muted-foreground">
-          +{markets.length - 2} more markets
+          +{markets.length - 1} more markets
         </p>
       )}
     </div>

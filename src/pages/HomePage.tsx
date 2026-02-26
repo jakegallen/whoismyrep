@@ -31,17 +31,17 @@ const levelIcons: Record<string, typeof Landmark> = {
 };
 
 const levelStyles: Record<string, { bg: string; text: string; border: string }> = {
-  federal: { bg: "bg-[hsl(250,85%,65%/0.12)]", text: "text-[hsl(250,85%,65%)]", border: "border-[hsl(250,85%,65%/0.25)]" },
-  state: { bg: "bg-[hsl(210,80%,55%/0.12)]", text: "text-[hsl(210,80%,55%)]", border: "border-[hsl(210,80%,55%/0.25)]" },
-  county: { bg: "bg-[hsl(168,80%,55%/0.12)]", text: "text-[hsl(168,80%,55%)]", border: "border-[hsl(168,80%,55%/0.25)]" },
-  local: { bg: "bg-[hsl(43,90%,55%/0.12)]", text: "text-[hsl(43,90%,55%)]", border: "border-[hsl(43,90%,55%/0.25)]" },
+  federal: { bg: "bg-[hsl(217,72%,42%/0.12)]", text: "text-[hsl(217,72%,42%)]", border: "border-[hsl(217,72%,42%/0.25)]" },
+  state: { bg: "bg-[hsl(0,68%,48%/0.12)]", text: "text-[hsl(0,68%,48%)]", border: "border-[hsl(0,68%,48%/0.25)]" },
+  county: { bg: "bg-[hsl(220,20%,45%/0.12)]", text: "text-[hsl(220,20%,45%)]", border: "border-[hsl(220,20%,45%/0.25)]" },
+  local: { bg: "bg-[hsl(43,90%,48%/0.12)]", text: "text-[hsl(43,90%,48%)]", border: "border-[hsl(43,90%,48%/0.25)]" },
 };
 
 const partyDot: Record<string, string> = {
-  Democrat: "bg-[hsl(210,80%,55%)]",
-  Democratic: "bg-[hsl(210,80%,55%)]",
-  Republican: "bg-[hsl(0,72%,51%)]",
-  Independent: "bg-[hsl(43,90%,55%)]",
+  Democrat: "bg-[hsl(217,72%,48%)]",
+  Democratic: "bg-[hsl(217,72%,48%)]",
+  Republican: "bg-[hsl(0,68%,48%)]",
+  Independent: "bg-[hsl(43,90%,48%)]",
   Nonpartisan: "bg-muted-foreground",
 };
 
@@ -92,8 +92,8 @@ const HomePage = () => {
       <section className="relative overflow-hidden">
         {/* Background glow effects */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[hsl(250,85%,65%/0.08)] blur-[120px]" />
-          <div className="absolute right-0 top-32 h-[400px] w-[400px] rounded-full bg-[hsl(168,80%,55%/0.05)] blur-[100px]" />
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[hsl(217,72%,42%/0.08)] blur-[120px]" />
+          <div className="absolute right-0 top-32 h-[400px] w-[400px] rounded-full bg-[hsl(0,68%,48%/0.05)] blur-[100px]" />
         </div>
 
         <div className="container relative mx-auto px-4 pb-10 pt-8 md:pt-14">

@@ -49,7 +49,7 @@ export default function PolymarketWidget({ politicianName }: Props) {
 function MarketRow({ market }: { market: PolymarketMarket }) {
   const yesColor =
     market.yesPercent !== null && market.yesPercent >= 60
-      ? "text-[hsl(142,71%,45%)]"
+      ? "text-[hsl(217,72%,48%)]"
       : market.yesPercent !== null && market.yesPercent <= 30
         ? "text-destructive"
         : "text-foreground";
@@ -68,7 +68,7 @@ function MarketRow({ market }: { market: PolymarketMarket }) {
         <div className="mt-1.5 flex items-center gap-3">
           {market.yesPercent !== null && (
             <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-[hsl(142,71%,45%)]" />
+              <div className="h-2 w-2 rounded-full bg-[hsl(217,72%,48%)]" />
               <span className={`font-mono text-xs font-bold ${yesColor}`}>
                 {market.yesPercent}%
               </span>

@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import {
   MapPin,
   Search,
-  ArrowRight,
   Landmark,
   Building2,
   Building,
@@ -19,9 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
-import { useCivicReps, type CivicGroup, type CivicRep } from "@/hooks/useCivicReps";
+import { useCivicReps, type CivicRep } from "@/hooks/useCivicReps";
 import DistrictDashboard from "@/components/DistrictDashboard";
-import { nevadaPoliticians } from "@/lib/politicians";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -46,9 +44,10 @@ const partyDot: Record<string, string> = {
 };
 
 const EXAMPLE_ADDRESSES = [
+  "1600 Pennsylvania Ave NW, Washington, DC",
   "1600 Las Vegas Blvd S, Las Vegas, NV",
-  "200 S Virginia St, Reno, NV",
-  "240 Water St, Henderson, NV",
+  "200 N Spring St, Los Angeles, CA",
+  "100 State St, Albany, NY",
 ];
 
 const STATS = [
@@ -76,15 +75,6 @@ const HomePage = () => {
     if (e.key === "Enter") handleSearch();
   };
 
-  // Match civic reps to politician profiles for linking
-  const findPoliticianId = (rep: CivicRep) => {
-    const match = nevadaPoliticians.find(
-      (p) => p.name.toLowerCase() === rep.name.toLowerCase() ||
-        rep.name.toLowerCase().includes(p.name.split(" ").pop()?.toLowerCase() || "___")
-    );
-    return match?.id;
-  };
-
   return (
     <div className="min-h-screen bg-background">
 
@@ -106,7 +96,7 @@ const HomePage = () => {
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated px-4 py-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               <span className="font-body text-xs text-muted-foreground">
-                Nevada's most comprehensive rep tracker
+                Nevada's most comprehensive rep tracker → now nationwide
               </span>
             </div>
 
@@ -117,7 +107,7 @@ const HomePage = () => {
             </h1>
 
             <p className="mx-auto mt-4 max-w-xl font-body text-base text-secondary-custom">
-              Enter your address to instantly find your representatives at every level — federal, state, county, and local — with voting records, campaign finance, and more.
+              Enter your address to instantly find your representatives at every level — federal, state, county, and local — with voting records, campaign finance, and more. Works for any U.S. address.
             </p>
 
             {/* Search bar */}
@@ -134,7 +124,7 @@ const HomePage = () => {
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Enter your Nevada address…"
+                    placeholder="Enter your U.S. address…"
                     className="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
                   />
                 </div>
@@ -241,7 +231,6 @@ const HomePage = () => {
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       {group.representatives.map((rep, ri) => {
-                        const politicianId = findPoliticianId(rep);
                         const dot = partyDot[rep.party] || partyDot.Nonpartisan;
 
                         return (
@@ -250,13 +239,7 @@ const HomePage = () => {
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: gi * 0.1 + ri * 0.05 }}
-                            className={`group relative rounded-xl border ${style.border} bg-card p-4 transition-colors hover:bg-surface-hover ${politicianId ? "cursor-pointer" : ""}`}
-                            onClick={() => {
-                              if (politicianId) {
-                                const pol = nevadaPoliticians.find((p) => p.id === politicianId);
-                                navigate(`/politicians/${politicianId}`, { state: { politician: pol } });
-                              }
-                            }}
+                            className={`group relative rounded-xl border ${style.border} bg-card p-4 transition-colors hover:bg-surface-hover`}
                           >
                             <div className="flex items-start gap-3">
                               {rep.photoUrl ? (
@@ -281,8 +264,10 @@ const HomePage = () => {
                                 <p className="font-body text-xs text-muted-foreground">{rep.office}</p>
                                 <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{rep.party}</p>
                               </div>
-                              {politicianId && (
-                                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                              {rep.website && (
+                                <a href={rep.website} target="_blank" rel="noopener noreferrer" className="mt-1 shrink-0">
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                                </a>
                               )}
                             </div>
                           </motion.div>
@@ -306,65 +291,32 @@ const HomePage = () => {
           <div className="mx-auto max-w-4xl">
             <div className="mb-8 text-center">
               <h2 className="font-display text-2xl font-bold text-headline">
-                Featured Representatives
+                How It Works
               </h2>
               <p className="mt-2 font-body text-sm text-muted-foreground">
-                Explore profiles of Nevada's key elected officials
+                Find your representatives anywhere in the United States
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {nevadaPoliticians
-                .filter((p) => p.level === "federal")
-                .slice(0, 6)
-                .map((pol, i) => {
-                  const style = levelStyles[pol.level];
-                  const dot = partyDot[pol.party] || partyDot.Nonpartisan;
-
-                  return (
-                    <motion.div
-                      key={pol.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      onClick={() => navigate(`/politicians/${pol.id}`, { state: { politician: pol } })}
-                      className="group cursor-pointer rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-hover"
-                    >
-                      <div className="flex items-start gap-3">
-                        {pol.imageUrl ? (
-                          <img
-                            src={pol.imageUrl}
-                            alt={pol.name}
-                            className="h-12 w-12 rounded-lg object-cover"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          />
-                        ) : (
-                          <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${style.bg}`}>
-                            <Landmark className={`h-5 w-5 ${style.text}`} />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-display text-sm font-bold text-headline">{pol.name}</h4>
-                            <div className={`h-2 w-2 rounded-full ${dot}`} />
-                          </div>
-                          <p className="font-body text-xs text-muted-foreground">{pol.title}</p>
-                          <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{pol.party}</p>
-                        </div>
-                        <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-            </div>
-            <div className="mt-6 text-center">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/politicians")}
-                className="gap-2"
-              >
-                View all representatives
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+            <div className="grid gap-6 sm:grid-cols-3">
+              {[
+                { icon: MapPin, title: "Enter Your Address", desc: "Type any U.S. address — we'll identify your federal, state, and local districts." },
+                { icon: Users, title: "See Your Reps", desc: "Get a complete list of your elected officials from Congress down to city council." },
+                { icon: FileText, title: "Dig Deeper", desc: "Explore voting records, campaign finance, sponsored bills, and more for each rep." },
+              ].map((step, i) => (
+                <motion.div
+                  key={step.title}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="rounded-xl border border-border bg-card p-6 text-center"
+                >
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                    <step.icon className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="font-display text-sm font-bold text-headline">{step.title}</h3>
+                  <p className="mt-2 font-body text-xs text-muted-foreground">{step.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
@@ -374,7 +326,7 @@ const HomePage = () => {
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="font-body text-xs text-muted-foreground">
-            © {new Date().getFullYear()} WhoIsMyRep.us — Nevada Political Transparency Platform
+            © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform
           </p>
         
         </div>

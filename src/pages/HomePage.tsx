@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
 import { useCivicReps, type CivicGroup, type CivicRep } from "@/hooks/useCivicReps";
+import DistrictDashboard from "@/components/DistrictDashboard";
 import { nevadaPoliticians } from "@/lib/politicians";
 
 const levelIcons: Record<string, typeof Landmark> = {
@@ -293,6 +294,9 @@ const HomePage = () => {
               })}
             </div>
           </motion.div>
+
+          {/* District Dashboard */}
+          <DistrictDashboard address={address} voterInfo={voterInfo} />
         </section>
       )}
 

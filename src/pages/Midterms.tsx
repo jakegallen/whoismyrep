@@ -12,6 +12,7 @@ import {
   ChevronUp,
   DollarSign,
   Star,
+  BarChart3,
 } from "lucide-react";
 import {
   midtermRaces,
@@ -24,6 +25,8 @@ import {
 } from "@/lib/midterms";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { PollingSection } from "@/components/PollingWidgets";
+import { approvalRatings, racePolling } from "@/lib/pollingData";
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Helpers                                                     */
@@ -333,6 +336,9 @@ const Midterms = () => {
             <TabsTrigger value="matchups" className="gap-1.5 font-body text-sm">
               <TrendingUp className="h-4 w-4" /> Matchups
             </TabsTrigger>
+            <TabsTrigger value="polling" className="gap-1.5 font-body text-sm">
+              <BarChart3 className="h-4 w-4" /> Polling
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Races ── */}
@@ -362,7 +368,15 @@ const Midterms = () => {
           {/* ── Matchups ── */}
           <TabsContent value="matchups" className="space-y-4">
             <h2 className="mb-4 font-display text-xl font-bold text-headline">Head-to-Head Matchups</h2>
-            {candidateMatchups.map((m, i) => <MatchupCard key={m.raceId} matchup={m} index={i} />)}
+          {candidateMatchups.map((m, i) => <MatchupCard key={m.raceId} matchup={m} index={i} />)}
+          </TabsContent>
+
+          {/* ── Polling ── */}
+          <TabsContent value="polling">
+            <PollingSection
+              approvalRatings={approvalRatings}
+              racePolling={racePolling}
+            />
           </TabsContent>
         </Tabs>
       </main>

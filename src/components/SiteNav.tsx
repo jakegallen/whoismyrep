@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 export default function SiteNav() {
   return (
@@ -15,6 +16,7 @@ export default function SiteNav() {
             <span className="text-gradient-brand">.ai</span>
           </span>
         </Link>
+        <ThemeToggle />
       </div>
     </nav>
   );

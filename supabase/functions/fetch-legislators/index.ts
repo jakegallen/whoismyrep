@@ -17,10 +17,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { chamber, search, page = 1, per_page = 100 } = await req.json().catch(() => ({}));
+    const { chamber, search, page = 1, per_page = 100, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
     const params = new URLSearchParams({
-      jurisdiction: 'Nevada',
+      jurisdiction,
       per_page: String(per_page),
       page: String(page),
     });
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
         name: person.name,
         title: `${title}, District ${district}`,
         party: party === 'Democratic' ? 'Democrat' : party,
-        office: `Nevada ${chamber}`,
+        office: `${jurisdiction} ${chamber}`,
         region: `District ${district}`,
         level: 'state' as const,
         imageUrl: person.image || undefined,

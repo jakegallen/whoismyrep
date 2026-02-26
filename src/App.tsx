@@ -23,6 +23,7 @@ import FederalRegister from "./pages/FederalRegister";
 import CourtCases from "./pages/CourtCases";
 import LobbyingExplorer from "./pages/LobbyingExplorer";
 import NotFound from "./pages/NotFound";
+import StatePage from "./pages/StatePage";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/federal-register" element={<FederalRegister />} />
             <Route path="/court-cases" element={<CourtCases />} />
             <Route path="/lobbying" element={<LobbyingExplorer />} />
+            <Route path="/state/:abbr" element={<StatePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

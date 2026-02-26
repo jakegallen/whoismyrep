@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   MapPin,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
 import { useCivicReps, type CivicRep } from "@/hooks/useCivicReps";
 import DistrictDashboard from "@/components/DistrictDashboard";
+import { US_STATES } from "@/lib/usStates";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -322,13 +323,41 @@ const HomePage = () => {
         </section>
       )}
 
+      {/* ═══════ State Directory ═══════ */}
+      <section className="border-t border-border py-16">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-8 text-center">
+              <h2 className="font-display text-2xl font-bold text-headline">
+                Explore by State
+              </h2>
+              <p className="mt-2 font-body text-sm text-muted-foreground">
+                Browse legislators, bills, and district maps for all 50 states + D.C.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
+              {US_STATES.map((state) => (
+                <Link
+                  key={state.abbr}
+                  to={`/state/${state.abbr.toLowerCase()}`}
+                  className="flex flex-col items-center rounded-lg border border-border bg-card p-2.5 text-center transition-colors hover:border-primary/40 hover:bg-surface-hover"
+                >
+                  <span className="font-display text-sm font-bold text-headline">{state.abbr}</span>
+                  <span className="font-body text-[9px] text-muted-foreground leading-tight truncate w-full">{state.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="font-body text-xs text-muted-foreground">
             © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform
           </p>
-        
         </div>
       </footer>
     </div>

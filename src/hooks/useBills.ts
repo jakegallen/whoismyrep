@@ -118,3 +118,110 @@ export function useBillDetail(bill: Bill | null): UseBillDetailResult {
 
   return { summary, sponsors, status, rawContent, isLoading, error };
 }
+
+// --- Detailed bill data (roll calls, amendments, versions) from OpenStates ---
+
+export interface RollCallVote {
+  id: string;
+  date: string;
+  motion: string;
+  classification: string[];
+  result: "Passed" | "Failed";
+  chamber: string;
+  yesCount: number;
+  noCount: number;
+  otherCount: number;
+  yesVoters: string[];
+  noVoters: string[];
+  otherVoters: string[];
+  totalVoters: number;
+}
+
+export interface BillAction {
+  date: string;
+  description: string;
+  classification: string[];
+  organization: string;
+  chamber: string;
+}
+
+export interface BillVersion {
+  note: string;
+  date: string;
+  links: { url: string; mediaType: string }[];
+}
+
+export interface BillDocument {
+  note: string;
+  date: string;
+  links: { url: string; mediaType: string }[];
+}
+
+export interface BillSponsorDetail {
+  name: string;
+  classification: string;
+  primary: boolean;
+  entityType: string;
+}
+
+export interface BillDetailData {
+  rollCalls: RollCallVote[];
+  actions: BillAction[];
+  amendments: BillAction[];
+  versions: BillVersion[];
+  documents: BillDocument[];
+  sponsors: BillSponsorDetail[];
+  subject: string[];
+  abstracts: string[];
+}
+
+export function useBillOpenStatesDetail(bill: Bill | null) {
+  const [data, setData] = useState<BillDetailData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!bill) return;
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const { data: resp, error: fnError } = await supabase.functions.invoke("fetch-bill-detail", {
+          body: {
+            billId: bill.id.startsWith("ocd-bill") ? bill.id : undefined,
+            jurisdiction: "Nevada",
+            session: bill.session,
+            identifier: bill.billNumber,
+          },
+        });
+
+        if (cancelled) return;
+        if (fnError) throw new Error(fnError.message);
+        if (!resp?.success) throw new Error(resp?.error || "Failed to fetch bill detail");
+
+        setData({
+          rollCalls: resp.rollCalls || [],
+          actions: resp.actions || [],
+          amendments: resp.amendments || [],
+          versions: resp.versions || [],
+          documents: resp.documents || [],
+          sponsors: resp.sponsors || [],
+          subject: resp.subject || [],
+          abstracts: resp.abstracts || [],
+        });
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Failed to fetch bill detail:", e);
+        setError(e instanceof Error ? e.message : "Failed to fetch bill detail");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [bill]);
+
+  return { data, isLoading, error };
+}

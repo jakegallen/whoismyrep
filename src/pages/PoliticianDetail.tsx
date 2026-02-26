@@ -20,6 +20,10 @@ import {
   User,
   Building2,
   ScrollText,
+  CalendarDays,
+  Landmark,
+  Newspaper,
+  Flag,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +36,10 @@ import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
 import { useCommittees } from "@/hooks/useCommittees";
 import { useCongress } from "@/hooks/useCongress";
+import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
+import { useFederalRegister } from "@/hooks/useFederalRegister";
+import { useNevadaNews } from "@/hooks/useNevadaNews";
+import { midtermRaces, electionCalendar } from "@/lib/midterms";
 import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
 
@@ -43,6 +51,10 @@ const tabs = [
   { id: "finance", label: "Campaign Finance", icon: DollarSign },
   { id: "lobbying", label: "Lobbying", icon: Briefcase },
   { id: "court", label: "Court Cases", icon: Scale },
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
+  { id: "federal", label: "Federal Register", icon: Landmark },
+  { id: "news", label: "News", icon: Newspaper },
+  { id: "midterms", label: "2026 Midterms", icon: Flag },
   { id: "timeline", label: "Timeline", icon: Clock },
 ] as const;
 
@@ -222,6 +234,10 @@ const PoliticianDetail = () => {
             )}
             {activeTab === "lobbying" && <LobbyingTab politicianName={politician.name} />}
             {activeTab === "court" && <CourtCasesTab politicianName={politician.name} />}
+            {activeTab === "calendar" && <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} />}
+            {activeTab === "federal" && <FederalRegisterTab politicianName={politician.name} />}
+            {activeTab === "news" && <NewsTab politicianName={politician.name} />}
+            {activeTab === "midterms" && <MidtermsTab politician={politician} />}
             {activeTab === "timeline" && (
               <AccountabilityTimeline
                 politicianName={politician.name}
@@ -642,6 +658,313 @@ function CourtCasesTab({ politicianName }: { politicianName: string }) {
             </div>
           </motion.div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/*  Calendar Tab                               */
+/* ═══════════════════════════════════════════ */
+function CalendarTab({ politicianName, chamber }: { politicianName: string; chamber?: string }) {
+  const { data, isLoading, error } = useLegislativeCalendar();
+  const events = (data?.events || []).filter(
+    (e) =>
+      !chamber ||
+      e.chamber?.toLowerCase().includes(chamber.toLowerCase()) ||
+      e.name?.toLowerCase().includes(politicianName.split(" ").pop()?.toLowerCase() || "___")
+  );
+
+  const typeColors: Record<string, string> = {
+    hearing: "bg-[hsl(210,80%,55%/0.15)] text-[hsl(210,80%,55%)]",
+    committee: "bg-[hsl(168,80%,55%/0.15)] text-[hsl(168,80%,55%)]",
+    vote: "bg-[hsl(0,72%,51%/0.15)] text-[hsl(0,72%,51%)]",
+    session: "bg-[hsl(250,85%,65%/0.15)] text-[hsl(250,85%,65%)]",
+    other: "bg-surface-elevated text-muted-foreground",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <CalendarDays className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">Legislative Calendar</h2>
+        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{events.length} events</span>}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">Loading calendar...</span>
+        </div>
+      )}
+
+      {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
+
+      {!isLoading && events.length === 0 && !error && (
+        <p className="py-8 text-center font-body text-sm text-muted-foreground">No upcoming calendar events found for this representative's chamber.</p>
+      )}
+
+      <div className="space-y-3">
+        {events.slice(0, 20).map((event, idx) => (
+          <motion.div
+            key={event.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.03 }}
+            className="rounded-lg border border-border bg-card p-4"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`rounded px-1.5 py-0.5 font-body text-[10px] font-bold uppercase tracking-wider ${typeColors[event.type] || typeColors.other}`}>
+                {event.type}
+              </span>
+              <span className="font-body text-[10px] text-muted-foreground">{event.chamber}</span>
+            </div>
+            <p className="font-display text-sm font-bold text-headline">{event.name}</p>
+            {event.description && (
+              <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{event.description}</p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-3 font-body text-[10px] text-muted-foreground">
+              <span>Start: {new Date(event.startDate).toLocaleDateString()}</span>
+              {event.location && <span>📍 {event.location}</span>}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/*  Federal Register Tab                       */
+/* ═══════════════════════════════════════════ */
+function FederalRegisterTab({ politicianName }: { politicianName: string }) {
+  const { data, isLoading, error } = useFederalRegister("all", politicianName);
+  const documents = data?.documents || [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Landmark className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">Federal Register</h2>
+        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{data?.total ?? 0} documents</span>}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">Searching federal register...</span>
+        </div>
+      )}
+
+      {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
+
+      {!isLoading && documents.length === 0 && !error && (
+        <p className="py-8 text-center font-body text-sm text-muted-foreground">No federal register documents found mentioning this representative.</p>
+      )}
+
+      <div className="space-y-3">
+        {documents.slice(0, 20).map((doc, idx) => (
+          <motion.div
+            key={doc.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.03 }}
+            className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-surface-elevated cursor-pointer"
+            onClick={() => window.open(doc.url, "_blank")}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className="text-[10px]">{doc.type}</Badge>
+                  <span className="font-body text-[10px] text-muted-foreground">{doc.publicationDate}</span>
+                </div>
+                <p className="font-display text-sm font-bold text-headline line-clamp-2">{doc.title}</p>
+                {doc.abstract && (
+                  <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{doc.abstract}</p>
+                )}
+                {doc.agencies?.length > 0 && (
+                  <p className="mt-1 font-body text-[10px] text-muted-foreground">
+                    Agencies: {doc.agencies.slice(0, 3).join(", ")}
+                  </p>
+                )}
+              </div>
+              <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/*  News Tab                                   */
+/* ═══════════════════════════════════════════ */
+function NewsTab({ politicianName }: { politicianName: string }) {
+  const { news, isLoading, error } = useNevadaNews();
+  const lastName = politicianName.split(" ").pop()?.toLowerCase() || "";
+  const filtered = news.filter(
+    (n) =>
+      n.title?.toLowerCase().includes(lastName) ||
+      n.summary?.toLowerCase().includes(lastName) ||
+      n.source?.toLowerCase().includes(lastName)
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Newspaper className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">News Coverage</h2>
+        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{filtered.length} articles</span>}
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">Loading news...</span>
+        </div>
+      )}
+
+      {error && <ErrorBox message={error} />}
+
+      {!isLoading && filtered.length === 0 && !error && (
+        <p className="py-8 text-center font-body text-sm text-muted-foreground">No recent news articles found mentioning this representative.</p>
+      )}
+
+      <div className="space-y-3">
+        {filtered.slice(0, 20).map((article, idx) => (
+          <motion.div
+            key={article.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.03 }}
+            className="rounded-lg border border-border bg-card p-4 transition-colors hover:bg-surface-elevated cursor-pointer"
+            onClick={() => article.url && window.open(article.url, "_blank")}
+          >
+            <div className="flex items-start gap-3">
+              {article.imageUrl && (
+                <img src={article.imageUrl} alt="" className="h-16 w-24 shrink-0 rounded-lg object-cover" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  {article.category && (
+                    <Badge variant="outline" className="text-[10px]">{article.category}</Badge>
+                  )}
+                  <span className="font-body text-[10px] text-muted-foreground">{article.source}</span>
+                  <span className="font-body text-[10px] text-muted-foreground">{article.date}</span>
+                </div>
+                <p className="font-display text-sm font-bold text-headline line-clamp-2">{article.title}</p>
+                <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{article.summary}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/*  Midterms Tab                               */
+/* ═══════════════════════════════════════════ */
+function MidtermsTab({ politician }: { politician: Politician }) {
+  const relevantRaces = midtermRaces.filter(
+    (r) =>
+      r.incumbent?.toLowerCase() === politician.name.toLowerCase() ||
+      r.candidates.some((c) => c.name.toLowerCase() === politician.name.toLowerCase()) ||
+      (r.district && politician.region?.includes(r.district))
+  );
+
+  const partyColors: Record<string, string> = {
+    Democrat: "bg-[hsl(210,80%,55%/0.15)] text-[hsl(210,80%,55%)]",
+    Republican: "bg-[hsl(0,72%,51%/0.15)] text-[hsl(0,72%,51%)]",
+    Independent: "bg-[hsl(43,90%,55%/0.15)] text-[hsl(43,90%,55%)]",
+    Nonpartisan: "bg-surface-elevated text-muted-foreground",
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center gap-3">
+        <Flag className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">2026 Midterm Elections</h2>
+      </div>
+
+      {/* Relevant races */}
+      {relevantRaces.length > 0 ? (
+        <div className="space-y-4">
+          <h3 className="font-display text-lg font-semibold text-headline">Races Involving {politician.name}</h3>
+          {relevantRaces.map((race, idx) => (
+            <motion.div
+              key={race.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
+              className="rounded-xl border border-border bg-card p-5"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline" className="text-[10px]">{race.level}</Badge>
+                <Badge className={race.status === "Incumbent Running" ? "bg-[hsl(142,71%,45%/0.15)] text-[hsl(142,71%,45%)]" : "bg-surface-elevated text-muted-foreground"}>
+                  {race.status}
+                </Badge>
+              </div>
+              <p className="font-display text-base font-bold text-headline">{race.office}</p>
+              <p className="mt-1 font-body text-sm text-secondary-custom">{race.description}</p>
+
+              {race.candidates.length > 0 && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {race.candidates.map((c) => (
+                    <div key={c.name} className={`rounded-lg border border-border p-3 ${c.name.toLowerCase() === politician.name.toLowerCase() ? "ring-1 ring-primary" : ""}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-display text-sm font-bold text-headline">{c.name}</span>
+                        <Badge className={`text-[9px] ${partyColors[c.party] || partyColors.Nonpartisan}`}>{c.party}</Badge>
+                        {c.isIncumbent && <span className="font-body text-[9px] text-muted-foreground">Incumbent</span>}
+                      </div>
+                      <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{c.bio}</p>
+                      <div className="mt-2 flex gap-3 font-body text-[10px] text-muted-foreground">
+                        {c.polling != null && <span>Polling: {c.polling}%</span>}
+                        {c.raised != null && <span>Raised: ${(c.raised / 1_000_000).toFixed(1)}M</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <p className="py-6 text-center font-body text-sm text-muted-foreground">
+          No 2026 midterm races currently associated with {politician.name}.
+        </p>
+      )}
+
+      {/* Election calendar */}
+      <div>
+        <h3 className="mb-3 font-display text-lg font-semibold text-headline">Key Election Dates</h3>
+        <div className="space-y-2">
+          {electionCalendar.map((date, idx) => {
+            const typeColor: Record<string, string> = {
+              deadline: "border-l-[hsl(0,72%,51%)]",
+              primary: "border-l-[hsl(210,80%,55%)]",
+              general: "border-l-[hsl(250,85%,65%)]",
+              milestone: "border-l-[hsl(43,90%,55%)]",
+            };
+            return (
+              <motion.div
+                key={date.date}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                className={`rounded-lg border border-border border-l-4 ${typeColor[date.type] || ""} bg-card p-3`}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-display text-xs font-bold text-headline">{date.label}</span>
+                  <span className="font-body text-[10px] text-muted-foreground">{new Date(date.date).toLocaleDateString()}</span>
+                </div>
+                <p className="font-body text-xs text-secondary-custom">{date.description}</p>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

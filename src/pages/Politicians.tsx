@@ -89,11 +89,18 @@ const Politicians = () => {
                 <Users className="h-5 w-5 text-primary-foreground" />
               </div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-headline">
-                Nevada Politicians
+                Nevada Officials Directory
               </h1>
             </div>
             <p className="mt-2 max-w-xl font-body text-sm text-tertiary">
-              {nevadaPoliticians.length} elected officials from federal to local level. Click a profile for AI-powered analysis.
+              {nevadaPoliticians.length} Nevada elected officials from federal to local level. Click a profile for AI-powered analysis.
+            </p>
+            <p className="mt-1 max-w-xl font-body text-xs text-muted-foreground">
+              Looking for officials in another state?{" "}
+              <button onClick={() => navigate("/")} className="text-primary underline underline-offset-2 hover:text-primary/80">
+                Use the address lookup
+              </button>{" "}
+              to find your representatives anywhere in the U.S.
             </p>
 
             {/* Tab switcher */}

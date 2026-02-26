@@ -41,7 +41,7 @@ import { useCongress } from "@/hooks/useCongress";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import { useFederalRegister } from "@/hooks/useFederalRegister";
 
-import { midtermRaces, electionCalendar } from "@/lib/midterms";
+// midterms data is now AI-generated per politician
 import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
 import { nevadaPoliticians } from "@/lib/politicians";
@@ -953,104 +953,73 @@ function NewsTab({ politicianName }: { politicianName: string }) {
 /*  Midterms Tab                               */
 /* ═══════════════════════════════════════════ */
 function MidtermsTab({ politician }: { politician: RepProfile }) {
-  const relevantRaces = midtermRaces.filter(
-    (r) =>
-      r.incumbent?.toLowerCase() === politician.name.toLowerCase() ||
-      r.candidates.some((c) => c.name.toLowerCase() === politician.name.toLowerCase()) ||
-      (r.district && politician.region?.includes(r.district))
-  );
+  const [analysis, setAnalysis] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const partyColors: Record<string, string> = {
-    Democrat: "bg-[hsl(210,80%,55%/0.15)] text-[hsl(210,80%,55%)]",
-    Republican: "bg-[hsl(0,72%,51%/0.15)] text-[hsl(0,72%,51%)]",
-    Independent: "bg-[hsl(43,90%,55%/0.15)] text-[hsl(43,90%,55%)]",
-    Nonpartisan: "bg-surface-elevated text-muted-foreground",
-  };
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const prompt = `${politician.name} is a ${politician.party} serving as ${politician.title} in ${politician.jurisdiction || politician.region || "the United States"}.`;
+        const { data, error: fnError } = await supabase.functions.invoke("analyze-article", {
+          body: {
+            url: `https://www.google.com/search?q=${encodeURIComponent(politician.name + " 2026 midterm election")}`,
+            title: `${politician.name} — 2026 Midterm Election Outlook`,
+            summary: prompt,
+            category: "election",
+          },
+        });
+        if (cancelled) return;
+        if (fnError) throw new Error(fnError.message);
+        if (!data?.success) throw new Error(data?.error || "Failed to generate analysis");
+        setAnalysis(data.analysis);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Midterms analysis error:", e);
+        setError(e instanceof Error ? e.message : "Failed to load election context");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [politician.name, politician.party, politician.title, politician.jurisdiction, politician.region]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Flag className="h-5 w-5 text-primary" />
         <h2 className="font-display text-xl font-bold text-headline">2026 Midterm Elections</h2>
       </div>
 
-      {/* Relevant races */}
-      {relevantRaces.length > 0 ? (
-        <div className="space-y-4">
-          <h3 className="font-display text-lg font-semibold text-headline">Races Involving {politician.name}</h3>
-          {relevantRaces.map((race, idx) => (
-            <motion.div
-              key={race.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              className="rounded-xl border border-border bg-card p-5"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="text-[10px]">{race.level}</Badge>
-                <Badge className={race.status === "Incumbent Running" ? "bg-[hsl(142,71%,45%/0.15)] text-[hsl(142,71%,45%)]" : "bg-surface-elevated text-muted-foreground"}>
-                  {race.status}
-                </Badge>
-              </div>
-              <p className="font-display text-base font-bold text-headline">{race.office}</p>
-              <p className="mt-1 font-body text-sm text-secondary-custom">{race.description}</p>
+      {isLoading && <AnalysisSkeleton />}
 
-              {race.candidates.length > 0 && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {race.candidates.map((c) => (
-                    <div key={c.name} className={`rounded-lg border border-border p-3 ${c.name.toLowerCase() === politician.name.toLowerCase() ? "ring-1 ring-primary" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-display text-sm font-bold text-headline">{c.name}</span>
-                        <Badge className={`text-[9px] ${partyColors[c.party] || partyColors.Nonpartisan}`}>{c.party}</Badge>
-                        {c.isIncumbent && <span className="font-body text-[9px] text-muted-foreground">Incumbent</span>}
-                      </div>
-                      <p className="mt-1 font-body text-xs text-secondary-custom line-clamp-2">{c.bio}</p>
-                      <div className="mt-2 flex gap-3 font-body text-[10px] text-muted-foreground">
-                        {c.polling != null && <span>Polling: {c.polling}%</span>}
-                        {c.raised != null && <span>Raised: ${(c.raised / 1_000_000).toFixed(1)}M</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          ))}
-        </div>
-      ) : (
-        <p className="py-6 text-center font-body text-sm text-muted-foreground">
-          No 2026 midterm races currently associated with {politician.name}.
-        </p>
+      {error && <ErrorBox message={error} />}
+
+      {!isLoading && !error && analysis && (
+        <article className="prose-sm max-w-none">
+          <ReactMarkdown
+            components={{
+              h2: ({ children }) => <h2 className="mb-3 mt-8 font-display text-xl font-bold text-headline first:mt-0">{children}</h2>,
+              h3: ({ children }) => <h3 className="mb-2 mt-6 font-display text-lg font-semibold text-headline">{children}</h3>,
+              p: ({ children }) => <p className="mb-4 font-body text-sm leading-relaxed text-secondary-custom">{children}</p>,
+              ul: ({ children }) => <ul className="mb-4 ml-5 list-disc space-y-1.5 font-body text-sm text-secondary-custom">{children}</ul>,
+              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+              strong: ({ children }) => <strong className="font-semibold text-headline">{children}</strong>,
+            }}
+          >
+            {analysis}
+          </ReactMarkdown>
+        </article>
       )}
 
-      {/* Election calendar */}
-      <div>
-        <h3 className="mb-3 font-display text-lg font-semibold text-headline">Key Election Dates</h3>
-        <div className="space-y-2">
-          {electionCalendar.map((date, idx) => {
-            const typeColor: Record<string, string> = {
-              deadline: "border-l-[hsl(0,72%,51%)]",
-              primary: "border-l-[hsl(210,80%,55%)]",
-              general: "border-l-[hsl(250,85%,65%)]",
-              milestone: "border-l-[hsl(43,90%,55%)]",
-            };
-            return (
-              <motion.div
-                key={date.date}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.04 }}
-                className={`rounded-lg border border-border border-l-4 ${typeColor[date.type] || ""} bg-card p-3`}
-              >
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-display text-xs font-bold text-headline">{date.label}</span>
-                  <span className="font-body text-[10px] text-muted-foreground">{new Date(date.date).toLocaleDateString()}</span>
-                </div>
-                <p className="font-body text-xs text-secondary-custom">{date.description}</p>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+      <p className="font-body text-[10px] text-muted-foreground/60 italic">
+        Election outlook generated by AI analysis. Verify details with official sources.
+      </p>
     </div>
   );
 }

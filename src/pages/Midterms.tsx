@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -13,45 +13,69 @@ import {
   DollarSign,
   Star,
   BarChart3,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import {
-  midtermRaces,
-  electionCalendar,
-  candidateMatchups,
-  type MidtermRace,
-  type MidtermCandidate,
-  type ElectionDate,
-  type CandidateMatchup,
-} from "@/lib/midterms";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { PollingSection } from "@/components/PollingWidgets";
-import { approvalRatings, racePolling } from "@/lib/pollingData";
+import { US_STATES } from "@/lib/usStates";
+import { useLegislators, type Legislator } from "@/hooks/useLegislators";
+
+/* ──────────────────────────────────────────────────────────── */
+/*  Types                                                       */
+/* ──────────────────────────────────────────────────────────── */
+
+interface MidtermRace {
+  id: string;
+  office: string;
+  level: "Federal" | "State";
+  type: "Senate" | "House" | "Governor" | "State Legislature";
+  district?: string;
+  description: string;
+  status: "Open Seat" | "Incumbent Running" | "Contested Primary";
+  incumbent?: string;
+  incumbentParty?: string;
+  candidates: { name: string; party: string; isIncumbent?: boolean; bio: string }[];
+}
+
+interface ElectionDate {
+  date: string;
+  label: string;
+  description: string;
+  type: "deadline" | "primary" | "general" | "milestone";
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/*  General election calendar (nationwide, not state-specific)  */
+/* ──────────────────────────────────────────────────────────── */
+
+const electionCalendar: ElectionDate[] = [
+  { date: "2026-01-15", label: "Voter Registration Drives Begin", description: "Statewide voter registration pushes begin across multiple states.", type: "milestone" },
+  { date: "2026-03-01", label: "Early Filing Deadlines", description: "Candidate filing deadlines begin in early primary states.", type: "deadline" },
+  { date: "2026-05-01", label: "Primary Season Begins", description: "State primaries begin across the country (dates vary by state).", type: "primary" },
+  { date: "2026-08-15", label: "Primary Season Ends", description: "Final state primaries conclude, nominees confirmed.", type: "primary" },
+  { date: "2026-10-01", label: "Voter Registration Deadlines", description: "Voter registration deadlines begin in most states (varies).", type: "deadline" },
+  { date: "2026-10-15", label: "Early Voting Begins", description: "Early in-person voting starts in states that offer it.", type: "general" },
+  { date: "2026-11-03", label: "General Election Day", description: "2026 midterm general election across the United States.", type: "general" },
+];
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Helpers                                                     */
 /* ──────────────────────────────────────────────────────────── */
 
 const partyColor = (p: string) =>
-  p === "Democrat"
+  p === "Democrat" || p === "Democratic"
     ? "hsl(210,80%,55%)"
     : p === "Republican"
       ? "hsl(var(--primary))"
       : "hsl(var(--gold))";
 
 const partyBg = (p: string) =>
-  p === "Democrat"
+  p === "Democrat" || p === "Democratic"
     ? "bg-[hsl(210,80%,55%)]/15 text-[hsl(210,80%,55%)]"
     : p === "Republican"
       ? "bg-primary/15 text-primary"
       : "bg-[hsl(43,90%,55%)]/15 text-[hsl(43,90%,55%)]";
-
-const statusColor = (s: string) =>
-  s === "Open Seat"
-    ? "bg-[hsl(43,90%,55%)]/15 text-[hsl(43,90%,55%)]"
-    : s === "Incumbent Running"
-      ? "bg-[hsl(142,71%,45%)]/15 text-[hsl(142,71%,45%)]"
-      : "bg-primary/15 text-primary";
 
 const dateTypeColor = (t: ElectionDate["type"]) => {
   switch (t) {
@@ -62,9 +86,6 @@ const dateTypeColor = (t: ElectionDate["type"]) => {
   }
 };
 
-const fmt = (n: number) =>
-  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(1)}M` : `$${(n / 1_000).toFixed(0)}K`;
-
 const fmtDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
@@ -74,114 +95,10 @@ const isPast = (iso: string) => new Date(iso) < new Date();
 /*  Sub-components                                              */
 /* ──────────────────────────────────────────────────────────── */
 
-function RaceCard({ race, index }: { race: MidtermRace; index: number }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.06 }}
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-card"
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-surface-elevated"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-elevated">
-            {race.type === "Senate" ? <Award className="h-4 w-4 text-[hsl(43,90%,55%)]" /> :
-             race.type === "Governor" ? <Star className="h-4 w-4 text-primary" /> :
-             <Flag className="h-4 w-4 text-[hsl(210,80%,55%)]" />}
-          </div>
-          <div>
-            <h3 className="font-display text-base font-bold text-headline">{race.office}</h3>
-            <span className="font-body text-xs text-tertiary">{race.level}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`rounded-full px-2.5 py-0.5 font-body text-[11px] font-semibold ${statusColor(race.status)}`}>
-            {race.status}
-          </span>
-          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-border px-5 py-4 space-y-4">
-          <p className="font-body text-sm text-secondary-custom leading-relaxed">{race.description}</p>
-
-          {race.incumbent && (
-            <div className="flex items-center gap-2">
-              <span className="font-body text-xs text-muted-foreground">Incumbent:</span>
-              <span className="font-body text-sm font-semibold text-foreground">{race.incumbent}</span>
-              <span className={`rounded-full px-2 py-0.5 font-body text-[10px] font-bold ${partyBg(race.incumbentParty || "")}`}>
-                {race.incumbentParty}
-              </span>
-            </div>
-          )}
-
-          {race.candidates.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="font-body text-xs font-semibold uppercase tracking-wider text-muted-foreground">Candidates</h4>
-              {race.candidates.map((c) => (
-                <CandidateRow key={c.name} candidate={c} />
-              ))}
-            </div>
-          )}
-
-          {race.candidates.length === 0 && (
-            <p className="font-body text-xs text-tertiary italic">No declared candidates yet.</p>
-          )}
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-function CandidateRow({ candidate: c }: { candidate: MidtermCandidate }) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg bg-surface-elevated p-3">
-      <div
-        className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: partyColor(c.party) }}
-      />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-body text-sm font-semibold text-foreground">{c.name}</span>
-          <span className={`rounded-full px-2 py-0.5 font-body text-[10px] font-bold ${partyBg(c.party)}`}>
-            {c.party}
-          </span>
-          {c.isIncumbent && (
-            <span className="rounded-full bg-[hsl(43,90%,55%)]/15 px-2 py-0.5 font-body text-[10px] font-bold text-[hsl(43,90%,55%)]">
-              Incumbent
-            </span>
-          )}
-        </div>
-        <p className="mt-1 font-body text-xs text-secondary-custom leading-relaxed">{c.bio}</p>
-        <div className="mt-2 flex items-center gap-4">
-          {c.polling !== undefined && (
-            <span className="flex items-center gap-1 font-body text-xs text-muted-foreground">
-              <TrendingUp className="h-3 w-3" /> {c.polling}%
-            </span>
-          )}
-          {c.raised !== undefined && (
-            <span className="flex items-center gap-1 font-body text-xs text-muted-foreground">
-              <DollarSign className="h-3 w-3" /> {fmt(c.raised)}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function CalendarTimeline() {
   return (
     <div className="relative space-y-0">
-      {/* vertical line */}
       <div className="absolute left-[18px] top-3 bottom-3 w-px bg-border" />
-
       {electionCalendar.map((evt, i) => {
         const past = isPast(evt.date);
         return (
@@ -211,73 +128,29 @@ function CalendarTimeline() {
   );
 }
 
-function MatchupCard({ matchup, index }: { matchup: CandidateMatchup; index: number }) {
-  const [a, b] = matchup.candidates;
-  const total = (a.polling || 0) + (b.polling || 0);
-
+function LegislatorCard({ legislator, index }: { legislator: Legislator; index: number }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.08 }}
-      className="overflow-hidden rounded-xl border border-border bg-card shadow-card"
+      transition={{ duration: 0.3, delay: index * 0.04 }}
+      className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
     >
-      <div className="px-5 py-4">
-        <h3 className="font-display text-base font-bold text-headline">{matchup.raceLabel}</h3>
-        {matchup.latestPoll && (
-          <p className="mt-0.5 font-body text-[11px] text-tertiary">
-            Poll: {matchup.latestPoll.source} · {fmtDate(matchup.latestPoll.date)}
-          </p>
-        )}
-      </div>
-
-      <div className="border-t border-border px-5 py-4 space-y-4">
-        {/* Polling bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between font-body text-xs font-semibold">
-            <span style={{ color: partyColor(a.party) }}>{a.name} — {a.polling}%</span>
-            <span style={{ color: partyColor(b.party) }}>{b.polling}% — {b.name}</span>
-          </div>
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-l-full transition-all"
-              style={{ width: `${total ? ((a.polling || 0) / total) * 100 : 50}%`, backgroundColor: partyColor(a.party) }}
-            />
-            <div
-              className="h-full rounded-r-full transition-all"
-              style={{ width: `${total ? ((b.polling || 0) / total) * 100 : 50}%`, backgroundColor: partyColor(b.party) }}
-            />
-          </div>
+      {legislator.imageUrl ? (
+        <img src={legislator.imageUrl} alt={legislator.name} className="h-10 w-10 rounded-full object-cover bg-surface-elevated" loading="lazy" />
+      ) : (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
+          {legislator.name.split(" ").map((n) => n[0]).join("")}
         </div>
-
-        {/* Funds comparison */}
-        {a.raised !== undefined && b.raised !== undefined && (
-          <div className="space-y-1">
-            <span className="font-body text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Funds Raised</span>
-            <div className="flex justify-between font-body text-sm font-semibold text-foreground">
-              <span>{fmt(a.raised)}</span>
-              <span>{fmt(b.raised)}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Bios side by side */}
-        <div className="grid grid-cols-2 gap-3">
-          {[a, b].map((c) => (
-            <div key={c.name} className="rounded-lg bg-surface-elevated p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: partyColor(c.party) }} />
-                <span className="font-body text-xs font-semibold text-foreground">{c.name}</span>
-              </div>
-              {c.isIncumbent && (
-                <span className="inline-block mb-1 rounded-full bg-[hsl(43,90%,55%)]/15 px-2 py-0.5 font-body text-[10px] font-bold text-[hsl(43,90%,55%)]">
-                  Incumbent
-                </span>
-              )}
-              <p className="font-body text-[11px] text-tertiary leading-relaxed">{c.bio}</p>
-            </div>
-          ))}
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-body text-sm font-semibold text-foreground truncate">{legislator.name}</span>
+          <span className={`rounded-full px-2 py-0.5 font-body text-[10px] font-bold ${partyBg(legislator.party)}`}>
+            {legislator.party.charAt(0)}
+          </span>
         </div>
+        <p className="font-body text-xs text-muted-foreground truncate">{legislator.title}</p>
       </div>
     </motion.div>
   );
@@ -288,8 +161,11 @@ function MatchupCard({ matchup, index }: { matchup: CandidateMatchup; index: num
 /* ──────────────────────────────────────────────────────────── */
 
 const Midterms = () => {
-  const federalRaces = midtermRaces.filter((r) => r.level === "Federal");
-  const stateRaces = midtermRaces.filter((r) => r.level === "State");
+  const [selectedState, setSelectedState] = useState("California");
+  const { legislators, isLoading, error } = useLegislators(undefined, selectedState);
+
+  const senateLegislators = legislators.filter((l) => l.chamber === "Senate");
+  const assemblyLegislators = legislators.filter((l) => l.chamber === "Assembly");
 
   return (
     <div className="min-h-screen bg-background">
@@ -315,7 +191,7 @@ const Midterms = () => {
                   2026 Midterm Elections
                 </h1>
                 <p className="font-body text-sm text-secondary-custom">
-                  Nevada races, key dates & head-to-head matchups
+                  Nationwide races, key dates & state legislators up for re-election
                 </p>
               </div>
             </div>
@@ -325,58 +201,88 @@ const Midterms = () => {
 
       {/* Content */}
       <main className="container mx-auto max-w-4xl px-4 py-8">
-        <Tabs defaultValue="races" className="w-full">
+        {/* State Selector */}
+        <div className="mb-6">
+          <label className="font-body text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
+            Browse legislators by state
+          </label>
+          <select
+            value={selectedState}
+            onChange={(e) => setSelectedState(e.target.value)}
+            className="w-full max-w-xs rounded-lg border border-border bg-card px-3 py-2 font-body text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            {US_STATES.filter(s => s.abbr !== "US").map((s) => (
+              <option key={s.abbr} value={s.name}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <Tabs defaultValue="legislators" className="w-full">
           <TabsList className="mb-6 w-full justify-start gap-1 bg-surface-elevated">
-            <TabsTrigger value="races" className="gap-1.5 font-body text-sm">
-              <Users className="h-4 w-4" /> Races
+            <TabsTrigger value="legislators" className="gap-1.5 font-body text-sm">
+              <Users className="h-4 w-4" /> State Legislators
             </TabsTrigger>
             <TabsTrigger value="calendar" className="gap-1.5 font-body text-sm">
               <Calendar className="h-4 w-4" /> Calendar
             </TabsTrigger>
-            <TabsTrigger value="matchups" className="gap-1.5 font-body text-sm">
-              <TrendingUp className="h-4 w-4" /> Matchups
-            </TabsTrigger>
-            <TabsTrigger value="polling" className="gap-1.5 font-body text-sm">
-              <BarChart3 className="h-4 w-4" /> Polling
-            </TabsTrigger>
           </TabsList>
 
-          {/* ── Races ── */}
-          <TabsContent value="races" className="space-y-6">
-            <section>
-              <h2 className="mb-4 font-display text-xl font-bold text-headline">Federal Races</h2>
-              <div className="space-y-3">
-                {federalRaces.map((r, i) => <RaceCard key={r.id} race={r} index={i} />)}
+          {/* ── Legislators ── */}
+          <TabsContent value="legislators" className="space-y-6">
+            {isLoading && (
+              <div className="flex items-center gap-2 py-12 justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="font-body text-sm text-muted-foreground">Loading legislators…</span>
               </div>
-            </section>
-            <section>
-              <h2 className="mb-4 font-display text-xl font-bold text-headline">State Races</h2>
-              <div className="space-y-3">
-                {stateRaces.map((r, i) => <RaceCard key={r.id} race={r} index={i} />)}
+            )}
+
+            {error && (
+              <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-5">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="font-body text-sm font-medium text-foreground">Couldn't load legislators</p>
+                  <p className="mt-1 font-body text-xs text-muted-foreground">{error}</p>
+                </div>
               </div>
-            </section>
+            )}
+
+            {!isLoading && !error && (
+              <>
+                {senateLegislators.length > 0 && (
+                  <section>
+                    <h2 className="mb-3 font-display text-lg font-bold text-headline">
+                      {selectedState} Senate ({senateLegislators.length})
+                    </h2>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {senateLegislators.map((l, i) => <LegislatorCard key={l.id} legislator={l} index={i} />)}
+                    </div>
+                  </section>
+                )}
+                {assemblyLegislators.length > 0 && (
+                  <section>
+                    <h2 className="mb-3 font-display text-lg font-bold text-headline">
+                      {selectedState} Assembly ({assemblyLegislators.length})
+                    </h2>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {assemblyLegislators.map((l, i) => <LegislatorCard key={l.id} legislator={l} index={i} />)}
+                    </div>
+                  </section>
+                )}
+                {legislators.length === 0 && (
+                  <p className="py-12 text-center font-body text-sm text-muted-foreground">
+                    No legislators found for {selectedState}. Try a different state.
+                  </p>
+                )}
+              </>
+            )}
           </TabsContent>
 
           {/* ── Calendar ── */}
           <TabsContent value="calendar">
-            <h2 className="mb-4 font-display text-xl font-bold text-headline">Election Calendar</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-headline">2026 Election Calendar</h2>
             <div className="rounded-xl border border-border bg-card p-5 shadow-card">
               <CalendarTimeline />
             </div>
-          </TabsContent>
-
-          {/* ── Matchups ── */}
-          <TabsContent value="matchups" className="space-y-4">
-            <h2 className="mb-4 font-display text-xl font-bold text-headline">Head-to-Head Matchups</h2>
-          {candidateMatchups.map((m, i) => <MatchupCard key={m.raceId} matchup={m} index={i} />)}
-          </TabsContent>
-
-          {/* ── Polling ── */}
-          <TabsContent value="polling">
-            <PollingSection
-              approvalRatings={approvalRatings}
-              racePolling={racePolling}
-            />
           </TabsContent>
         </Tabs>
       </main>

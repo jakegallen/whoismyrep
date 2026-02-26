@@ -31,7 +31,6 @@ import {
 import DashboardHeader from "@/components/DashboardHeader";
 import { useFECFinance, formatUSD, getSizeLabel } from "@/hooks/useFECFinance";
 import type { FECTotals } from "@/hooks/useFECFinance";
-import { nevadaPoliticians } from "@/lib/politicians";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PIE_COLORS = [
@@ -61,23 +60,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const CampaignFinanceExplorer = () => {
   const navigate = useNavigate();
-  // Pre-populate with federal politicians
-  const federalPoliticians = nevadaPoliticians.filter((p) => p.level === "federal");
-  const [selectedName, setSelectedName] = useState(federalPoliticians[0]?.name || "");
+  const [selectedName, setSelectedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCycle, setSelectedCycle] = useState<number | undefined>();
 
-  const office = federalPoliticians.find((p) => p.name === selectedName)?.office.includes("Senate")
-    ? "senate"
-    : "house";
-
-  const { data, isLoading, error } = useFECFinance(selectedName, undefined, office, selectedCycle);
+  const { data, isLoading, error } = useFECFinance(selectedName || undefined, undefined, undefined, selectedCycle);
 
   const currentTotals: FECTotals | undefined = data?.totals?.[0];
-
-  const filteredPoliticians = federalPoliticians.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,37 +94,36 @@ const CampaignFinanceExplorer = () => {
             </h1>
           </div>
           <p className="font-body text-sm text-tertiary mb-6">
-            Real FEC filings for Nevada's federal candidates — contributions, expenditures, and donor breakdowns.
+            Real FEC filings for federal candidates — search by name to explore contributions, expenditures, and donor breakdowns.
           </p>
 
-          {/* Politician selector */}
+          {/* Name search */}
           <div className="flex flex-col sm:flex-row gap-3 mb-8">
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search politicians..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 font-body text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-
-            <div className="flex gap-2 flex-wrap">
-              {filteredPoliticians.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedName(p.name)}
-                  className={`rounded-lg px-3 py-2 font-body text-xs font-medium transition-colors ${
-                    selectedName === p.name
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-surface-elevated text-foreground hover:bg-surface-hover"
-                  }`}
-                >
-                  {p.name.split(" ").pop()}
-                </button>
-              ))}
-            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) setSelectedName(searchQuery.trim());
+              }}
+              className="relative flex-1 max-w-sm flex gap-2"
+            >
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search candidate name (e.g. Nancy Pelosi)…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 font-body text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!searchQuery.trim()}
+                className="rounded-lg bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                Search
+              </button>
+            </form>
           </div>
 
           {/* Cycle selector */}

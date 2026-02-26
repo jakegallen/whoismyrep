@@ -1,6 +1,32 @@
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
-import type { ApprovalRating, RacePolling } from "@/lib/pollingData";
+
+export interface ApprovalRating {
+  politicianId: string;
+  name: string;
+  party: "Democrat" | "Republican" | "Independent";
+  title: string;
+  approve: number;
+  disapprove: number;
+  unsure: number;
+  source: string;
+  date: string;
+  trend: "up" | "down" | "stable";
+}
+
+export interface RacePolling {
+  raceId: string;
+  raceLabel: string;
+  candidates: {
+    name: string;
+    party: "Democrat" | "Republican" | "Independent" | "Nonpartisan";
+    polling: number;
+  }[];
+  source: string;
+  date: string;
+  margin: number;
+  sampleSize?: number;
+}
 
 const partyColor = (p: string) =>
   p === "Democrat"
@@ -45,20 +71,10 @@ export function ApprovalRatingCard({ rating, index = 0 }: { rating: ApprovalRati
         </div>
       </div>
 
-      {/* Bar */}
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted mb-2">
-        <div
-          className="h-full transition-all"
-          style={{ width: `${(rating.approve / total) * 100}%`, backgroundColor: "hsl(142,71%,45%)" }}
-        />
-        <div
-          className="h-full transition-all"
-          style={{ width: `${(rating.disapprove / total) * 100}%`, backgroundColor: "hsl(0,72%,51%)" }}
-        />
-        <div
-          className="h-full transition-all"
-          style={{ width: `${(rating.unsure / total) * 100}%`, backgroundColor: "hsl(0,0%,70%)" }}
-        />
+        <div className="h-full transition-all" style={{ width: `${(rating.approve / total) * 100}%`, backgroundColor: "hsl(142,71%,45%)" }} />
+        <div className="h-full transition-all" style={{ width: `${(rating.disapprove / total) * 100}%`, backgroundColor: "hsl(0,72%,51%)" }} />
+        <div className="h-full transition-all" style={{ width: `${(rating.unsure / total) * 100}%`, backgroundColor: "hsl(0,0%,70%)" }} />
       </div>
 
       <div className="flex justify-between font-body text-xs">
@@ -96,7 +112,6 @@ export function RacePollingCard({ race, index = 0 }: { race: RacePolling; index?
         </span>
       </div>
 
-      {/* Candidate bars */}
       <div className="space-y-2 mb-3">
         {race.candidates.map((c) => (
           <div key={c.name} className="flex items-center gap-2">

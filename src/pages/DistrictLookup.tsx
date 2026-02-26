@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCivicReps, type CivicRep, type CivicGroup, type PollingLocation, type Contest, type VoterInfo, type ElectionInfo } from "@/hooks/useCivicReps";
-import { nevadaPoliticians } from "@/lib/politicians";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -60,14 +59,8 @@ const DistrictLookup = () => {
   const [address, setAddress] = useState("");
   const { groups, normalizedAddress, totalReps, isLoading, error, elections, voterInfo, lookup, reset } = useCivicReps();
 
-  // Build a lookup map: normalized name -> politician object
-  const politicianByName = useMemo(() => {
-    const map = new Map<string, (typeof nevadaPoliticians)[number]>();
-    for (const p of nevadaPoliticians) {
-      map.set(p.name.toLowerCase().replace(/[^a-z]/g, ""), p);
-    }
-    return map;
-  }, []);
+  // Politician lookup is now handled dynamically via Civic API — no static map needed
+  const politicianByName = useMemo(() => new Map<string, any>(), []);
 
   const handleLookup = (addr?: string) => {
     const query = addr || address;

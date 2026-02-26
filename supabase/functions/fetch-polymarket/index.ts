@@ -4,6 +4,7 @@ const corsHeaders = {
 };
 
 const GAMMA_API = 'https://gamma-api.polymarket.com';
+const SEARCH_API = 'https://gamma-api.polymarket.com/public-search';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { politicianName } = await req.json();
+    const { politicianName, state } = await req.json();
 
     if (!politicianName || politicianName.trim().length < 2) {
       return new Response(
@@ -21,76 +22,119 @@ Deno.serve(async (req) => {
     }
 
     const name = politicianName.trim();
-    console.log(`Fetching Polymarket data for: ${name}`);
+    const stateStr = (state || 'Nevada').trim();
+    console.log(`Fetching Polymarket data for: ${name} (${stateStr})`);
 
-    // Search events matching the politician name
-    const eventsUrl = `${GAMMA_API}/events?title=${encodeURIComponent(name)}&active=true&closed=false&limit=20`;
-    const eventsResp = await fetch(eventsUrl);
-    let events = [];
-    
-    if (eventsResp.ok) {
-      events = await eventsResp.json();
+    const nameParts = name.split(/\s+/);
+    const lastName = nameParts[nameParts.length - 1];
+    const lastTwoParts = nameParts.length >= 3
+      ? nameParts.slice(-2).join(' ')
+      : null;
+
+    // Use the public-search endpoint for text-based search
+    const searchTerms = [name];
+    if (lastTwoParts && lastTwoParts !== name) searchTerms.push(lastTwoParts);
+
+    const rawEvents: any[] = [];
+    const fetches: Promise<void>[] = [];
+
+    for (const term of searchTerms) {
+      fetches.push(
+        fetch(`${SEARCH_API}?q=${encodeURIComponent(term)}&events_status=active&limit_per_type=20`)
+          .then(r => r.ok ? r.json() : { events: [] })
+          .then((data: any) => {
+            if (data.events && Array.isArray(data.events)) {
+              rawEvents.push(...data.events);
+            }
+          })
+          .catch(() => {})
+      );
     }
 
-    // Also search markets directly for broader coverage
-    const marketsUrl = `${GAMMA_API}/markets?title=${encodeURIComponent(name)}&active=true&closed=false&limit=20`;
-    const marketsResp = await fetch(marketsUrl);
-    let directMarkets: any[] = [];
+    // Also search for state-specific political markets
+    fetches.push(
+      fetch(`${SEARCH_API}?q=${encodeURIComponent(stateStr + ' election')}&events_status=active&limit_per_type=10`)
+        .then(r => r.ok ? r.json() : { events: [] })
+        .then((data: any) => {
+          if (data.events && Array.isArray(data.events)) {
+            rawEvents.push(...data.events);
+          }
+        })
+        .catch(() => {})
+    );
 
-    if (marketsResp.ok) {
-      directMarkets = await marketsResp.json();
-    }
-
-    // If no results with full name, try last name only
-    const lastName = name.split(' ').pop() || name;
-    let lastNameEvents: any[] = [];
-    let lastNameMarkets: any[] = [];
-
-    if (events.length === 0 && directMarkets.length === 0 && lastName !== name) {
-      const lnEventsResp = await fetch(`${GAMMA_API}/events?title=${encodeURIComponent(lastName)}&active=true&closed=false&limit=20`);
-      if (lnEventsResp.ok) lastNameEvents = await lnEventsResp.json();
-
-      const lnMarketsResp = await fetch(`${GAMMA_API}/markets?title=${encodeURIComponent(lastName)}&active=true&closed=false&limit=20`);
-      if (lnMarketsResp.ok) lastNameMarkets = await lnMarketsResp.json();
-    }
-
-    // Combine and deduplicate
-    const allEvents = [...events, ...lastNameEvents];
-    const allDirectMarkets = [...directMarkets, ...lastNameMarkets];
+    await Promise.all(fetches);
 
     // Extract markets from events
     const eventMarkets: any[] = [];
-    for (const event of allEvents) {
+    for (const event of rawEvents) {
       if (event.markets && Array.isArray(event.markets)) {
         for (const market of event.markets) {
           eventMarkets.push({
             ...market,
             eventTitle: event.title,
             eventSlug: event.slug,
+            eventDescription: event.description || '',
           });
         }
       }
     }
 
-    // Merge direct markets with event markets, dedup by condition_id
-    // Then filter to only markets that actually mention the politician
-    const nameParts = name.toLowerCase().split(/\s+/);
-    const lastNamePart = nameParts[nameParts.length - 1];
-    const seenIds = new Set<string>();
-    const allMarkets: any[] = [];
+    // Build strict relevance checker
+    const nameLC = name.toLowerCase();
+    const lastNameLC = lastName.toLowerCase();
+    const lastTwoLC = lastTwoParts?.toLowerCase() || null;
+    const stateLC = stateStr.toLowerCase();
 
-    for (const m of [...eventMarkets, ...allDirectMarkets]) {
-      const id = m.condition_id || m.id || m.questionID;
-      const text = `${m.question || ''} ${m.title || ''} ${m.eventTitle || ''}`.toLowerCase();
-      const isRelevant = text.includes(lastNamePart) || text.includes(name.toLowerCase());
-      if (id && !seenIds.has(id) && isRelevant) {
-        seenIds.add(id);
-        allMarkets.push(m);
+    // Require the market to mention either:
+    // 1. The politician's full name or last name (for multi-word last names, check last two parts)
+    // 2. The state name in a political context
+    function isRelevant(m: any): boolean {
+      const text = [
+        m.question || '',
+        m.title || '',
+        m.eventTitle || '',
+        m.eventDescription || '',
+        m.description || '',
+      ].join(' ').toLowerCase();
+
+      // Direct name match (strongest signal)
+      if (text.includes(nameLC)) return true;
+      if (lastTwoLC && text.includes(lastTwoLC)) return true;
+
+      // Last name match — but only if text also mentions politics/election/senate/governor etc.
+      if (text.includes(lastNameLC)) {
+        const politicalTerms = ['senator', 'senate', 'governor', 'congress', 'election',
+          'vote', 'primary', 'campaign', 'incumbent', 'representative', 'house',
+          'democrat', 'republican', 'gop', 'dem', 'political', 'legislation',
+          stateLC];
+        return politicalTerms.some(term => text.includes(term));
       }
+
+      // State-specific political market
+      if (text.includes(stateLC)) {
+        const politicalTerms = ['senator', 'senate', 'governor', 'congress', 'election',
+          'vote', 'primary', 'house race', 'ballot', 'midterm'];
+        return politicalTerms.some(term => text.includes(term));
+      }
+
+      return false;
+    }
+
+    // Deduplicate and filter
+    const seenIds = new Set<string>();
+    const filteredMarkets: any[] = [];
+
+    for (const m of eventMarkets) {
+      const id = m.condition_id || m.id || m.questionID;
+      if (!id || seenIds.has(id)) continue;
+      if (!isRelevant(m)) continue;
+      seenIds.add(id);
+      filteredMarkets.push(m);
     }
 
     // Normalize market data
-    const normalized = allMarkets.map((m: any) => {
+    const normalized = filteredMarkets.map((m: any) => {
       const outcomePrices = m.outcomePrices
         ? (typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices)
         : [];
@@ -122,13 +166,14 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Sort by volume (most popular first)
-    normalized.sort((a: any, b: any) => b.volume - a.volume);
+    // Filter out closed markets, then sort by volume
+    const active = normalized.filter(m => !m.closed);
+    active.sort((a, b) => b.volume - a.volume);
 
-    console.log(`Found ${normalized.length} Polymarket markets for "${name}"`);
+    console.log(`Found ${active.length} relevant Polymarket markets for "${name}"`);
 
     return new Response(
-      JSON.stringify({ success: true, markets: normalized, total: normalized.length }),
+      JSON.stringify({ success: true, markets: active, total: active.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

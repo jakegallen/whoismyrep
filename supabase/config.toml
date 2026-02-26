@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.fetch-federal-register]
 verify_jwt = false
+
+[functions.fetch-court-cases]
+verify_jwt = false

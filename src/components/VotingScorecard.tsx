@@ -33,7 +33,7 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
 
   // Fall back to mock data for non-state or when no live data
   if (!isStateLegislator || (!isLoading && !hasLiveData)) {
-    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} />;
+    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} jurisdiction={jurisdiction} />;
   }
 
   if (isLoading) {
@@ -52,7 +52,7 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
   }
 
   if (error) {
-    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} />;
+    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} jurisdiction={jurisdiction} />;
   }
 
   const summary = data!.summary;
@@ -188,13 +188,17 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
 };
 
 /** Fallback mock scorecard for non-state legislators */
-function MockScorecard({ politicianId, keyIssues, party }: { politicianId: string; keyIssues: string[]; party: string }) {
+function MockScorecard({ politicianId, keyIssues, party, jurisdiction }: { politicianId: string; keyIssues: string[]; party: string; jurisdiction?: string }) {
   const record = getVotingRecord(politicianId, keyIssues, party);
+  const sessionLabel = jurisdiction ? `${jurisdiction} Legislative Session` : "Current Session";
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <BarChart3 className="h-5 w-5 text-primary" />
         <h2 className="font-display text-xl font-bold text-headline">Voting Scorecard</h2>
+        <span className="rounded-md bg-muted px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Estimated
+        </span>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Overall Score" value={gradeFromScore(record.overallScore)} subvalue={`${record.overallScore}%`} color={gradeColor(gradeFromScore(record.overallScore))} />
@@ -221,7 +225,7 @@ function MockScorecard({ politicianId, keyIssues, party }: { politicianId: strin
         </div>
       </div>
       <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="mb-4 font-display text-sm font-bold text-headline">Key Votes — 83rd Session</h3>
+        <h3 className="mb-4 font-display text-sm font-bold text-headline">Key Votes — {sessionLabel}</h3>
         <div className="divide-y divide-border">
           {record.keyVotes.map((kv, idx) => {
             const VoteIcon = voteIcons[kv.vote].icon;
@@ -246,7 +250,7 @@ function MockScorecard({ politicianId, keyIssues, party }: { politicianId: strin
         </div>
       </div>
       <p className="font-body text-[10px] text-muted-foreground/60 italic">
-        Scorecard data is illustrative and based on 83rd Session (2025) voting patterns.
+        Estimated scorecard based on legislative voting patterns. Live data sourced from OpenStates when available.
       </p>
     </div>
   );

@@ -76,16 +76,16 @@ const issueCategories = [
 ];
 
 const sampleBills: { number: string; title: string; date: string; result: "Passed" | "Failed" }[] = [
-  { number: "AB1", title: "Fort Mohave Valley Land Regulations", date: "2025-03-15", result: "Passed" },
-  { number: "SB42", title: "Renewable Energy Standards Update", date: "2025-03-22", result: "Passed" },
-  { number: "AB108", title: "Outdoor Education Grant Program", date: "2025-04-01", result: "Passed" },
-  { number: "SB78", title: "Medicaid Expansion Provisions", date: "2025-04-10", result: "Failed" },
-  { number: "AB165", title: "K-12 Funding Formula Revision", date: "2025-04-18", result: "Passed" },
-  { number: "SB201", title: "Criminal Sentencing Reform", date: "2025-04-25", result: "Failed" },
-  { number: "AB224", title: "Affordable Housing Tax Credits", date: "2025-05-02", result: "Passed" },
-  { number: "SB155", title: "Water Conservation Standards", date: "2025-05-10", result: "Passed" },
-  { number: "AB302", title: "Public Employee Collective Bargaining", date: "2025-05-15", result: "Failed" },
-  { number: "SB290", title: "Cannabis Industry Regulations", date: "2025-05-20", result: "Passed" },
+  { number: "HB 101", title: "Public School Funding Formula Revision", date: "2025-03-15", result: "Passed" },
+  { number: "SB 42", title: "Renewable Energy Standards Update", date: "2025-03-22", result: "Passed" },
+  { number: "HB 108", title: "Outdoor Education Grant Program", date: "2025-04-01", result: "Passed" },
+  { number: "SB 78", title: "Medicaid Expansion Provisions", date: "2025-04-10", result: "Failed" },
+  { number: "HB 165", title: "K-12 Funding Formula Revision", date: "2025-04-18", result: "Passed" },
+  { number: "SB 201", title: "Criminal Sentencing Reform", date: "2025-04-25", result: "Failed" },
+  { number: "HB 224", title: "Affordable Housing Tax Credits", date: "2025-05-02", result: "Passed" },
+  { number: "SB 155", title: "Water Conservation Standards", date: "2025-05-10", result: "Passed" },
+  { number: "HB 302", title: "Public Employee Collective Bargaining", date: "2025-05-15", result: "Failed" },
+  { number: "SB 290", title: "Cannabis Industry Regulations", date: "2025-05-20", result: "Passed" },
 ];
 
 export function getVotingRecord(politicianId: string, keyIssues: string[], party: string): VotingRecord {

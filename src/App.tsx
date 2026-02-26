@@ -19,6 +19,7 @@ import LegislativeCalendar from "./pages/LegislativeCalendar";
 import DistrictMap from "./pages/DistrictMap";
 import FederalRegister from "./pages/FederalRegister";
 import CourtCases from "./pages/CourtCases";
+import CongressExplorer from "./pages/CongressExplorer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/district-map" element={<DistrictMap />} />
           <Route path="/federal-register" element={<FederalRegister />} />
           <Route path="/court-cases" element={<CourtCases />} />
+          <Route path="/congress" element={<CongressExplorer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

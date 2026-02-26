@@ -208,6 +208,7 @@ const Politicians = () => {
                         phone: undefined,
                         email: leg.email,
                         website: leg.website,
+                        socialHandles: leg.socialHandles,
                         channels: [],
                         jurisdiction,
                       },

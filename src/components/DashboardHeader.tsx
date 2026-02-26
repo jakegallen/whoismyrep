@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navLinks = [
-  { to: "/", icon: Home, label: "Home" },
-  { to: "/district-lookup", icon: MapPin, label: "Find My Reps" },
+  { to: "/midterms", icon: Flag, label: "2026 Midterms" },
   { to: "/bills", icon: FileText, label: "Bills" },
-  { to: "/politicians", icon: Users, label: "Politicians" },
   { to: "/committees", icon: Building2, label: "Committees" },
   { to: "/campaign-finance", icon: DollarSign, label: "Finance" },
-  { to: "/midterms", icon: Flag, label: "2026 Midterms" },
+  { to: "/district-lookup", icon: MapPin, label: "Find My Reps" },
+  { to: "/", icon: Home, label: "News" },
+  { to: "/politicians", icon: Users, label: "Politicians" },
 ];
 
 const DashboardHeader = () => {

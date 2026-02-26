@@ -6,6 +6,77 @@
 
 @layer base {
   :root {
+    --background: 220 20% 97%;
+    --foreground: 228 14% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 14% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 14% 12%;
+
+    --primary: 250 85% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 228 14% 20%;
+
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 250 30% 93%;
+    --accent-foreground: 250 85% 45%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 88%;
+    --input: 220 14% 90%;
+    --ring: 250 85% 60%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 20% 96%;
+    --sidebar-foreground: 228 14% 20%;
+    --sidebar-primary: 250 85% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 228 14% 12%;
+    --sidebar-border: 220 14% 88%;
+    --sidebar-ring: 250 85% 60%;
+
+    /* Brand tokens */
+    --neon: 168 80% 38%;
+    --neon-foreground: 0 0% 100%;
+    --electric: 250 85% 60%;
+    --electric-glow: 250 100% 70%;
+    --gold: 43 90% 48%;
+    --gold-foreground: 0 0% 100%;
+    --surface-elevated: 0 0% 100%;
+    --surface-hover: 220 14% 94%;
+    --text-headline: 228 14% 10%;
+    --text-secondary: 220 10% 35%;
+    --text-tertiary: 220 8% 55%;
+    --gradient-hero: linear-gradient(160deg, hsl(250 85% 60% / 0.08) 0%, hsl(168 80% 38% / 0.04) 50%, hsl(220 20% 97%) 100%);
+    --gradient-brand: linear-gradient(135deg, hsl(250 85% 60%), hsl(168 80% 38%));
+    --shadow-card: 0 4px 24px -4px hsl(220 14% 80% / 0.4);
+    --shadow-glow: 0 0 30px hsl(250 85% 60% / 0.1);
+    --shadow-neon: 0 0 30px hsl(168 80% 38% / 0.1);
+
+    /* Level colors */
+    --level-federal: 250 85% 55%;
+    --level-state: 210 80% 48%;
+    --level-county: 168 80% 38%;
+    --level-local: 43 90% 48%;
+
+    /* Party colors */
+    --party-democrat: 210 80% 48%;
+    --party-republican: 0 72% 48%;
+    --party-independent: 43 90% 48%;
+    --party-nonpartisan: 220 10% 45%;
+  }
+
+  .dark {
     --background: 228 14% 6%;
     --foreground: 210 20% 92%;
 
@@ -33,8 +104,6 @@
     --border: 228 12% 14%;
     --input: 228 12% 16%;
     --ring: 250 85% 65%;
-
-    --radius: 0.75rem;
 
     --sidebar-background: 228 14% 7%;
     --sidebar-foreground: 210 20% 85%;

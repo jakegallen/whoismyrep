@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a Nevada politics expert. Analyze the following bill content and provide:
-1. A plain-English summary (2-3 paragraphs) that any Nevada resident can understand
+    const systemPrompt = `You are a U.S. politics expert. Analyze the following bill content and provide:
+1. A plain-English summary (2-3 paragraphs) that any resident can understand
 2. Key impacts: who this bill affects and how
 3. Current status in the legislative process
 4. Related issues/topics
@@ -82,7 +82,7 @@ Format your response in markdown. Be factual and non-partisan. If the content is
           { role: 'system', content: systemPrompt },
           {
             role: 'user',
-            content: `Analyze this Nevada bill (${billNumber}: ${billTitle || 'No title'}):\n\n${billMarkdown.substring(0, 12000)}`,
+            content: `Analyze this bill (${billNumber}: ${billTitle || 'No title'}):\n\n${billMarkdown.substring(0, 12000)}`,
           },
         ],
       }),

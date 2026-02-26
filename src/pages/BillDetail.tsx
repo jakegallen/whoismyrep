@@ -32,7 +32,8 @@ import {
 import ReactMarkdown from "react-markdown";
 
 const BillDetail = () => {
-  const { id } = useParams();
+  const { id, "*": rest } = useParams();
+  const fullId = rest ? `${id}/${rest}` : id;
   const location = useLocation();
   const navigate = useNavigate();
   const bill = (location.state as { bill?: Bill })?.bill || null;
@@ -93,7 +94,7 @@ const BillDetail = () => {
                 className="inline-flex items-center gap-1.5 font-body text-xs text-primary hover:underline"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                View on Nevada Legislature website
+                View on OpenStates
               </a>
             </div>
           </motion.div>
@@ -202,7 +203,7 @@ const BillDetail = () => {
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Session</dt>
-                  <dd className="text-foreground">{bill.session || "83rd Session (2025)"}</dd>
+                  <dd className="text-foreground">{bill.session || "Current Session"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Status</dt>

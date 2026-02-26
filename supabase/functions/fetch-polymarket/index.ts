@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     }
 
     const name = politicianName.trim();
-    const stateStr = (state || 'Nevada').trim();
+    const stateStr = (state || '').trim();
     console.log(`Fetching Polymarket data for: ${name} (${stateStr})`);
 
     const nameParts = name.split(/\s+/);
@@ -52,16 +52,18 @@ Deno.serve(async (req) => {
     }
 
     // Also search for state-specific political markets
-    fetches.push(
-      fetch(`${SEARCH_API}?q=${encodeURIComponent(stateStr + ' election')}&events_status=active&limit_per_type=10`)
-        .then(r => r.ok ? r.json() : { events: [] })
-        .then((data: any) => {
-          if (data.events && Array.isArray(data.events)) {
-            rawEvents.push(...data.events);
-          }
-        })
-        .catch(() => {})
-    );
+    if (stateStr) {
+      fetches.push(
+        fetch(`${SEARCH_API}?q=${encodeURIComponent(stateStr + ' election')}&events_status=active&limit_per_type=10`)
+          .then(r => r.ok ? r.json() : { events: [] })
+          .then((data: any) => {
+            if (data.events && Array.isArray(data.events)) {
+              rawEvents.push(...data.events);
+            }
+          })
+          .catch(() => {})
+      );
+    }
 
     await Promise.all(fetches);
 

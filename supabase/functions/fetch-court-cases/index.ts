@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { type = 'opinions', search, page = 1, per_page = 20, court } = await req.json().catch(() => ({}));
+    const { type = 'opinions', search, page = 1, per_page = 20, court, state } = await req.json().catch(() => ({}));
 
     const token = Deno.env.get('COURTLISTENER_TOKEN');
     const headers: Record<string, string> = { 'Accept': 'application/json' };
@@ -26,16 +26,15 @@ Deno.serve(async (req) => {
         page: String(page),
       });
 
-      // Filter to Nevada courts
-      const nevadaCourts = court || 'nev,nvd';
-      nevadaCourts.split(',').forEach((c: string) => {
-        params.append('court', c.trim());
-      });
+      // Filter to courts if specified
+      if (court) {
+        court.split(',').forEach((c: string) => {
+          params.append('court', c.trim());
+        });
+      }
 
       if (search) {
         params.set('q', search);
-      } else {
-        params.set('q', 'Nevada');
       }
 
       url = `https://www.courtlistener.com/api/rest/v4/search/?${params}`;
@@ -46,10 +45,11 @@ Deno.serve(async (req) => {
         page: String(page),
       });
 
-      const nevadaCourts = court || 'nev,nvd';
-      nevadaCourts.split(',').forEach((c: string) => {
-        params.append('court', c.trim());
-      });
+      if (court) {
+        court.split(',').forEach((c: string) => {
+          params.append('court', c.trim());
+        });
+      }
 
       if (search) {
         params.set('q', search);
@@ -64,10 +64,11 @@ Deno.serve(async (req) => {
         page: String(page),
       });
 
-      const nevadaCourts = court || 'nev,nvd';
-      nevadaCourts.split(',').forEach((c: string) => {
-        params.append('court', c.trim());
-      });
+      if (court) {
+        court.split(',').forEach((c: string) => {
+          params.append('court', c.trim());
+        });
+      }
 
       if (search) {
         params.set('q', search);

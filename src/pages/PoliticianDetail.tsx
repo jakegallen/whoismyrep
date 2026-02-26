@@ -44,8 +44,8 @@ import { useFederalRegister } from "@/hooks/useFederalRegister";
 // midterms data is now AI-generated per politician
 import { Badge } from "@/components/ui/badge";
 import type { Politician } from "@/lib/politicians";
-import { nevadaPoliticians } from "@/lib/politicians";
 import type { CivicRep } from "@/hooks/useCivicReps";
+import { US_STATES } from "@/lib/usStates";
 
 /** Unified profile shape that works with both static Politician data and dynamic CivicRep API data */
 interface RepProfile {
@@ -146,16 +146,19 @@ const PoliticianDetail = () => {
   // Build profile from either: router state Politician, router state CivicRep, or URL param lookup
   const politician: RepProfile | undefined = (() => {
     const statePol = location.state?.politician as Politician | undefined;
-    if (statePol?.id) return { ...statePol, stateAbbr: "NV", jurisdiction: "Nevada" } as RepProfile;
+    if (statePol?.id) {
+      // Try to infer state from the office field (e.g. "Nevada Senate")
+      const officeState = US_STATES.find(s => statePol.office?.includes(s.name));
+      return {
+        ...statePol,
+        stateAbbr: officeState?.abbr || "",
+        jurisdiction: officeState?.jurisdiction || "",
+      } as RepProfile;
+    }
 
     const stateRep = location.state?.civicRep as CivicRep | undefined;
     if (stateRep) return civicRepToProfile(stateRep);
 
-    // Fallback: try to find in Nevada static data by URL id
-    if (id) {
-      const found = nevadaPoliticians.find((p) => p.id === id);
-      if (found) return { ...found, stateAbbr: "NV", jurisdiction: "Nevada" } as RepProfile;
-    }
     return undefined;
   })();
 

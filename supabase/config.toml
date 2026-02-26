@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.fetch-lobbying]
 verify_jwt = false
+
+[functions.fetch-bill-detail]
+verify_jwt = false

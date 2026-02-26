@@ -284,7 +284,7 @@ const PoliticianDetail = () => {
 
             {/* Right: Polymarket widget */}
             <div className="mt-6 lg:mt-0 lg:w-80 shrink-0">
-              <PolymarketWidget politicianName={politician.name} />
+              <PolymarketWidget politicianName={politician.name} state={politician.jurisdiction} />
             </div>
           </div>
 

@@ -3,10 +3,11 @@ import { usePolymarket, type PolymarketMarket } from "@/hooks/usePolymarket";
 
 interface Props {
   politicianName: string;
+  state?: string;
 }
 
-export default function PolymarketWidget({ politicianName }: Props) {
-  const { data: markets, isLoading, error } = usePolymarket(politicianName);
+export default function PolymarketWidget({ politicianName, state }: Props) {
+  const { data: markets, isLoading, error } = usePolymarket(politicianName, state);
 
   if (isLoading) {
     return (

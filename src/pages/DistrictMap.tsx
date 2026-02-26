@@ -6,24 +6,24 @@ import {
   Map as MapIcon,
   Layers,
   Loader2,
-  AlertCircle,
   Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   fetchDistrictData,
   districtLayerConfigs,
-  NEVADA_CENTER,
-  NEVADA_ZOOM,
+  STATE_MAP_CONFIG,
   type DistrictLayer,
-} from "@/lib/nevadaDistricts";
+} from "@/lib/stateDistricts";
+import { US_STATES } from "@/lib/usStates";
 
 import "leaflet/dist/leaflet.css";
 
 const layerToggleLabels: { id: DistrictLayer; short: string }[] = [
   { id: "congressional", short: "Congress" },
   { id: "state-senate", short: "Senate" },
-  { id: "state-assembly", short: "Assembly" },
+  { id: "state-house", short: "House" },
 ];
 
 const DistrictMap = () => {
@@ -33,18 +33,24 @@ const DistrictMap = () => {
   const geoLayersRef = useRef<Record<string, any>>({});
   const leafletRef = useRef<typeof import("leaflet") | null>(null);
 
+  const [selectedState, setSelectedState] = useState("NV");
   const [activeLayer, setActiveLayer] = useState<DistrictLayer>("congressional");
   const [geoData, setGeoData] = useState<Record<string, GeoJSON.FeatureCollection> | null>(null);
   const [loading, setLoading] = useState(true);
   const [hoveredDistrict, setHoveredDistrict] = useState<string | null>(null);
 
-  // Fetch all GeoJSON data
+  const stateConfig = STATE_MAP_CONFIG[selectedState] || STATE_MAP_CONFIG.NV;
+  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || selectedState;
+
+  // Fetch GeoJSON when state changes
   useEffect(() => {
-    fetchDistrictData().then((data) => {
+    setLoading(true);
+    setGeoData(null);
+    fetchDistrictData(selectedState).then((data) => {
       setGeoData(data);
       setLoading(false);
     });
-  }, []);
+  }, [selectedState]);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -55,8 +61,8 @@ const DistrictMap = () => {
       leafletRef.current = L;
 
       const map = L.map(mapRef.current!, {
-        center: NEVADA_CENTER,
-        zoom: NEVADA_ZOOM,
+        center: stateConfig.center,
+        zoom: stateConfig.zoom,
         zoomControl: true,
       });
 
@@ -67,7 +73,6 @@ const DistrictMap = () => {
 
       mapInstanceRef.current = map;
 
-      // If data already loaded, render
       if (geoData) renderLayer(activeLayer, map, L, geoData);
     };
 
@@ -81,6 +86,13 @@ const DistrictMap = () => {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-center map when state changes
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView(stateConfig.center, stateConfig.zoom);
+    }
+  }, [selectedState, stateConfig]);
 
   const renderLayer = useCallback(
     (layerId: DistrictLayer, map?: any, L?: any, data?: any) => {
@@ -100,19 +112,18 @@ const DistrictMap = () => {
       if (!collection.features.length) return;
 
       const geoLayer = l.geoJSON(collection, {
-        style: (feature: any) => {
-          const color = config.getPartyColor?.(feature) || config.fillColor;
-          return {
-            color: "hsl(220, 20%, 30%)",
-            weight: 2,
-            fillColor: color,
-            fillOpacity: 0.35,
-            opacity: 0.8,
-          };
-        },
+        style: () => ({
+          color: "hsl(220, 20%, 30%)",
+          weight: 2,
+          fillColor: config.fillColor,
+          fillOpacity: 0.35,
+          opacity: 0.8,
+        }),
         onEachFeature: (feature: any, layer: any) => {
           const props = feature.properties || {};
-          const name = props.NAMELSAD || props.NAME || props.BASENAME || `District ${props.district || "?"}`;
+          const name =
+            props.NAMELSAD || props.NAME || props.BASENAME ||
+            `District ${props.district || props.CD118FP || props.SLDUST || props.SLDLST || "?"}`;
 
           layer.bindPopup(
             `<div style="font-family: Inter, sans-serif; font-size: 13px;">
@@ -139,10 +150,10 @@ const DistrictMap = () => {
       try {
         m.fitBounds(geoLayer.getBounds(), { padding: [20, 20] });
       } catch {
-        m.setView(NEVADA_CENTER, NEVADA_ZOOM);
+        m.setView(stateConfig.center, stateConfig.zoom);
       }
     },
-    [geoData]
+    [geoData, stateConfig]
   );
 
   // Re-render when active layer or data changes
@@ -152,7 +163,6 @@ const DistrictMap = () => {
     }
   }, [activeLayer, loading, geoData, renderLayer]);
 
-  const activeConfig = districtLayerConfigs[activeLayer];
   const featureCount = geoData?.[activeLayer]?.features.length || 0;
 
   return (
@@ -167,9 +177,21 @@ const DistrictMap = () => {
             Back
           </button>
           <div className="h-5 w-px bg-border" />
-          <span className="font-display text-sm font-semibold text-headline">
-            Nevada District Map
-          </span>
+
+          {/* State selector */}
+          <Select value={selectedState} onValueChange={setSelectedState}>
+            <SelectTrigger className="w-[180px] font-body text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {US_STATES.map((s) => (
+                <SelectItem key={s.abbr} value={s.abbr}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {hoveredDistrict && (
             <span className="ml-auto hidden font-body text-xs text-muted-foreground md:inline">
               {hoveredDistrict}
@@ -191,10 +213,10 @@ const DistrictMap = () => {
             </div>
             <div>
               <h1 className="font-display text-2xl font-bold text-headline md:text-3xl">
-                Interactive District Map
+                {stateName} District Map
               </h1>
               <p className="font-body text-sm text-secondary-custom">
-                Explore Nevada's congressional and state legislative district boundaries
+                Explore {stateName}'s congressional and state legislative district boundaries
               </p>
             </div>
           </div>
@@ -235,7 +257,7 @@ const DistrictMap = () => {
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/80 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="font-body text-sm text-muted-foreground">Loading district boundaries…</p>
+                <p className="font-body text-sm text-muted-foreground">Loading {stateName} district boundaries…</p>
               </div>
             </div>
           )}
@@ -254,23 +276,17 @@ const DistrictMap = () => {
           className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-4"
         >
           <Info className="h-4 w-4 text-muted-foreground" />
-          <span className="font-body text-xs font-medium text-headline">{activeConfig.label}</span>
+          <span className="font-body text-xs font-medium text-headline">{districtLayerConfigs[activeLayer].label}</span>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-sm" style={{ background: "hsl(210, 80%, 55%)" }} />
-              <span className="font-body text-xs text-muted-foreground">Democrat</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-sm" style={{ background: "hsl(0, 72%, 51%)" }} />
-              <span className="font-body text-xs text-muted-foreground">Republican</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded-sm" style={{ background: "hsl(43, 90%, 55%)" }} />
-              <span className="font-body text-xs text-muted-foreground">Toss-up / Vacant</span>
-            </div>
+            {layerToggleLabels.map((lt) => (
+              <div key={lt.id} className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded-sm" style={{ background: districtLayerConfigs[lt.id].fillColor }} />
+                <span className="font-body text-xs text-muted-foreground">{lt.short}</span>
+              </div>
+            ))}
           </div>
           <p className="ml-auto font-body text-[10px] italic text-muted-foreground/60">
-            Boundaries: U.S. Census Bureau TIGER/Line
+            Boundaries: U.S. Census Bureau TIGERweb
           </p>
         </motion.div>
       </main>

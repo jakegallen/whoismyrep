@@ -8,6 +8,7 @@ import NewsCard from "@/components/NewsCard";
 import PodcastCard from "@/components/PodcastCard";
 import YouTubeCard from "@/components/YouTubeCard";
 import TrendingSidebar from "@/components/TrendingSidebar";
+import VoterRegistration from "@/components/VoterRegistration";
 import NewsCharts from "@/components/NewsCharts";
 import SocialMediaCard from "@/components/SocialMediaCard";
 import { useNevadaNews } from "@/hooks/useNevadaNews";
@@ -180,8 +181,9 @@ const Index = () => {
             )}
           </motion.div>
 
-          <div className="lg:sticky lg:top-8">
+          <div className="space-y-6 lg:sticky lg:top-8">
             <TrendingSidebar topics={trending} individuals={trendingIndividuals} />
+            <VoterRegistration />
           </div>
         </div>
       </main>

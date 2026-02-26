@@ -6,143 +6,143 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 228 14% 12%;
+    --background: 220 25% 97%;
+    --foreground: 220 30% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 228 14% 12%;
+    --card-foreground: 220 30% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 228 14% 12%;
+    --popover-foreground: 220 30% 10%;
 
-    --primary: 250 85% 60%;
+    --primary: 217 72% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 92%;
-    --secondary-foreground: 228 14% 20%;
+    --secondary: 220 20% 92%;
+    --secondary-foreground: 220 30% 18%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 40%;
+    --muted: 220 18% 94%;
+    --muted-foreground: 220 12% 42%;
 
-    --accent: 250 30% 93%;
-    --accent-foreground: 250 85% 45%;
+    --accent: 217 40% 92%;
+    --accent-foreground: 217 72% 35%;
 
     --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 88%;
-    --input: 220 14% 90%;
-    --ring: 250 85% 60%;
+    --border: 220 18% 88%;
+    --input: 220 18% 90%;
+    --ring: 217 72% 42%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 20% 96%;
-    --sidebar-foreground: 228 14% 20%;
-    --sidebar-primary: 250 85% 60%;
+    --sidebar-background: 220 25% 96%;
+    --sidebar-foreground: 220 30% 18%;
+    --sidebar-primary: 217 72% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 92%;
-    --sidebar-accent-foreground: 228 14% 12%;
-    --sidebar-border: 220 14% 88%;
-    --sidebar-ring: 250 85% 60%;
+    --sidebar-accent: 220 20% 92%;
+    --sidebar-accent-foreground: 220 30% 10%;
+    --sidebar-border: 220 18% 88%;
+    --sidebar-ring: 217 72% 42%;
 
-    /* Brand tokens */
-    --neon: 168 80% 38%;
+    /* Brand tokens — USA patriotic */
+    --neon: 0 68% 48%;
     --neon-foreground: 0 0% 100%;
-    --electric: 250 85% 60%;
-    --electric-glow: 250 100% 70%;
+    --electric: 217 72% 42%;
+    --electric-glow: 217 85% 55%;
     --gold: 43 90% 48%;
     --gold-foreground: 0 0% 100%;
     --surface-elevated: 0 0% 100%;
-    --surface-hover: 220 14% 94%;
-    --text-headline: 228 14% 10%;
-    --text-secondary: 220 10% 35%;
-    --text-tertiary: 220 8% 55%;
-    --gradient-hero: linear-gradient(160deg, hsl(250 85% 60% / 0.08) 0%, hsl(168 80% 38% / 0.04) 50%, hsl(220 20% 97%) 100%);
-    --gradient-brand: linear-gradient(135deg, hsl(250 85% 60%), hsl(168 80% 38%));
-    --shadow-card: 0 4px 24px -4px hsl(220 14% 80% / 0.4);
-    --shadow-glow: 0 0 30px hsl(250 85% 60% / 0.1);
-    --shadow-neon: 0 0 30px hsl(168 80% 38% / 0.1);
+    --surface-hover: 220 18% 94%;
+    --text-headline: 220 30% 8%;
+    --text-secondary: 220 12% 35%;
+    --text-tertiary: 220 10% 55%;
+    --gradient-hero: linear-gradient(160deg, hsl(217 72% 42% / 0.08) 0%, hsl(0 68% 48% / 0.04) 50%, hsl(220 25% 97%) 100%);
+    --gradient-brand: linear-gradient(135deg, hsl(217 72% 42%), hsl(0 68% 48%));
+    --shadow-card: 0 4px 24px -4px hsl(220 18% 80% / 0.4);
+    --shadow-glow: 0 0 30px hsl(217 72% 42% / 0.1);
+    --shadow-neon: 0 0 30px hsl(0 68% 48% / 0.1);
 
     /* Level colors */
-    --level-federal: 250 85% 55%;
-    --level-state: 210 80% 48%;
-    --level-county: 168 80% 38%;
+    --level-federal: 217 72% 42%;
+    --level-state: 0 68% 48%;
+    --level-county: 220 20% 45%;
     --level-local: 43 90% 48%;
 
     /* Party colors */
-    --party-democrat: 210 80% 48%;
-    --party-republican: 0 72% 48%;
+    --party-democrat: 217 72% 48%;
+    --party-republican: 0 68% 48%;
     --party-independent: 43 90% 48%;
-    --party-nonpartisan: 220 10% 45%;
+    --party-nonpartisan: 220 12% 45%;
   }
 
   .dark {
-    --background: 228 14% 6%;
-    --foreground: 210 20% 92%;
+    --background: 222 28% 6%;
+    --foreground: 210 25% 92%;
 
-    --card: 228 14% 9%;
-    --card-foreground: 210 20% 92%;
+    --card: 222 25% 9%;
+    --card-foreground: 210 25% 92%;
 
-    --popover: 228 14% 9%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 222 25% 9%;
+    --popover-foreground: 210 25% 92%;
 
-    --primary: 250 85% 65%;
+    --primary: 217 80% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 12% 14%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 222 18% 14%;
+    --secondary-foreground: 210 25% 85%;
 
-    --muted: 228 10% 12%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 222 16% 12%;
+    --muted-foreground: 220 14% 50%;
 
-    --accent: 250 40% 20%;
-    --accent-foreground: 250 85% 80%;
+    --accent: 217 45% 20%;
+    --accent-foreground: 217 80% 78%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 12% 14%;
-    --input: 228 12% 16%;
-    --ring: 250 85% 65%;
+    --border: 222 18% 15%;
+    --input: 222 18% 17%;
+    --ring: 217 80% 60%;
 
-    --sidebar-background: 228 14% 7%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 250 85% 65%;
+    --sidebar-background: 222 28% 7%;
+    --sidebar-foreground: 210 25% 85%;
+    --sidebar-primary: 217 80% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 228 12% 12%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 228 12% 14%;
-    --sidebar-ring: 250 85% 65%;
+    --sidebar-accent: 222 18% 12%;
+    --sidebar-accent-foreground: 210 25% 92%;
+    --sidebar-border: 222 18% 15%;
+    --sidebar-ring: 217 80% 60%;
 
-    /* Brand tokens */
-    --neon: 168 80% 55%;
-    --neon-foreground: 168 80% 10%;
-    --electric: 250 85% 65%;
-    --electric-glow: 250 100% 75%;
+    /* Brand tokens — USA patriotic */
+    --neon: 0 72% 58%;
+    --neon-foreground: 0 0% 100%;
+    --electric: 217 80% 60%;
+    --electric-glow: 217 90% 70%;
     --gold: 43 90% 55%;
     --gold-foreground: 43 10% 10%;
-    --surface-elevated: 228 14% 11%;
-    --surface-hover: 228 12% 15%;
+    --surface-elevated: 222 25% 11%;
+    --surface-hover: 222 18% 15%;
     --text-headline: 0 0% 98%;
-    --text-secondary: 220 10% 60%;
-    --text-tertiary: 220 8% 38%;
-    --gradient-hero: linear-gradient(160deg, hsl(250 85% 65% / 0.12) 0%, hsl(168 80% 55% / 0.06) 50%, hsl(228 14% 6%) 100%);
-    --gradient-brand: linear-gradient(135deg, hsl(250 85% 65%), hsl(168 80% 55%));
+    --text-secondary: 220 14% 62%;
+    --text-tertiary: 220 10% 40%;
+    --gradient-hero: linear-gradient(160deg, hsl(217 80% 60% / 0.12) 0%, hsl(0 72% 58% / 0.06) 50%, hsl(222 28% 6%) 100%);
+    --gradient-brand: linear-gradient(135deg, hsl(217 80% 60%), hsl(0 72% 58%));
     --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.6);
-    --shadow-glow: 0 0 30px hsl(250 85% 65% / 0.15);
-    --shadow-neon: 0 0 30px hsl(168 80% 55% / 0.15);
+    --shadow-glow: 0 0 30px hsl(217 80% 60% / 0.15);
+    --shadow-neon: 0 0 30px hsl(0 72% 58% / 0.15);
 
     /* Level colors */
-    --level-federal: 250 85% 65%;
-    --level-state: 210 80% 55%;
-    --level-county: 168 80% 55%;
+    --level-federal: 217 80% 60%;
+    --level-state: 0 72% 58%;
+    --level-county: 220 20% 55%;
     --level-local: 43 90% 55%;
 
     /* Party colors */
-    --party-democrat: 210 80% 55%;
-    --party-republican: 0 72% 51%;
+    --party-democrat: 217 80% 58%;
+    --party-republican: 0 72% 55%;
     --party-independent: 43 90% 55%;
-    --party-nonpartisan: 220 10% 50%;
+    --party-nonpartisan: 220 14% 50%;
   }
 }
 

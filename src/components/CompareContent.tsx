@@ -7,6 +7,7 @@ import {
   BarChart3,
   Tag,
   Search,
+  Loader2,
 } from "lucide-react";
 import {
   BarChart,
@@ -21,37 +22,62 @@ import {
   Radar,
   Legend,
 } from "recharts";
-import { nevadaPoliticians, type Politician } from "@/lib/politicians";
+import type { Politician } from "@/lib/politicians";
 import { getVotingRecord, gradeFromScore, gradeColor } from "@/lib/votingRecords";
 import { getCampaignFinance, formatCurrency } from "@/lib/campaignFinance";
+import { useLegislators, type Legislator } from "@/hooks/useLegislators";
+import { US_STATES } from "@/lib/usStates";
 
 const partyDot = (p: string) =>
-  p === "Democrat"
+  p === "Democrat" || p === "Democratic"
     ? "bg-[hsl(210,80%,55%)]"
     : p === "Republican"
       ? "bg-primary"
       : "bg-[hsl(43,90%,55%)]";
 
 const partyText = (p: string) =>
-  p === "Democrat"
+  p === "Democrat" || p === "Democratic"
     ? "text-[hsl(210,80%,55%)]"
     : p === "Republican"
       ? "text-primary"
       : "text-[hsl(43,90%,55%)]";
 
 const partyHsl = (p: string) =>
-  p === "Democrat" ? "hsl(210,80%,55%)" : p === "Republican" ? "hsl(0,72%,51%)" : "hsl(43,90%,55%)";
+  p === "Democrat" || p === "Democratic" ? "hsl(210,80%,55%)" : p === "Republican" ? "hsl(0,72%,51%)" : "hsl(43,90%,55%)";
+
+/** Convert a Legislator from the API into a Politician shape for comparison */
+function legislatorToPolitician(l: Legislator): Politician {
+  return {
+    id: l.id,
+    name: l.name,
+    title: l.title,
+    party: l.party as Politician["party"],
+    office: l.office,
+    region: l.region,
+    level: l.level,
+    imageUrl: l.imageUrl,
+    bio: "",
+    keyIssues: [],
+    website: l.website,
+    email: l.email,
+    socialHandles: l.socialHandles,
+  };
+}
 
 function PoliticianPicker({
   selected,
   onSelect,
   otherId,
   side,
+  legislators,
+  isLoading,
 }: {
   selected: Politician | null;
   onSelect: (p: Politician) => void;
   otherId?: string;
   side: "left" | "right";
+  legislators: Legislator[];
+  isLoading: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -66,7 +92,7 @@ function PoliticianPicker({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const filtered = nevadaPoliticians.filter(
+  const filtered = legislators.filter(
     (p) =>
       p.id !== otherId &&
       (p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -91,8 +117,8 @@ function PoliticianPicker({
           </>
         ) : (
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Search className="h-4 w-4" />
-            <span className="font-body text-sm">Select {side === "left" ? "first" : "second"} politician…</span>
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            <span className="font-body text-sm">{isLoading ? "Loading…" : `Select ${side === "left" ? "first" : "second"} politician…`}</span>
           </div>
         )}
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -112,7 +138,7 @@ function PoliticianPicker({
           {filtered.map((p) => (
             <button
               key={p.id}
-              onClick={() => { onSelect(p); setOpen(false); setSearch(""); }}
+              onClick={() => { onSelect(legislatorToPolitician(p)); setOpen(false); setSearch(""); }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated"
             >
               <div className={`h-2 w-2 rounded-full ${partyDot(p.party)}`} />
@@ -170,45 +196,6 @@ function CompareStatCard({ label, valueA, valueB, colorA, colorB }: { label: str
   );
 }
 
-function KeyIssuesComparison({ a, b }: { a: Politician; b: Politician }) {
-  const allIssues = Array.from(new Set([...a.keyIssues, ...b.keyIssues]));
-  return (
-    <Section icon={<Tag className="h-4 w-4 text-[hsl(43,90%,55%)]" />} title="Key Issues">
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 gap-y-2">
-        <p className={`font-body text-xs font-semibold ${partyText(a.party)}`}>{a.name}</p>
-        <div />
-        <p className={`font-body text-xs font-semibold text-right ${partyText(b.party)}`}>{b.name}</p>
-        {allIssues.map((issue) => {
-          const aHas = a.keyIssues.includes(issue);
-          const bHas = b.keyIssues.includes(issue);
-          return (
-            <div key={issue} className="contents">
-              <div className="flex items-center">
-                {aHas && <span className="rounded-md bg-surface-elevated px-2 py-1 font-body text-[11px] font-medium text-foreground">{issue}</span>}
-              </div>
-              <div className="flex items-center justify-center">
-                {aHas && bHas ? <span className="h-2 w-2 rounded-full bg-[hsl(142,71%,45%)]" title="Shared" /> : <span className="h-px w-4 bg-border" />}
-              </div>
-              <div className="flex items-center justify-end">
-                {bHas && <span className="rounded-md bg-surface-elevated px-2 py-1 font-body text-[11px] font-medium text-foreground">{issue}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {(() => {
-        const shared = a.keyIssues.filter((i) => b.keyIssues.includes(i));
-        return shared.length > 0 ? (
-          <p className="mt-3 font-body text-[11px] text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-[hsl(142,71%,45%)] mr-1 align-middle" />
-            Shared priorities: {shared.join(", ")}
-          </p>
-        ) : null;
-      })()}
-    </Section>
-  );
-}
-
 function VotingComparison({ a, b }: { a: Politician; b: Politician }) {
   const recA = useMemo(() => getVotingRecord(a.id, a.keyIssues, a.party), [a]);
   const recB = useMemo(() => getVotingRecord(b.id, b.keyIssues, b.party), [b]);
@@ -240,31 +227,6 @@ function VotingComparison({ a, b }: { a: Politician; b: Politician }) {
             </RadarChart>
           </ResponsiveContainer>
         </div>
-      </div>
-      <div className="mt-4 space-y-2">
-        {recA.issueGrades.map((ig) => {
-          const bGrade = recB.issueGrades.find((g) => g.issue === ig.issue);
-          return (
-            <div key={ig.issue} className="space-y-1">
-              <div className="flex justify-between">
-                <span className="font-body text-xs text-secondary-custom">{ig.issue}</span>
-                <div className="flex gap-3">
-                  <span className="font-body text-[10px] font-bold" style={{ color: gradeColor(ig.grade) }}>{ig.grade}</span>
-                  <span className="text-muted-foreground font-body text-[10px]">vs</span>
-                  <span className="font-body text-[10px] font-bold" style={{ color: gradeColor(bGrade?.grade || "F") }}>{bGrade?.grade || "—"}</span>
-                </div>
-              </div>
-              <div className="flex gap-1 h-1.5">
-                <div className="flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full" style={{ width: `${ig.score}%`, backgroundColor: partyHsl(a.party) }} />
-                </div>
-                <div className="flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full" style={{ width: `${bGrade?.score || 0}%`, backgroundColor: partyHsl(b.party) }} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </Section>
   );
@@ -302,38 +264,48 @@ function FinanceComparison({ a, b }: { a: Politician; b: Politician }) {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        {[{ fin: finA, pol: a }, { fin: finB, pol: b }].map(({ fin, pol }) => (
-          <div key={pol.id} className="rounded-lg border border-border bg-card p-4">
-            <h4 className={`mb-2 font-body text-xs font-semibold ${partyText(pol.party)}`}>{pol.name.split(" ").pop()}'s Top Donors</h4>
-            <div className="space-y-1.5">
-              {fin.topDonors.slice(0, 5).map((d) => (
-                <div key={d.name} className="flex items-center justify-between gap-2">
-                  <span className="truncate font-body text-[11px] text-secondary-custom">{d.name}</span>
-                  <span className="shrink-0 font-body text-[11px] font-semibold text-foreground">{formatCurrency(d.amount)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
     </Section>
   );
 }
 
 const CompareContent = () => {
+  const [selectedState, setSelectedState] = useState("California");
+  const { legislators, isLoading } = useLegislators(undefined, selectedState);
+
   const [politicianA, setPoliticianA] = useState<Politician | null>(null);
   const [politicianB, setPoliticianB] = useState<Politician | null>(null);
   const ready = politicianA && politicianB;
 
+  // Reset selections when state changes
+  useEffect(() => {
+    setPoliticianA(null);
+    setPoliticianB(null);
+  }, [selectedState]);
+
   return (
     <div className="space-y-8">
+      {/* State selector */}
+      <div>
+        <label className="font-body text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
+          Select a state to compare legislators
+        </label>
+        <select
+          value={selectedState}
+          onChange={(e) => setSelectedState(e.target.value)}
+          className="w-full max-w-xs rounded-lg border border-border bg-card px-3 py-2 font-body text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        >
+          {US_STATES.filter(s => s.abbr !== "US").map((s) => (
+            <option key={s.abbr} value={s.name}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="flex items-center gap-3">
-        <PoliticianPicker selected={politicianA} onSelect={setPoliticianA} otherId={politicianB?.id} side="left" />
+        <PoliticianPicker selected={politicianA} onSelect={setPoliticianA} otherId={politicianB?.id} side="left" legislators={legislators} isLoading={isLoading} />
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
           <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
         </div>
-        <PoliticianPicker selected={politicianB} onSelect={setPoliticianB} otherId={politicianA?.id} side="right" />
+        <PoliticianPicker selected={politicianB} onSelect={setPoliticianB} otherId={politicianA?.id} side="right" legislators={legislators} isLoading={isLoading} />
       </div>
 
       {!ready && (
@@ -345,13 +317,11 @@ const CompareContent = () => {
 
       {ready && (
         <motion.div key={`${politicianA.id}-${politicianB.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="space-y-8">
-          <KeyIssuesComparison a={politicianA} b={politicianB} />
-          <div className="h-px bg-border" />
           <VotingComparison a={politicianA} b={politicianB} />
           <div className="h-px bg-border" />
           <FinanceComparison a={politicianA} b={politicianB} />
           <p className="font-body text-[10px] text-muted-foreground/60 italic">
-            Data is illustrative. Voting records based on 83rd Session (2025). Finance data from 2025-2026 cycle.
+            Data is illustrative. Voting records and finance data are generated for comparison purposes.
           </p>
         </motion.div>
       )}

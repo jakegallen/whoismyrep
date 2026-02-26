@@ -3,16 +3,11 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, Flame, Newspaper, User, Flag, Bell } from "lucide-react";
 import type { TrendingTopic, TrendingIndividual } from "@/lib/mockNews";
-import { nevadaPoliticians } from "@/lib/politicians";
 import { useAuth } from "@/hooks/useAuth";
 
-// Lookup party from our known politicians list, fall back to API data
+// Use party from API data, or fallback to "?"
 const getParty = (name: string, apiParty?: string): string => {
   if (apiParty) return apiParty;
-  const match = nevadaPoliticians.find(
-    (p) => name.toLowerCase().includes(p.name.split(" ").pop()!.toLowerCase())
-  );
-  if (match) return match.party.charAt(0);
   return "?";
 };
 
@@ -86,8 +81,8 @@ const TrendingSidebar = ({ topics, individuals }: TrendingSidebarProps) => {
   ];
 
   const footerText: Record<Tab, string> = {
-    stories: "Top stories across Nevada news outlets and social media.",
-    individuals: "Most mentioned Nevada politicians ranked by news frequency.",
+    stories: "Top stories across U.S. news outlets and social media.",
+    individuals: "Most mentioned politicians ranked by news frequency.",
     parties: "Party engagement aggregated from individual politician mentions.",
   };
 

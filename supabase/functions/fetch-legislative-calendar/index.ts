@@ -23,10 +23,10 @@ Deno.serve(async (req) => {
     // Fetch events from OpenStates
     const eventsUrl = new URL('https://v3.openstates.org/events');
     eventsUrl.searchParams.set('jurisdiction', jurisdiction);
-    eventsUrl.searchParams.set('per_page', '50');
+    eventsUrl.searchParams.set('per_page', '20');
 
     // Also fetch recent bills with hearing/committee actions as fallback calendar items
-    const sessionsUrl = `https://v3.openstates.org/jurisdictions/${jurisdiction}`;
+    const sessionsUrl = `https://v3.openstates.org/jurisdictions/${jurisdiction}?include=legislative_sessions`;
     
     const [eventsResp, sessResp] = await Promise.all([
       fetch(eventsUrl.toString(), { headers }),

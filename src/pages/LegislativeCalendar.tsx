@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -50,6 +50,20 @@ const LegislativeCalendar = () => {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [hasAutoNavigated, setHasAutoNavigated] = useState(false);
+
+  // Auto-navigate to the month with the most recent events
+  useEffect(() => {
+    if (data?.events && data.events.length > 0 && !hasAutoNavigated) {
+      const mostRecent = data.events[0]?.startDate?.slice(0, 10);
+      if (mostRecent) {
+        const d = new Date(mostRecent + "T12:00:00");
+        setViewYear(d.getFullYear());
+        setViewMonth(d.getMonth());
+        setHasAutoNavigated(true);
+      }
+    }
+  }, [data, hasAutoNavigated]);
 
   const filteredEvents = useMemo(() => {
     if (!data?.events) return [];

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw, Loader2 } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
+import SiteNav from "@/components/SiteNav";
 import CategoryTabs from "@/components/CategoryTabs";
 import type { TabKey } from "@/components/CategoryTabs";
 import NewsCard from "@/components/NewsCard";
@@ -37,6 +38,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
       <DashboardHeader />
 
       <main className="container mx-auto px-4 py-8">

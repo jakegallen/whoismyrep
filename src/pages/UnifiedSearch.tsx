@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import SiteNav from "@/components/SiteNav";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -86,6 +87,7 @@ const UnifiedSearch = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
           <motion.div
@@ -99,7 +101,7 @@ const UnifiedSearch = () => {
                 className="flex items-center gap-1.5 font-body text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to News
+                Back to Home
               </button>
             </div>
             <div className="flex items-center gap-3">

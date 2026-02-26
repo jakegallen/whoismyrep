@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { FileText, ExternalLink, Download, Search, Loader2, Landmark, Scale, ScrollText, Bell } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
+import SiteNav from "@/components/SiteNav";
 import { useFederalRegister, type FederalDocType } from "@/hooks/useFederalRegister";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ const FederalRegister = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
       <DashboardHeader />
 
       <main className="container mx-auto px-4 py-8">

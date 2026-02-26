@@ -31,10 +31,10 @@ function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 80
 
 // --- Geocode address using Nominatim (free, no key) ---
 
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number; display: string } | null> {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=us`;
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number; display: string; stateAbbr: string } | null> {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=us&addressdetails=1`;
   const resp = await fetchWithTimeout(url, {
-    headers: { "User-Agent": "NevadaPoliticalDashboard/1.0" },
+    headers: { "User-Agent": "WhoIsMyRep/1.0" },
   });
   if (!resp.ok) {
     console.error("Nominatim error:", resp.status);
@@ -42,11 +42,38 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
   }
   const results = await resp.json();
   if (!results.length) return null;
+  
+  // Extract state abbreviation from address details
+  const stateCode = results[0].address?.["ISO3166-2-lvl4"]?.replace("US-", "") || "";
+  const stateName = results[0].address?.state || "";
+  // Fallback: try to extract from display name
+  const stateAbbr = stateCode || extractStateAbbr(stateName) || "NV";
+  
   return {
     lat: parseFloat(results[0].lat),
     lng: parseFloat(results[0].lon),
     display: results[0].display_name,
+    stateAbbr: stateAbbr.toUpperCase(),
   };
+}
+
+// Map full state names to abbreviations
+const STATE_ABBRS: Record<string, string> = {
+  "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+  "colorado": "CO", "connecticut": "CT", "delaware": "DE", "florida": "FL", "georgia": "GA",
+  "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA",
+  "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+  "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO",
+  "montana": "MT", "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ",
+  "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH",
+  "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+  "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT",
+  "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+  "district of columbia": "DC",
+};
+
+function extractStateAbbr(stateName: string): string {
+  return STATE_ABBRS[stateName.toLowerCase()] || "";
 }
 
 // --- Fallback: hardcoded Nevada state officials ---
@@ -98,10 +125,9 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
         const orgClass = roles.org_classification || "";
         const chamber = orgClass === "upper" ? "Senate" : "House";
         const district = roles.district || "";
-        // Open States jurisdiction.classification: "government" = federal, "state" = state legislature
         const jurisdictionClass = person.jurisdiction?.classification || "";
-        const jurisdictionName = (person.jurisdiction?.name || "").toLowerCase();
-        const isFederal = jurisdictionClass === "government" || jurisdictionName.includes("united states");
+        const jurisdictionName = (person.jurisdiction?.name || "");
+        const isFederal = jurisdictionClass === "government" || jurisdictionName.toLowerCase().includes("united states");
         
         console.log(`  ${person.name}: jurisdiction=${jurisdictionClass}/${jurisdictionName}, org=${orgClass}, district=${district}`);
         
@@ -113,7 +139,9 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
             office = `U.S. Representative — District ${district}`;
           }
         } else {
-          office = `Nevada State ${chamber} — District ${district}`;
+          // Use jurisdiction name (e.g. "District of Columbia", "California") instead of hardcoded "Nevada"
+          const stateName = jurisdictionName || "State";
+          office = `${stateName} State ${chamber} — District ${district}`;
         }
       }
 
@@ -162,10 +190,14 @@ async function fetchStateLegislators(lat: number, lng: number, apiKey: string): 
 let federalCache: { data: any[] | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24h
 
-async function fetchFederalDelegation(): Promise<RepResult[]> {
+async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
+  const cacheKey = stateAbbr.toUpperCase();
+  
   // Use cached data if fresh
   if (federalCache.data && Date.now() - federalCache.fetchedAt < CACHE_TTL) {
-    return federalCache.data as unknown as RepResult[];
+    // Filter cached data for the requested state
+    const cached = (federalCache.data as any[]).filter((r: any) => r._state === cacheKey);
+    if (cached.length > 0) return cached as unknown as RepResult[];
   }
 
   try {
@@ -174,22 +206,18 @@ async function fetchFederalDelegation(): Promise<RepResult[]> {
     const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
       console.error("Federal data fetch error:", resp.status);
-      console.log("Falling back to local federal data");
-      return FALLBACK_FEDERAL_REPS;
+      if (cacheKey === "NV") return FALLBACK_FEDERAL_REPS;
+      return [];
     }
     const all = await resp.json();
 
-    // Filter to Nevada
-    const nvMembers = all.filter((m: any) => {
-      const latestTerm = m.terms?.[m.terms.length - 1];
-      return latestTerm?.state === "NV";
-    });
-
-    const results: RepResult[] = nvMembers.map((m: any) => {
+    // Cache ALL members, then filter for requested state
+    const allResults: any[] = all.map((m: any) => {
       const term = m.terms[m.terms.length - 1];
       const isSenator = term.type === "sen";
       const party = term.party === "Democrat" ? "Democrat" : term.party === "Republican" ? "Republican" : term.party || "Unknown";
       const name = `${m.name.first} ${m.name.last}${m.name.suffix ? ` ${m.name.suffix}` : ""}`;
+      const st = (term.state || "").toUpperCase();
 
       let office: string;
       if (isSenator) {
@@ -210,18 +238,22 @@ async function fetchFederalDelegation(): Promise<RepResult[]> {
           ? `https://theunitedstates.io/images/congress/225x275/${m.id.bioguide}.jpg`
           : undefined,
         divisionId: isSenator
-          ? `ocd-division/country:us/state:nv`
-          : `ocd-division/country:us/state:nv/cd:${term.district}`,
+          ? `ocd-division/country:us/state:${st.toLowerCase()}`
+          : `ocd-division/country:us/state:${st.toLowerCase()}/cd:${term.district}`,
         _district: isSenator ? null : term.district,
+        _state: st,
       };
     });
 
-    federalCache = { data: results as any, fetchedAt: Date.now() };
-    return results;
+    federalCache = { data: allResults, fetchedAt: Date.now() };
+
+    const stateMembers = allResults.filter((r: any) => r._state === cacheKey);
+    console.log(`Found ${stateMembers.length} federal members for ${cacheKey}`);
+    return stateMembers;
   } catch (e) {
     console.error("Error fetching federal delegation:", e);
-    console.log("Falling back to local federal data");
-    return FALLBACK_FEDERAL_REPS;
+    if (cacheKey === "NV") return FALLBACK_FEDERAL_REPS;
+    return [];
   }
 }
 
@@ -446,14 +478,14 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    console.log(`Geocoded to ${geo.lat}, ${geo.lng}`);
+    console.log(`Geocoded to ${geo.lat}, ${geo.lng}, state: ${geo.stateAbbr}`);
 
     // Step 2: Fetch state legislators + federal delegation + election data in parallel
     const googleKey = Deno.env.get("GOOGLE_CIVIC_API_KEY");
 
     const [stateLegislators, federalAll, district, elections, voterInfo] = await Promise.all([
       fetchStateLegislators(geo.lat, geo.lng, openStatesKey),
-      fetchFederalDelegation(),
+      fetchFederalDelegation(geo.stateAbbr),
       googleKey ? getCongressionalDistrict(address, googleKey) : Promise.resolve(null),
       googleKey ? fetchElections(googleKey) : Promise.resolve([]),
       googleKey ? fetchVoterInfo(address, googleKey) : Promise.resolve(null),

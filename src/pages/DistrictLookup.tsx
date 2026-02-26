@@ -49,10 +49,10 @@ const partyColors: Record<string, string> = {
 };
 
 const EXAMPLE_ADDRESSES = [
+  "1600 Pennsylvania Ave NW, Washington, DC 20500",
   "1600 Las Vegas Blvd S, Las Vegas, NV 89104",
-  "200 S Virginia St, Reno, NV 89501",
-  "240 Water St, Henderson, NV 89015",
-  "2250 Las Vegas Blvd N, North Las Vegas, NV 89030",
+  "200 N Spring St, Los Angeles, CA 90012",
+  "100 State St, Albany, NY 12207",
 ];
 
 const DistrictLookup = () => {
@@ -109,7 +109,7 @@ const DistrictLookup = () => {
             Find My Representatives
           </h1>
           <p className="mx-auto mt-2 max-w-lg font-body text-sm text-secondary-custom">
-            Enter your Nevada address to see all your elected officials — from
+            Enter any U.S. address to see all your elected officials — from
             Congress to your city council.
           </p>
         </motion.div>
@@ -133,7 +133,7 @@ const DistrictLookup = () => {
               <Input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Enter your address (e.g. 1600 Las Vegas Blvd S, Las Vegas, NV)"
+                placeholder="Enter your address (e.g. 1600 Pennsylvania Ave NW, Washington, DC)"
                 className="pl-9 font-body"
               />
             </div>
@@ -415,16 +415,7 @@ const DistrictLookup = () => {
               )}
 
               <p className="font-body text-[10px] italic text-muted-foreground/60">
-                Data provided by Google Civic Information API. For official district maps visit{" "}
-                <a
-                  href="https://www.nvsos.gov"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  nvsos.gov
-                </a>
-                .
+                Data provided by Google Civic Information API, OpenStates, and theunitedstates.io.
               </p>
             </motion.div>
           )}

@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.fetch-court-cases]
 verify_jwt = false
+
+[functions.fetch-congress]
+verify_jwt = false

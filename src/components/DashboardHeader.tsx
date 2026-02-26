@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Newspaper, Users, FileText, MapPin, Flag, Building2, DollarSign,
   Menu, X, ChevronDown, Home, CalendarDays, Map as MapIcon, Landmark,
-  Scale, Building, Briefcase,
+  Scale, Building, Briefcase, Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -81,7 +81,14 @@ const DashboardHeader = () => {
             </div>
 
             {/* Desktop dropdown */}
-            <div className="hidden md:block">
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={() => navigate("/search")}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                aria-label="Search everything"
+              >
+                <Search className="h-4 w-4" />
+              </button>
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
                   Explore

@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.fetch-bill-detail]
 verify_jwt = false
+
+[functions.unified-search]
+verify_jwt = false

@@ -13,12 +13,15 @@ import {
   ExternalLink,
   RefreshCw,
   AlertCircle,
+  MapPin,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBills, type Bill } from "@/hooks/useBills";
 import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
+import { US_STATES } from "@/lib/usStates";
 
 const chamberConfig = {
   Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
@@ -27,10 +30,14 @@ const chamberConfig = {
 
 const Bills = () => {
   const navigate = useNavigate();
+  const [selectedState, setSelectedState] = useState("NV");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [chamberFilter, setChamberFilter] = useState<"all" | "Assembly" | "Senate">("all");
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>("all");
+
+  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
+  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada";
 
   // Debounce search for edge function
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -41,7 +48,7 @@ const Bills = () => {
     setDebounceTimer(timer);
   };
 
-  const { bills, total, isLoading, error, refetch } = useBills(debouncedSearch || undefined);
+  const { bills, total, isLoading, error, refetch } = useBills(debouncedSearch || undefined, jurisdiction);
 
   const filtered = useMemo(() => {
     let result = bills;
@@ -85,8 +92,25 @@ const Bills = () => {
               </h1>
             </div>
             <p className="mt-2 max-w-xl font-body text-sm text-tertiary">
-              83rd Session (2025) — Track Nevada Legislature bills in real-time. Click any bill for an AI-powered plain-English summary.
+              Track {stateName} legislature bills in real-time via OpenStates. Click any bill for an AI-powered plain-English summary.
             </p>
+
+            {/* State selector */}
+            <div className="mt-4 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedState} onValueChange={setSelectedState}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {US_STATES.map((s) => (
+                    <SelectItem key={s.abbr} value={s.abbr}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </motion.div>
         </div>
       </header>
@@ -183,7 +207,7 @@ const Bills = () => {
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="mt-3 font-body text-sm text-muted-foreground">
-              Scraping Nevada Legislature…
+              Loading {stateName} legislation…
             </p>
           </div>
         )}

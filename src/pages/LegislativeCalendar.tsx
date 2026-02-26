@@ -18,6 +18,8 @@ import DashboardHeader from "@/components/DashboardHeader";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import type { CalendarEvent } from "@/hooks/useLegislativeCalendar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { US_STATES } from "@/lib/usStates";
 
 const EVENT_TYPE_CONFIG: Record<string, { label: string; icon: typeof Gavel; colorClass: string }> = {
   hearing: { label: "Hearing", icon: Gavel, colorClass: "bg-[hsl(210,80%,55%)] text-white" },
@@ -44,7 +46,10 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 const LegislativeCalendar = () => {
   const navigate = useNavigate();
-  const { data, isLoading, error } = useLegislativeCalendar();
+  const [selectedState, setSelectedState] = useState("NV");
+  const stateAbbr = selectedState.toLowerCase();
+  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
+  const { data, isLoading, error } = useLegislativeCalendar(stateAbbr, jurisdiction);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
   const today = new Date();
@@ -125,12 +130,28 @@ const LegislativeCalendar = () => {
               Legislative Calendar
             </h1>
           </div>
-          <p className="font-body text-sm text-tertiary mb-6">
-            Upcoming hearings, committee meetings, votes, and session dates for the Nevada Legislature.
+          <p className="font-body text-sm text-tertiary mb-4">
+            Upcoming hearings, committee meetings, votes, and session dates.
             {data?.session && (
               <span className="ml-1 text-muted-foreground">Session: {data.session}</span>
             )}
           </p>
+
+          {/* State selector */}
+          <div className="flex items-center gap-2 mb-6">
+            <Select value={selectedState} onValueChange={setSelectedState}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select state" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {US_STATES.map((s) => (
+                  <SelectItem key={s.abbr} value={s.abbr}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Type filters */}
           <div className="flex flex-wrap gap-2 mb-6">

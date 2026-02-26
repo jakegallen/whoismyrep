@@ -122,44 +122,52 @@ Deno.serve(async (req) => {
     let totalItems = 0;
 
     for (const session of sessionIds) {
-      const billsUrl = new URL('https://v3.openstates.org/bills');
-      billsUrl.searchParams.set('jurisdiction', jurisdiction);
-      billsUrl.searchParams.set('session', session);
-      billsUrl.searchParams.set('include', 'votes');
-      billsUrl.searchParams.set('per_page', '20');
-      billsUrl.searchParams.set('page', String(page));
-      billsUrl.searchParams.set('sort', 'updated_desc');
+      // Fetch up to 3 pages of 50 bills to maximise vote coverage
+      let sessionBills: any[] = [];
+      for (let p = 1; p <= 3; p++) {
+        const billsUrl = new URL('https://v3.openstates.org/bills');
+        billsUrl.searchParams.set('jurisdiction', jurisdiction);
+        billsUrl.searchParams.set('session', session);
+        billsUrl.searchParams.set('include', 'votes');
+        billsUrl.searchParams.set('per_page', '50');
+        billsUrl.searchParams.set('page', String(p));
+        billsUrl.searchParams.set('sort', 'updated_desc');
 
-      if (chamber === 'Senate') {
-        billsUrl.searchParams.set('chamber', 'upper');
-      } else if (chamber === 'Assembly') {
-        billsUrl.searchParams.set('chamber', 'lower');
+        if (chamber === 'Senate') {
+          billsUrl.searchParams.set('chamber', 'upper');
+        } else if (chamber === 'Assembly') {
+          billsUrl.searchParams.set('chamber', 'lower');
+        }
+
+        console.log(`Fetching bills page ${p} for session ${session}`);
+
+        const billsResp = await fetch(billsUrl.toString(), {
+          headers: { 'X-API-KEY': apiKey },
+        });
+
+        if (!billsResp.ok) {
+          console.log(`Session ${session} page ${p} failed: ${billsResp.status}`);
+          break;
+        }
+
+        const billsData = await billsResp.json();
+        const results = billsData.results || [];
+        sessionBills.push(...results);
+        if (p === 1) totalItems = billsData.pagination?.total_items || results.length;
+
+        // Stop if we've exhausted results
+        if (results.length < 50) break;
       }
 
-      console.log('Trying bills with votes:', billsUrl.toString());
-
-      const billsResp = await fetch(billsUrl.toString(), {
-        headers: { 'X-API-KEY': apiKey },
-      });
-
-      if (!billsResp.ok) {
-        const errText = await billsResp.text();
-        console.log(`Session ${session} failed: ${billsResp.status} ${errText}`);
-        continue;
-      }
-
-      const billsData = await billsResp.json();
-      const results = billsData.results || [];
-      const billsWithVotes = results.filter((b: any) => (b.votes || []).length > 0);
+      const billsWithVotes = sessionBills.filter((b: any) => (b.votes || []).length > 0);
       
       if (billsWithVotes.length > 0) {
-        bills = results;
+        bills = sessionBills;
         usedSession = session;
-        totalItems = billsData.pagination?.total_items || results.length;
-        console.log(`Found ${billsWithVotes.length} bills with votes in session ${session}`);
+        console.log(`Found ${billsWithVotes.length} bills with votes in session ${session} (${sessionBills.length} total bills)`);
         break;
       }
-      console.log(`Session ${session}: ${results.length} bills, ${billsWithVotes.length} with votes`);
+      console.log(`Session ${session}: ${sessionBills.length} bills, ${billsWithVotes.length} with votes`);
     }
 
     console.log(`Using session: ${usedSession || 'none'}, got ${bills.length} bills`);

@@ -65,12 +65,18 @@ Deno.serve(async (req) => {
       // Extract links
       const links = (person.links || []).reduce((acc: Record<string, string>, link: any) => {
         if (link.url) {
-          if (link.note?.toLowerCase().includes('twitter') || link.url.includes('x.com') || link.url.includes('twitter.com')) {
+          const lUrl = link.url.toLowerCase();
+          const lNote = (link.note || '').toLowerCase();
+          if (lNote.includes('twitter') || lUrl.includes('x.com') || lUrl.includes('twitter.com')) {
             acc.x = link.url;
-          } else if (link.url.includes('facebook.com')) {
+          } else if (lUrl.includes('facebook.com')) {
             acc.facebook = link.url;
-          } else if (link.url.includes('instagram.com')) {
+          } else if (lUrl.includes('instagram.com')) {
             acc.instagram = link.url;
+          } else if (lUrl.includes('youtube.com')) {
+            acc.youtube = link.url;
+          } else if (lUrl.includes('tiktok.com')) {
+            acc.tiktok = link.url;
           } else if (!acc.website) {
             acc.website = link.url;
           }
@@ -91,11 +97,15 @@ Deno.serve(async (req) => {
         district,
         email: person.email || undefined,
         website: links.website || undefined,
-        socialHandles: {
-          x: links.x || undefined,
-          facebook: links.facebook || undefined,
-          instagram: links.instagram || undefined,
-        },
+        socialHandles: Object.fromEntries(
+          Object.entries({
+            x: links.x,
+            facebook: links.facebook,
+            instagram: links.instagram,
+            youtube: links.youtube,
+            tiktok: links.tiktok,
+          }).filter(([, v]) => v)
+        ),
         openstatesUrl: person.openstates_url || undefined,
       };
     });

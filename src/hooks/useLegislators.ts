@@ -29,7 +29,7 @@ interface UseLegislatorsResult {
   refetch: () => void;
 }
 
-export function useLegislators(chamber?: string): UseLegislatorsResult {
+export function useLegislators(chamber?: string, jurisdiction?: string): UseLegislatorsResult {
   const [legislators, setLegislators] = useState<Legislator[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export function useLegislators(chamber?: string): UseLegislatorsResult {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-legislators", {
-        body: { chamber, per_page: 100 },
+        body: { chamber, per_page: 100, jurisdiction },
       });
 
       if (fnError) throw new Error(fnError.message);
@@ -53,7 +53,7 @@ export function useLegislators(chamber?: string): UseLegislatorsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [chamber]);
+  }, [chamber, jurisdiction]);
 
   useEffect(() => {
     fetchLegislators();

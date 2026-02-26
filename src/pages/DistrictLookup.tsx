@@ -15,10 +15,16 @@ import {
   AlertCircle,
   Phone,
   Mail,
+  CalendarDays,
+  Vote,
+  MapPinned,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useCivicReps, type CivicRep, type CivicGroup } from "@/hooks/useCivicReps";
+import { Badge } from "@/components/ui/badge";
+import { useCivicReps, type CivicRep, type CivicGroup, type PollingLocation, type Contest, type VoterInfo, type ElectionInfo } from "@/hooks/useCivicReps";
 import { nevadaPoliticians } from "@/lib/politicians";
 
 const levelIcons: Record<string, typeof Landmark> = {
@@ -52,7 +58,7 @@ const EXAMPLE_ADDRESSES = [
 const DistrictLookup = () => {
   const navigate = useNavigate();
   const [address, setAddress] = useState("");
-  const { groups, normalizedAddress, totalReps, isLoading, error, lookup, reset } = useCivicReps();
+  const { groups, normalizedAddress, totalReps, isLoading, error, elections, voterInfo, lookup, reset } = useCivicReps();
 
   // Build a lookup map: normalized name -> politician object
   const politicianByName = useMemo(() => {
@@ -244,6 +250,170 @@ const DistrictLookup = () => {
                 );
               })}
 
+              {/* Election Info */}
+              {voterInfo?.election && (
+                <motion.section
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-primary bg-primary/10">
+                      <CalendarDays className="h-4 w-4" />
+                    </div>
+                    <h2 className="font-display text-base font-bold text-headline">
+                      Upcoming Election
+                    </h2>
+                  </div>
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <h3 className="font-display text-sm font-semibold text-headline">
+                      {voterInfo.election.name}
+                    </h3>
+                    <p className="font-body text-xs text-muted-foreground mt-1">
+                      Election Day: {voterInfo.election.electionDay}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {voterInfo.stateElectionInfoUrl && (
+                        <a
+                          href={voterInfo.stateElectionInfoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 rounded-md bg-surface-elevated px-3 py-1.5 font-body text-xs font-medium text-foreground hover:bg-surface-hover transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          State Election Info
+                        </a>
+                      )}
+                      {voterInfo.localElectionInfoUrl && (
+                        <a
+                          href={voterInfo.localElectionInfoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 rounded-md bg-surface-elevated px-3 py-1.5 font-body text-xs font-medium text-foreground hover:bg-surface-hover transition-colors"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Find Voting Locations
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Upcoming Elections List */}
+              {elections.length > 0 && !voterInfo?.election && (
+                <motion.section
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-primary bg-primary/10">
+                      <CalendarDays className="h-4 w-4" />
+                    </div>
+                    <h2 className="font-display text-base font-bold text-headline">
+                      Upcoming Elections
+                    </h2>
+                  </div>
+                  <div className="space-y-2">
+                    {elections.slice(0, 5).map((el) => (
+                      <div key={el.id} className="rounded-lg border border-border bg-card p-3 flex items-center justify-between">
+                        <div>
+                          <p className="font-body text-sm font-medium text-headline">{el.name}</p>
+                          <p className="font-body text-xs text-muted-foreground">{el.electionDay}</p>
+                        </div>
+                        <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">
+                          {el.id}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Polling Locations */}
+              {voterInfo && (voterInfo.pollingLocations.length > 0 || voterInfo.earlyVoteSites.length > 0 || voterInfo.dropOffLocations.length > 0) && (
+                <motion.section
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35, duration: 0.3 }}
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-[hsl(142,71%,45%)] bg-[hsl(142,71%,45%/0.1)]">
+                      <MapPinned className="h-4 w-4" />
+                    </div>
+                    <h2 className="font-display text-base font-bold text-headline">
+                      Voting Locations
+                    </h2>
+                  </div>
+
+                  {voterInfo.pollingLocations.length > 0 && (
+                    <div className="mb-3">
+                      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                        Polling Locations
+                      </p>
+                      <div className="space-y-2">
+                        {voterInfo.pollingLocations.map((loc, i) => (
+                          <LocationCard key={i} location={loc} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {voterInfo.earlyVoteSites.length > 0 && (
+                    <div className="mb-3">
+                      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                        Early Voting Sites
+                      </p>
+                      <div className="space-y-2">
+                        {voterInfo.earlyVoteSites.map((loc, i) => (
+                          <LocationCard key={i} location={loc} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {voterInfo.dropOffLocations.length > 0 && (
+                    <div>
+                      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                        Drop-off Locations
+                      </p>
+                      <div className="space-y-2">
+                        {voterInfo.dropOffLocations.map((loc, i) => (
+                          <LocationCard key={i} location={loc} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.section>
+              )}
+
+              {/* Ballot Contests */}
+              {voterInfo && voterInfo.contests.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.3 }}
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg text-[hsl(280,60%,55%)] bg-[hsl(280,60%,55%/0.1)]">
+                      <Vote className="h-4 w-4" />
+                    </div>
+                    <h2 className="font-display text-base font-bold text-headline">
+                      Ballot Contests
+                    </h2>
+                    <span className="ml-auto font-body text-xs text-muted-foreground">
+                      {voterInfo.contests.length} contest{voterInfo.contests.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {voterInfo.contests.map((contest, i) => (
+                      <ContestCard key={i} contest={contest} />
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
               <p className="font-body text-[10px] italic text-muted-foreground/60">
                 Data provided by Google Civic Information API. For official district maps visit{" "}
                 <a
@@ -333,6 +503,111 @@ function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRe
         )}
       </div>
     </motion.div>
+  );
+}
+
+
+
+function LocationCard({ location }: { location: PollingLocation }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      {location.name && (
+        <p className="font-body text-sm font-medium text-headline">{location.name}</p>
+      )}
+      <p className="font-body text-xs text-muted-foreground mt-0.5">{location.address}</p>
+      {location.hours && (
+        <p className="font-body text-xs text-secondary-custom mt-1">Hours: {location.hours}</p>
+      )}
+      {location.notes && (
+        <p className="font-body text-[10px] text-muted-foreground mt-1 italic">{location.notes}</p>
+      )}
+    </div>
+  );
+}
+
+function ContestCard({ contest }: { contest: Contest }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (contest.type === "Referendum") {
+    return (
+      <div className="rounded-lg border border-border bg-card p-3">
+        <div className="flex items-start gap-2 mb-1">
+          <Badge className="bg-[hsl(var(--badge-policy))] text-[hsl(var(--badge-policy-foreground))] text-[10px]">
+            Referendum
+          </Badge>
+          {contest.district && (
+            <span className="font-body text-[10px] text-muted-foreground">{contest.district}</span>
+          )}
+        </div>
+        <h4 className="font-display text-sm font-semibold text-headline">
+          {contest.referendumTitle}
+        </h4>
+        {contest.referendumSubtitle && (
+          <p className="font-body text-xs text-secondary-custom mt-0.5">{contest.referendumSubtitle}</p>
+        )}
+        {contest.referendumText && (
+          <p className="font-body text-xs text-muted-foreground mt-1 line-clamp-3">{contest.referendumText}</p>
+        )}
+        {contest.referendumUrl && (
+          <a
+            href={contest.referendumUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-2 font-body text-xs text-primary hover:underline"
+          >
+            <ExternalLink className="h-3 w-3" />
+            More info
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left flex items-start justify-between gap-2"
+      >
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Badge className="bg-[hsl(var(--badge-law))] text-[hsl(var(--badge-law-foreground))] text-[10px]">
+              {contest.type}
+            </Badge>
+            {contest.level && (
+              <span className="font-body text-[10px] text-muted-foreground capitalize">{contest.level}</span>
+            )}
+          </div>
+          <h4 className="font-display text-sm font-semibold text-headline">{contest.office}</h4>
+          {contest.district && (
+            <p className="font-body text-xs text-muted-foreground">{contest.district}</p>
+          )}
+        </div>
+        {contest.candidates.length > 0 && (
+          expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+      </button>
+
+      {expanded && contest.candidates.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+          {contest.candidates.map((cand, j) => (
+            <div key={j} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-body text-xs text-foreground">{cand.name}</span>
+                {cand.party && (
+                  <span className="font-body text-[10px] text-muted-foreground">({cand.party})</span>
+                )}
+              </div>
+              {cand.url && (
+                <a href={cand.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -238,7 +238,6 @@ async function getCongressionalDistrict(address: string, googleKey: string): Pro
     }
     const data = await resp.json();
     for (const div of data.divisions ? Object.keys(data.divisions) : []) {
-      // Match pattern like ocd-division/country:us/state:nv/cd:1
       const match = div.match(/\/cd:(\d+)/);
       if (match) return parseInt(match[1], 10);
     }
@@ -247,6 +246,172 @@ async function getCongressionalDistrict(address: string, googleKey: string): Pro
     console.error("Error fetching congressional district:", e);
     return null;
   }
+}
+
+// --- Fetch election info and voter info via Google Civic API ---
+
+interface ElectionInfo {
+  id: string;
+  name: string;
+  electionDay: string;
+  ocdDivisionId: string;
+}
+
+interface PollingLocation {
+  name: string;
+  address: string;
+  hours: string;
+  notes: string;
+  sources: string[];
+}
+
+interface Contest {
+  type: string;
+  office: string;
+  district: string;
+  level: string;
+  candidates: { name: string; party: string; url: string }[];
+  referendumTitle?: string;
+  referendumSubtitle?: string;
+  referendumText?: string;
+  referendumUrl?: string;
+}
+
+interface VoterInfo {
+  election: ElectionInfo | null;
+  pollingLocations: PollingLocation[];
+  earlyVoteSites: PollingLocation[];
+  dropOffLocations: PollingLocation[];
+  contests: Contest[];
+  stateElectionInfoUrl: string;
+  localElectionInfoUrl: string;
+}
+
+async function fetchElections(googleKey: string): Promise<ElectionInfo[]> {
+  try {
+    const url = `https://civicinfo.googleapis.com/civicinfo/v2/elections?key=${encodeURIComponent(googleKey)}`;
+    console.log("Fetching elections list");
+    const resp = await fetchWithTimeout(url);
+    if (!resp.ok) {
+      console.error("Elections API error:", resp.status);
+      return [];
+    }
+    const data = await resp.json();
+    return (data.elections || [])
+      .filter((e: any) => e.id !== "2000") // filter out test election
+      .map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        electionDay: e.electionDay,
+        ocdDivisionId: e.ocdDivisionId || "",
+      }));
+  } catch (e) {
+    console.error("Error fetching elections:", e);
+    return [];
+  }
+}
+
+function parseLocation(loc: any): PollingLocation {
+  const addr = loc.address || {};
+  const addressStr = [addr.locationName, addr.line1, addr.line2, addr.line3, `${addr.city || ""}, ${addr.state || ""} ${addr.zip || ""}`]
+    .filter(Boolean)
+    .join(", ")
+    .replace(/,\s*,/g, ",")
+    .trim();
+  return {
+    name: loc.address?.locationName || loc.name || "",
+    address: addressStr,
+    hours: loc.pollingHours || "",
+    notes: loc.notes || "",
+    sources: (loc.sources || []).map((s: any) => s.name).filter(Boolean),
+  };
+}
+
+async function fetchVoterInfo(address: string, googleKey: string, electionId?: string): Promise<VoterInfo> {
+  const result: VoterInfo = {
+    election: null,
+    pollingLocations: [],
+    earlyVoteSites: [],
+    dropOffLocations: [],
+    contests: [],
+    stateElectionInfoUrl: "",
+    localElectionInfoUrl: "",
+  };
+
+  try {
+    const params = new URLSearchParams({
+      key: googleKey,
+      address: address,
+    });
+    if (electionId) {
+      params.set("electionId", electionId);
+    }
+
+    const url = `https://civicinfo.googleapis.com/civicinfo/v2/voterinfo?${params}`;
+    console.log("Fetching voter info");
+    const resp = await fetchWithTimeout(url, {}, 10000);
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("Voter info API error:", resp.status, text.substring(0, 200));
+      return result;
+    }
+
+    const data = await resp.json();
+
+    // Election
+    if (data.election && data.election.id !== "2000") {
+      result.election = {
+        id: data.election.id,
+        name: data.election.name,
+        electionDay: data.election.electionDay,
+        ocdDivisionId: data.election.ocdDivisionId || "",
+      };
+    }
+
+    // Polling locations
+    result.pollingLocations = (data.pollingLocations || []).map(parseLocation);
+    result.earlyVoteSites = (data.earlyVoteSites || []).map(parseLocation);
+    result.dropOffLocations = (data.dropOffLocations || []).map(parseLocation);
+
+    // State info URLs
+    for (const state of data.state || []) {
+      const adminBody = state.electionAdministrationBody || {};
+      result.stateElectionInfoUrl = adminBody.electionInfoUrl || "";
+      result.localElectionInfoUrl = adminBody.votingLocationFinderUrl || adminBody.electionInfoUrl || "";
+    }
+
+    // Contests
+    result.contests = (data.contests || []).map((c: any) => {
+      if (c.type === "Referendum") {
+        return {
+          type: "Referendum",
+          office: "",
+          district: c.district?.name || "",
+          level: (c.level || []).join(", "),
+          candidates: [],
+          referendumTitle: c.referendumTitle || "",
+          referendumSubtitle: c.referendumSubtitle || "",
+          referendumText: c.referendumText || "",
+          referendumUrl: c.referendumUrl || "",
+        };
+      }
+      return {
+        type: c.type || "General",
+        office: c.office || "",
+        district: c.district?.name || "",
+        level: (c.level || []).join(", "),
+        candidates: (c.candidates || []).map((cand: any) => ({
+          name: cand.name || "",
+          party: cand.party || "",
+          url: cand.candidateUrl || "",
+        })),
+      };
+    });
+  } catch (e) {
+    console.error("Error fetching voter info:", e);
+  }
+
+  return result;
 }
 
 // --- Main handler ---
@@ -283,13 +448,15 @@ serve(async (req) => {
     }
     console.log(`Geocoded to ${geo.lat}, ${geo.lng}`);
 
-    // Step 2: Fetch state legislators + federal delegation in parallel
+    // Step 2: Fetch state legislators + federal delegation + election data in parallel
     const googleKey = Deno.env.get("GOOGLE_CIVIC_API_KEY");
 
-    const [stateLegislators, federalAll, district] = await Promise.all([
+    const [stateLegislators, federalAll, district, elections, voterInfo] = await Promise.all([
       fetchStateLegislators(geo.lat, geo.lng, openStatesKey),
       fetchFederalDelegation(),
       googleKey ? getCongressionalDistrict(address, googleKey) : Promise.resolve(null),
+      googleKey ? fetchElections(googleKey) : Promise.resolve([]),
+      googleKey ? fetchVoterInfo(address, googleKey) : Promise.resolve(null),
     ]);
 
     // Step 3: Filter federal reps to relevant district
@@ -297,16 +464,14 @@ serve(async (req) => {
     if (district !== null) {
       console.log(`Congressional district: ${district}`);
       federalReps = federalAll.filter((r: any) => {
-        // Senators represent the whole state, reps only their district
-        if (r._district === null) return true; // senator
+        if (r._district === null) return true;
         return r._district === district;
       });
     }
 
-    // Clean up internal fields
     const cleanFederal: RepResult[] = federalReps.map(({ _district, ...rest }: any) => rest);
 
-    // Step 4: Deduplicate by name (Open States may return federal reps too)
+    // Step 4: Deduplicate by name
     const seen = new Set<string>();
     const allReps: RepResult[] = [];
     for (const rep of [...cleanFederal, ...stateLegislators]) {
@@ -341,6 +506,8 @@ serve(async (req) => {
         normalizedAddress: geo.display,
         groups,
         totalReps: allReps.length,
+        elections,
+        voterInfo,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

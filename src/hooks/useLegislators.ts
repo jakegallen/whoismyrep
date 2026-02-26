@@ -40,7 +40,7 @@ export function useLegislators(chamber?: string, jurisdiction?: string): UseLegi
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-legislators", {
-        body: { chamber, per_page: 100, jurisdiction },
+        body: { chamber, per_page: 50, jurisdiction },
       });
 
       if (fnError) throw new Error(fnError.message);

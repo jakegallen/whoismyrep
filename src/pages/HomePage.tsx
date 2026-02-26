@@ -13,7 +13,13 @@ import {
   FileText,
   Vote,
   ChevronRight,
-  Sparkles,
+  Shield,
+  BarChart3,
+  DollarSign,
+  Scale,
+  Globe,
+  Star,
+  ArrowRight,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,15 +52,49 @@ const partyDot: Record<string, string> = {
 
 const EXAMPLE_ADDRESSES = [
   "1600 Pennsylvania Ave NW, Washington, DC",
-  "1600 Las Vegas Blvd S, Las Vegas, NV",
   "200 N Spring St, Los Angeles, CA",
   "100 State St, Albany, NY",
+  "500 S State St, Chicago, IL",
 ];
 
 const STATS = [
-  { label: "Representatives Tracked", value: "100+", icon: Users },
-  { label: "Active Bills", value: "500+", icon: FileText },
-  { label: "Roll Call Votes", value: "1,200+", icon: Vote },
+  { label: "States + D.C. Covered", value: "51", icon: Globe },
+  { label: "Elected Officials", value: "7,500+", icon: Users },
+  { label: "Bills Tracked", value: "100K+", icon: FileText },
+  { label: "Data Sources", value: "12+", icon: BarChart3 },
+];
+
+const FEATURES = [
+  {
+    icon: Users,
+    title: "Every Level of Government",
+    desc: "From the U.S. Senate to your city council — see everyone who represents you in one place.",
+  },
+  {
+    icon: Vote,
+    title: "Live Voting Records",
+    desc: "Track how your representatives vote on the issues that matter most, powered by OpenStates.",
+  },
+  {
+    icon: DollarSign,
+    title: "Campaign Finance",
+    desc: "Follow the money — see who funds your officials with real-time FEC data.",
+  },
+  {
+    icon: Scale,
+    title: "Court Cases & Lobbying",
+    desc: "Discover court opinions and lobbying activity connected to your representatives.",
+  },
+  {
+    icon: Shield,
+    title: "AI-Powered Analysis",
+    desc: "Get plain-language summaries and accountability insights for every politician.",
+  },
+  {
+    icon: BarChart3,
+    title: "Prediction Markets",
+    desc: "See real-time odds from Polymarket on elections and policy outcomes.",
+  },
 ];
 
 const HomePage = () => {
@@ -79,36 +119,37 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-background">
 
-      {/* Hero */}
+      {/* ═══════ HERO ═══════ */}
       <section className="relative overflow-hidden">
         {/* Background glow effects */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[hsl(217,72%,42%/0.08)] blur-[120px]" />
-          <div className="absolute right-0 top-32 h-[400px] w-[400px] rounded-full bg-[hsl(0,68%,48%/0.05)] blur-[100px]" />
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[700px] w-[1000px] rounded-full bg-[hsl(217,72%,42%/0.06)] blur-[140px]" />
+          <div className="absolute right-0 top-40 h-[400px] w-[400px] rounded-full bg-[hsl(0,68%,48%/0.04)] blur-[100px]" />
+          <div className="absolute left-0 bottom-0 h-[300px] w-[300px] rounded-full bg-[hsl(43,90%,48%/0.04)] blur-[80px]" />
         </div>
 
-        <div className="container relative mx-auto px-4 pb-10 pt-8 md:pt-14">
+        <div className="container relative mx-auto px-4 pb-12 pt-10 md:pt-16">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
             className="mx-auto max-w-3xl text-center"
           >
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated px-4 py-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="font-body text-xs text-muted-foreground">
-                Nevada's most comprehensive rep tracker → now nationwide
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
+              <Star className="h-3.5 w-3.5 text-primary" />
+              <span className="font-body text-xs font-medium text-primary">
+                The nationwide political transparency platform
               </span>
             </div>
 
-            <h1 className="font-display text-4xl font-bold leading-tight text-headline md:text-6xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.1] text-headline md:text-6xl lg:text-7xl">
               Know who{" "}
               <span className="text-gradient-brand">represents</span>
               {" "}you
             </h1>
 
-            <p className="mx-auto mt-4 max-w-xl font-body text-base text-secondary-custom">
-              Enter your address to instantly find your representatives at every level — federal, state, county, and local — with voting records, campaign finance, and more. Works for any U.S. address.
+            <p className="mx-auto mt-5 max-w-xl font-body text-base leading-relaxed text-secondary-custom md:text-lg">
+              Enter any U.S. address to instantly discover your elected officials — from Congress to city hall — with voting records, campaign finance, and AI-powered analysis.
             </p>
 
             {/* Search bar */}
@@ -116,7 +157,7 @@ const HomePage = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="mx-auto mt-6 max-w-xl"
+              className="mx-auto mt-8 max-w-xl"
             >
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -166,10 +207,10 @@ const HomePage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-4"
+            className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-4"
           >
             {STATS.map((stat) => (
-              <div key={stat.label} className="text-center">
+              <div key={stat.label} className="rounded-xl border border-border bg-card/50 p-4 text-center backdrop-blur-sm">
                 <stat.icon className="mx-auto mb-2 h-5 w-5 text-primary" />
                 <p className="font-display text-2xl font-bold text-headline">{stat.value}</p>
                 <p className="font-body text-[11px] text-muted-foreground">{stat.label}</p>
@@ -188,7 +229,7 @@ const HomePage = () => {
         </div>
       )}
 
-      {/* Results */}
+      {/* ═══════ RESULTS ═══════ */}
       {reps.length > 0 && (
         <section ref={resultsRef} className="container mx-auto px-4 pb-20">
           <motion.div
@@ -286,36 +327,32 @@ const HomePage = () => {
         </section>
       )}
 
-      {/* Featured reps section (shown when no search) */}
+      {/* ═══════ FEATURES (shown when no search) ═══════ */}
       {reps.length === 0 && !isLoading && (
-        <section className="container mx-auto px-4 pb-20">
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-8 text-center">
-              <h2 className="font-display text-2xl font-bold text-headline">
-                How It Works
+        <section className="container mx-auto px-4 pb-16">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 text-center">
+              <h2 className="font-display text-2xl font-bold text-headline md:text-3xl">
+                Everything you need to hold power accountable
               </h2>
-              <p className="mt-2 font-body text-sm text-muted-foreground">
-                Find your representatives anywhere in the United States
+              <p className="mx-auto mt-3 max-w-lg font-body text-sm text-muted-foreground">
+                One address. Every elected official. Complete transparency.
               </p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-3">
-              {[
-                { icon: MapPin, title: "Enter Your Address", desc: "Type any U.S. address — we'll identify your federal, state, and local districts." },
-                { icon: Users, title: "See Your Reps", desc: "Get a complete list of your elected officials from Congress down to city council." },
-                { icon: FileText, title: "Dig Deeper", desc: "Explore voting records, campaign finance, sponsored bills, and more for each rep." },
-              ].map((step, i) => (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {FEATURES.map((feat, i) => (
                 <motion.div
-                  key={step.title}
+                  key={feat.title}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="rounded-xl border border-border bg-card p-6 text-center"
+                  transition={{ delay: i * 0.08 }}
+                  className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/30 hover:shadow-glow"
                 >
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                    <step.icon className="h-6 w-6 text-primary" />
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
+                    <feat.icon className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className="font-display text-sm font-bold text-headline">{step.title}</h3>
-                  <p className="mt-2 font-body text-xs text-muted-foreground">{step.desc}</p>
+                  <h3 className="font-display text-sm font-bold text-headline">{feat.title}</h3>
+                  <p className="mt-2 font-body text-xs leading-relaxed text-muted-foreground">{feat.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -323,17 +360,64 @@ const HomePage = () => {
         </section>
       )}
 
-      {/* ═══════ State Directory ═══════ */}
-      <section className="border-t border-border py-16">
+      {/* ═══════ HOW IT WORKS ═══════ */}
+      {reps.length === 0 && !isLoading && (
+        <section className="border-t border-border py-16">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-3xl">
+              <div className="mb-10 text-center">
+                <h2 className="font-display text-2xl font-bold text-headline">
+                  How It Works
+                </h2>
+              </div>
+              <div className="grid gap-6 sm:grid-cols-3">
+                {[
+                  { step: "1", icon: MapPin, title: "Enter Your Address", desc: "Type any U.S. address — we'll identify your districts at every level of government." },
+                  { step: "2", icon: Users, title: "See Your Reps", desc: "Get a complete list of your elected officials, from the U.S. Senate to city council." },
+                  { step: "3", icon: FileText, title: "Dig Deeper", desc: "Explore voting records, campaign finance, bills, court cases, and AI analysis." },
+                ].map((item, i) => (
+                  <motion.div
+                    key={item.title}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="relative rounded-xl border border-border bg-card p-6 text-center"
+                  >
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex h-6 w-6 items-center justify-center rounded-full gradient-brand font-display text-xs font-bold text-white">
+                      {item.step}
+                    </div>
+                    <div className="mx-auto mb-3 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                      <item.icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="font-display text-sm font-bold text-headline">{item.title}</h3>
+                    <p className="mt-2 font-body text-xs text-muted-foreground">{item.desc}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═══════ EXPLORE BY STATE ═══════ */}
+      <section id="states" className="border-t border-border py-16">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-5xl">
-            <div className="mb-8 text-center">
-              <h2 className="font-display text-2xl font-bold text-headline">
-                Explore by State
-              </h2>
-              <p className="mt-2 font-body text-sm text-muted-foreground">
-                Browse legislators, bills, and district maps for all 50 states + D.C.
-              </p>
+            <div className="mb-8 flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
+              <div className="flex-1">
+                <h2 className="font-display text-2xl font-bold text-headline">
+                  Explore by State
+                </h2>
+                <p className="mt-1 font-body text-sm text-muted-foreground">
+                  Browse legislators, bills, and district maps for all 50 states + D.C.
+                </p>
+              </div>
+              <Link
+                to="/bills"
+                className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-4 py-2 font-body text-sm font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                Browse All Bills <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
 
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
@@ -341,7 +425,7 @@ const HomePage = () => {
                 <Link
                   key={state.abbr}
                   to={`/state/${state.abbr.toLowerCase()}`}
-                  className="flex flex-col items-center rounded-lg border border-border bg-card p-2.5 text-center transition-colors hover:border-primary/40 hover:bg-surface-hover"
+                  className="flex flex-col items-center rounded-lg border border-border bg-card p-2.5 text-center transition-all hover:border-primary/40 hover:bg-surface-hover hover:shadow-sm"
                 >
                   <span className="font-display text-sm font-bold text-headline">{state.abbr}</span>
                   <span className="font-body text-[9px] text-muted-foreground leading-tight truncate w-full">{state.name}</span>
@@ -352,12 +436,46 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* ═══════ CTA ═══════ */}
+      {reps.length === 0 && !isLoading && (
+        <section className="border-t border-border">
+          <div className="container mx-auto px-4 py-16">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-auto max-w-2xl rounded-2xl border border-primary/20 bg-primary/5 p-8 text-center md:p-12"
+            >
+              <h2 className="font-display text-2xl font-bold text-headline md:text-3xl">
+                Ready to know your reps?
+              </h2>
+              <p className="mx-auto mt-3 max-w-md font-body text-sm text-muted-foreground">
+                Join thousands of Americans using WhoIsMyRep.us to stay informed about their elected officials.
+              </p>
+              <Button
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="mt-6 h-12 rounded-xl px-8 gradient-brand font-display font-semibold text-white shadow-glow hover:opacity-90 transition-opacity"
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Look Up Your Address
+              </Button>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="font-body text-xs text-muted-foreground">
-            © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform
-          </p>
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+            <p className="font-body text-xs text-muted-foreground">
+              © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform
+            </p>
+            <div className="flex items-center gap-4">
+              <Link to="/bills" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Bills</Link>
+              <Link to="/district-map" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Map</Link>
+              <Link to="/politicians" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Politicians</Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

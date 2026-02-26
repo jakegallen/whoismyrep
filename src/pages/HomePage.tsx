@@ -374,7 +374,7 @@ const HomePage = () => {
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="font-body text-xs text-muted-foreground">
-            © {new Date().getFullYear()} WhoIsMyRep.ai — Nevada Political Transparency Platform
+            © {new Date().getFullYear()} WhoIsMyRep.us — Nevada Political Transparency Platform
           </p>
         
         </div>

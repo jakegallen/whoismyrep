@@ -32,6 +32,7 @@ import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } f
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
+import PolymarketWidget from "@/components/PolymarketWidget";
 import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
@@ -129,65 +130,75 @@ const PoliticianDetail = () => {
         </button>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          {/* Profile header */}
-          <div className="flex items-start gap-5">
-            {politician.imageUrl ? (
-              <img
-                src={politician.imageUrl}
-                alt={politician.name}
-                className="h-20 w-20 shrink-0 rounded-full object-cover bg-surface-elevated"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-2xl font-bold text-muted-foreground">
-                {politician.name.split(" ").map((n) => n[0]).join("")}
+          {/* Profile header — two-column layout */}
+          <div className="flex flex-col lg:flex-row lg:items-start lg:gap-8">
+            {/* Left: avatar + info + contacts */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-5">
+                {politician.imageUrl ? (
+                  <img
+                    src={politician.imageUrl}
+                    alt={politician.name}
+                    className="h-20 w-20 shrink-0 rounded-full object-cover bg-surface-elevated"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-2xl font-bold text-muted-foreground">
+                    {politician.name.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                )}
+                <div>
+                  <h1 className="font-display text-3xl font-bold text-headline">{politician.name}</h1>
+                  <p className={`font-body text-base font-semibold ${partyColor}`}>
+                    {politician.title} · {politician.party}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-tertiary" />
+                    <span className="font-body text-sm text-tertiary">{politician.region}</span>
+                  </div>
+                </div>
               </div>
-            )}
-            <div>
-              <h1 className="font-display text-3xl font-bold text-headline">{politician.name}</h1>
-              <p className={`font-body text-base font-semibold ${partyColor}`}>
-                {politician.title} · {politician.party}
-              </p>
-              <div className="mt-1 flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-tertiary" />
-                <span className="font-body text-sm text-tertiary">{politician.region}</span>
+
+              {/* Contact links row */}
+              <div className="mt-5 flex flex-wrap gap-2">
+                {politician.website && (
+                  <ContactLink href={politician.website} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
+                )}
+                {politician.phone && (
+                  <ContactLink href={`tel:${politician.phone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={politician.phone} />
+                )}
+                {politician.email && (
+                  <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
+                )}
+                {politician.contactForm && (
+                  <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
+                )}
               </div>
+
+              {/* Social links */}
+              {politician.socialHandles && Object.keys(politician.socialHandles).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {politician.socialHandles.x && (
+                    <SocialLink href={`https://x.com/${politician.socialHandles.x}`} icon="𝕏" label={`@${politician.socialHandles.x}`} />
+                  )}
+                  {politician.socialHandles.facebook && (
+                    <SocialLink href={`https://facebook.com/${politician.socialHandles.facebook}`} icon="f" label="Facebook" color="hsl(210,80%,55%)" />
+                  )}
+                  {politician.socialHandles.instagram && (
+                    <SocialLink href={`https://instagram.com/${politician.socialHandles.instagram}`} icon="📷" label="Instagram" color="hsl(330,70%,55%)" />
+                  )}
+                  {politician.socialHandles.youtube && (
+                    <SocialLink href={`https://youtube.com/@${politician.socialHandles.youtube}`} icon="▶" label="YouTube" color="hsl(0,72%,51%)" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Polymarket widget */}
+            <div className="mt-6 lg:mt-0 lg:w-80 shrink-0">
+              <PolymarketWidget politicianName={politician.name} />
             </div>
           </div>
-
-          {/* Contact links row */}
-          <div className="mt-5 flex flex-wrap gap-2">
-            {politician.website && (
-              <ContactLink href={politician.website} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
-            )}
-            {politician.phone && (
-              <ContactLink href={`tel:${politician.phone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={politician.phone} />
-            )}
-            {politician.email && (
-              <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
-            )}
-            {politician.contactForm && (
-              <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
-            )}
-          </div>
-
-          {/* Social links */}
-          {politician.socialHandles && Object.keys(politician.socialHandles).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {politician.socialHandles.x && (
-                <SocialLink href={`https://x.com/${politician.socialHandles.x}`} icon="𝕏" label={`@${politician.socialHandles.x}`} />
-              )}
-              {politician.socialHandles.facebook && (
-                <SocialLink href={`https://facebook.com/${politician.socialHandles.facebook}`} icon="f" label="Facebook" color="hsl(210,80%,55%)" />
-              )}
-              {politician.socialHandles.instagram && (
-                <SocialLink href={`https://instagram.com/${politician.socialHandles.instagram}`} icon="📷" label="Instagram" color="hsl(330,70%,55%)" />
-              )}
-              {politician.socialHandles.youtube && (
-                <SocialLink href={`https://youtube.com/@${politician.socialHandles.youtube}`} icon="▶" label="YouTube" color="hsl(0,72%,51%)" />
-              )}
-            </div>
-          )}
 
           {/* ═══════ TABS ═══════ */}
           <div className="mt-8 border-b border-border">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, MapPin } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
 import SiteNav from "@/components/SiteNav";
 import CategoryTabs from "@/components/CategoryTabs";
@@ -16,11 +16,17 @@ import { useStateNews } from "@/hooks/useStateNews";
 import { usePodcasts } from "@/hooks/usePodcasts";
 import { useYouTube } from "@/hooks/useYouTube";
 import { useSocialMedia } from "@/hooks/useSocialMedia";
+import { US_STATES } from "@/lib/usStates";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import type { NewsCategory } from "@/lib/mockNews";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<TabKey>("all");
-  const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useStateNews();
+  const [selectedState, setSelectedState] = useState<string>("");
+  const stateName = selectedState && selectedState !== "all" ? US_STATES.find(s => s.abbr === selectedState)?.name : undefined;
+  const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useStateNews(stateName);
   const { episodes, isLoading: podcastsLoading, refetch: refetchPodcasts } = usePodcasts();
   const { videos, isLoading: youtubeLoading, refetch: refetchYouTube } = useYouTube();
   const { posts: socialPosts, isLoading: socialLoading, refetch: refetchSocial } = useSocialMedia();
@@ -43,7 +49,21 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <CategoryTabs active={activeCategory} onChange={setActiveCategory} />
+          <div className="flex items-center gap-3">
+            <Select value={selectedState} onValueChange={setSelectedState}>
+              <SelectTrigger className="w-[180px] h-9 text-xs">
+                <MapPin className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="All States" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                <SelectItem value="all">All States</SelectItem>
+                {US_STATES.map(s => (
+                  <SelectItem key={s.abbr} value={s.abbr}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <CategoryTabs active={activeCategory} onChange={setActiveCategory} />
+          </div>
 
           <div className="flex items-center gap-3">
             {lastUpdated && (

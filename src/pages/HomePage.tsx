@@ -122,6 +122,7 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteNav />
 
       {/* ═══════ HERO ═══════ */}
       <section className="relative overflow-hidden">

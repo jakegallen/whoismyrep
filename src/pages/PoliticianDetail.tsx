@@ -33,7 +33,7 @@ import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } f
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
-import PolymarketWidget from "@/components/PolymarketWidget";
+import PredictionMarketsWidget from "@/components/PredictionMarketsWidget";
 import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
@@ -273,7 +273,7 @@ const PoliticianDetail = () => {
 
             {/* Right: Polymarket widget */}
             <div className="mt-6 lg:mt-0 lg:w-80 shrink-0">
-              <PolymarketWidget politicianName={politician.name} state={politician.jurisdiction} />
+              <PredictionMarketsWidget politicianName={politician.name} state={politician.jurisdiction} />
             </div>
           </div>
 

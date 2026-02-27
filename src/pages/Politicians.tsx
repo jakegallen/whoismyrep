@@ -7,9 +7,12 @@ import { SocialIcons } from "@/components/SocialIcons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useCongress, type CongressMember } from "@/hooks/useCongress";
+
+const PAGE_SIZE = 12;
 
 type Level = "state" | "federal";
 
@@ -22,6 +25,7 @@ const Politicians = () => {
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
   const [federalChamberFilter, setFederalChamberFilter] = useState<"all" | "Senate" | "House">("all");
   const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
   const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada";
@@ -82,9 +86,17 @@ const Politicians = () => {
     return list;
   }, [federalMembers, federalChamberFilter, search, sortBy]);
 
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [search, level, chamberFilter, federalChamberFilter, sortBy, selectedState]);
+
+  const activeList = level === "state" ? filteredState : filteredFederal;
+  const totalPages = Math.max(1, Math.ceil(activeList.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedState = filteredState.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const paginatedFederal = filteredFederal.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   const senateCt = legislators.filter((l) => l.chamber === "Senate").length;
   const assemblyCt = legislators.filter((l) => l.chamber === "Assembly").length;
-
   const fedSenateCt = federalMembers.filter((m) => m.chamber === "Senate").length;
   const fedHouseCt = federalMembers.filter((m) => m.chamber !== "Senate").length;
 
@@ -279,10 +291,10 @@ const Politicians = () => {
         {!isLoading && !error && level === "state" && (
           <>
             <p className="mb-4 font-body text-xs text-muted-foreground">
-              Showing {filteredState.length} of {legislators.length} {stateName} state legislators
+              Showing {Math.min(safePage * PAGE_SIZE, filteredState.length)} of {filteredState.length} {stateName} state legislators
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredState.map((leg) => (
+              {paginatedState.map((leg) => (
                 <LegislatorRow key={leg.id} legislator={leg} onClick={() => {
                   const repId = leg.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                   navigate(`/politicians/${repId}`, {
@@ -311,16 +323,17 @@ const Politicians = () => {
                 <p className="mt-3 font-body text-sm text-muted-foreground">No state legislators found.</p>
               </div>
             )}
+            {totalPages > 1 && <PaginationControls currentPage={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />}
           </>
         )}
 
         {!isLoading && !error && level === "federal" && (
           <>
             <p className="mb-4 font-body text-xs text-muted-foreground">
-              Showing {filteredFederal.length} of {federalMembers.length} {stateName} federal officials
+              Showing {Math.min(safePage * PAGE_SIZE, filteredFederal.length)} of {filteredFederal.length} {stateName} federal officials
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredFederal.map((member) => (
+              {paginatedFederal.map((member) => (
                 <FederalMemberRow key={member.bioguideId} member={member} onClick={() => {
                   const repId = member.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                   navigate(`/politicians/${repId}`, {
@@ -349,12 +362,58 @@ const Politicians = () => {
                 <p className="mt-3 font-body text-sm text-muted-foreground">No federal officials found.</p>
               </div>
             )}
+            {totalPages > 1 && <PaginationControls currentPage={safePage} totalPages={totalPages} onPageChange={setCurrentPage} />}
           </>
         )}
       </main>
     </div>
   );
 };
+
+/* ── Pagination controls ── */
+function PaginationControls({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (p: number) => void }) {
+  const getPages = () => {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("ellipsis");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("ellipsis");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  return (
+    <Pagination className="mt-6">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+          />
+        </PaginationItem>
+        {getPages().map((p, i) =>
+          p === "ellipsis" ? (
+            <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+          ) : (
+            <PaginationItem key={p}>
+              <PaginationLink isActive={p === currentPage} onClick={() => onPageChange(p)} className="cursor-pointer">{p}</PaginationLink>
+            </PaginationItem>
+          )
+        )}
+        <PaginationItem>
+          <PaginationNext
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
 
 /* ── State legislator card ── */
 function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClick: () => void }) {

@@ -471,16 +471,67 @@ const HomePage = () => {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
+      <footer className="border-t border-border py-12">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-            <p className="font-body text-xs text-muted-foreground">
-              © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform
-            </p>
-            <div className="flex items-center gap-4">
-              <Link to="/bills" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Bills</Link>
-              <Link to="/district-map" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Map</Link>
-              <Link to="/politicians" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Politicians</Link>
+          <div className="mx-auto max-w-5xl">
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Brand */}
+              <div className="sm:col-span-2 lg:col-span-1">
+                <Link to="/" className="flex items-center gap-2">
+                  <img src="/logo.png" alt="WhoIsMyRep.us logo" className="h-7 w-7 rounded-lg" />
+                  <span className="font-display text-base font-bold text-headline">
+                    WhoIsMyRep<span className="text-gradient-brand">.us</span>
+                  </span>
+                </Link>
+                <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground">
+                  A free, nonpartisan platform for U.S. political transparency. Data sourced from Congress.gov, OpenStates, FEC, CourtListener, and more.
+                </p>
+              </div>
+
+              {/* Explore */}
+              <div>
+                <h4 className="font-display text-xs font-bold uppercase tracking-wider text-headline mb-3">Explore</h4>
+                <div className="flex flex-col gap-2">
+                  <Link to="/bills" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Bills</Link>
+                  <Link to="/politicians" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Politicians</Link>
+                  <Link to="/district-map" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">District Map</Link>
+                  <Link to="/committees" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Committees</Link>
+                  <Link to="/calendar" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Legislative Calendar</Link>
+                </div>
+              </div>
+
+              {/* Data */}
+              <div>
+                <h4 className="font-display text-xs font-bold uppercase tracking-wider text-headline mb-3">Data</h4>
+                <div className="flex flex-col gap-2">
+                  <Link to="/congress-trades" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Stock Tracker</Link>
+                  <Link to="/campaign-finance" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Campaign Finance</Link>
+                  <Link to="/lobbying" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Lobbying</Link>
+                  <Link to="/court-cases" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Court Cases</Link>
+                  <Link to="/federal-register" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Federal Register</Link>
+                </div>
+              </div>
+
+              {/* About */}
+              <div>
+                <h4 className="font-display text-xs font-bold uppercase tracking-wider text-headline mb-3">Platform</h4>
+                <div className="flex flex-col gap-2">
+                  <Link to="/midterms" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Elections</Link>
+                  <Link to="/alerts" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Alerts</Link>
+                  <a href="mailto:contact@whoismyrep.us" className="font-body text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</a>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom bar */}
+            <div className="mt-10 flex flex-col items-center gap-3 border-t border-border pt-6 sm:flex-row sm:justify-between">
+              <p className="font-body text-[11px] text-muted-foreground">
+                © {new Date().getFullYear()} WhoIsMyRep.us — U.S. Political Transparency Platform. Not affiliated with the U.S. government.
+              </p>
+              <div className="flex items-center gap-4">
+                <a href="https://x.com/whoismyrep" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">𝕏</a>
+                <a href="https://github.com/whoismyrep" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
+              </div>
             </div>
           </div>
         </div>

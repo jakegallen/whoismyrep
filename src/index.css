@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+/* Fonts loaded via @fontsource packages in main.tsx */
 
 @tailwind base;
 @tailwind components;
@@ -157,21 +157,21 @@
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk Variable', 'Space Grotesk', sans-serif;
     letter-spacing: -0.02em;
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk Variable', 'Space Grotesk', sans-serif;
     letter-spacing: -0.02em;
   }
   .font-body {
     font-family: 'Inter', sans-serif;
   }
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
   }
   .text-headline {
     color: hsl(var(--text-headline));

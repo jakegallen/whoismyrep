@@ -9,6 +9,7 @@ const navLinks = [
   { to: "/#states", label: "States" },
   { to: "/bills", label: "Bills" },
   { to: "/district-map", label: "Map" },
+  { to: "/congress-trades", label: "Stock Tracker" },
 ];
 
 export default function SiteNav() {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import SiteNav from "@/components/SiteNav";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBills, type Bill } from "@/hooks/useBills";
 import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
@@ -29,6 +30,7 @@ const chamberConfig = {
 } as const;
 
 const Bills = () => {
+  useEffect(() => { document.title = "Bills | WhoIsMyRep.us"; }, []);
   const navigate = useNavigate();
   const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
   const [search, setSearch] = useState("");
@@ -204,11 +206,20 @@ const Bills = () => {
 
         {/* Loading state */}
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="mt-3 font-body text-sm text-muted-foreground">
-              Loading {stateName} legislation…
-            </p>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full flex-shrink-0" />
+                </div>
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+            ))}
           </div>
         )}
 

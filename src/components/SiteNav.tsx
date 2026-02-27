@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, LogIn, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "./ThemeToggle";
@@ -22,6 +22,9 @@ export default function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isActive = (to: string) =>
+    to === "/#states" ? pathname === "/" : pathname.startsWith(to);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -42,7 +45,11 @@ export default function SiteNav() {
               <Link
                 key={link.to}
                 to={link.to}
-                className="rounded-lg px-3 py-2 font-body text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                className={`rounded-lg px-3 py-2 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                  isActive(link.to)
+                    ? "bg-surface-hover text-foreground"
+                    : "text-muted-foreground"
+                }`}
               >
                 {link.label}
               </Link>
@@ -101,7 +108,11 @@ export default function SiteNav() {
                   key={link.to}
                   to={link.to}
                   onClick={() => setMenuOpen(false)}
-                  className="rounded-lg px-3 py-2.5 font-body text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                  className={`rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                    isActive(link.to)
+                      ? "bg-surface-hover text-foreground"
+                      : "text-muted-foreground"
+                  }`}
                 >
                   {link.label}
                 </Link>

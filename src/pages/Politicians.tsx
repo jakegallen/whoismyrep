@@ -3,6 +3,7 @@ import SiteNav from "@/components/SiteNav";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, Building2, Landmark, MapPin, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw, Globe } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SocialIcons } from "@/components/SocialIcons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const PAGE_SIZE = 12;
 type Level = "state" | "federal";
 
 const Politicians = () => {
+  useEffect(() => { document.title = "Politicians | WhoIsMyRep.us"; }, []);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
@@ -279,11 +281,20 @@ const Politicians = () => {
 
         {/* Loading */}
         {isLoading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="mt-3 font-body text-sm text-muted-foreground">
-              Loading {stateName} {level === "state" ? "legislators" : "congressional delegation"}…
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-12 w-12 rounded-full flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
           </div>
         )}
 

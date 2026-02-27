@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -104,6 +104,7 @@ const HomePage = () => {
   const [searchMode, setSearchMode] = useState<"address" | "name">("address");
   const [nameQuery, setNameQuery] = useState("");
   const [address, setAddress] = useState("");
+  useEffect(() => { document.title = "WhoIsMyRep.us — Find Your Representatives"; }, []);
   const { groups, isLoading, error, lookup, elections, voterInfo } = useCivicReps();
   const reps = groups || [];
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -608,7 +609,7 @@ const HomePage = () => {
               </p>
               <div className="flex items-center gap-4">
                 <a href="https://x.com/whoismyrep" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">𝕏</a>
-                <a href="https://github.com/whoismyrep" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
+                <a href="https://github.com/jakegallen/whoismyrep" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
               </div>
             </div>
           </div>

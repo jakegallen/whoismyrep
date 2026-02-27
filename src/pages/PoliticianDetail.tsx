@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  TrendingUp,
   MapPin,
   ExternalLink,
   Loader2,
@@ -34,6 +35,7 @@ import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
 import PredictionMarketsWidget from "@/components/PredictionMarketsWidget";
+import PredictionMarketsTab from "@/components/PredictionMarketsTab";
 import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
@@ -123,6 +125,7 @@ const tabs = [
   { id: "bills", label: "Bills", icon: FileText },
   { id: "committees", label: "Committees", icon: Building2 },
   { id: "finance", label: "Campaign Finance", icon: DollarSign },
+  { id: "markets", label: "Markets", icon: TrendingUp },
   { id: "lobbying", label: "Lobbying", icon: Briefcase },
   { id: "court", label: "Court Cases", icon: Scale },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
@@ -321,6 +324,9 @@ const PoliticianDetail = () => {
             {activeTab === "committees" && <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />}
             {activeTab === "finance" && (
               <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
+            )}
+            {activeTab === "markets" && (
+              <PredictionMarketsTab politicianName={politician.name} state={politician.jurisdiction} />
             )}
             {activeTab === "lobbying" && <LobbyingTab politicianName={politician.name} />}
             {activeTab === "court" && <CourtCasesTab politicianName={politician.name} />}

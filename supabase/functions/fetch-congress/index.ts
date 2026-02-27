@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { endpoint = 'bills', search, congress, chamber, limit = 20, offset = 0, billType, billNumber } = await req.json().catch(() => ({}));
+    const { endpoint = 'bills', search, congress, chamber, state, limit = 20, offset = 0, billType, billNumber } = await req.json().catch(() => ({}));
 
     let url: string;
     const params = new URLSearchParams({ api_key: apiKey, format: 'json' });
@@ -38,11 +38,11 @@ Deno.serve(async (req) => {
         url = `${BASE_URL}/bill?${params}`;
       }
     } else if (endpoint === 'members') {
-      // Nevada members
       params.set('limit', String(limit));
       params.set('offset', String(offset));
       params.set('currentMember', 'true');
-      url = `${BASE_URL}/member/NV?${params}`;
+      const stateAbbr = state || 'NV';
+      url = `${BASE_URL}/member/${stateAbbr}?${params}`;
     } else if (endpoint === 'member_bills' && search) {
       // Bills sponsored by a specific member (search = bioguideId)
       params.set('limit', String(limit));

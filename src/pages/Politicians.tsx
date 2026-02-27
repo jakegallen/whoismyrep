@@ -2,38 +2,51 @@ import { useState, useMemo, useEffect } from "react";
 import SiteNav from "@/components/SiteNav";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, Users, Building2, Landmark, MapPin, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw, Globe } from "lucide-react";
 import { SocialIcons } from "@/components/SocialIcons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
+import { useCongress, type CongressMember } from "@/hooks/useCongress";
 
-const chamberConfig = {
-  Senate: { icon: Landmark, color: "bg-amber-500/20 text-amber-400" },
-  Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
-} as const;
+type Level = "state" | "federal";
 
 const Politicians = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedState, setSelectedState] = useState("NV");
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [level, setLevel] = useState<Level>("state");
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
+  const [federalChamberFilter, setFederalChamberFilter] = useState<"all" | "Senate" | "House">("all");
   const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");
 
   const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
   const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada";
 
-  const { legislators, isLoading, error, refetch } = useLegislators(
+  // State legislators
+  const { legislators, isLoading: stateLoading, error: stateError, refetch: stateRefetch } = useLegislators(
     chamberFilter === "Senate" ? "upper" : chamberFilter === "Assembly" ? "lower" : undefined,
     jurisdiction
   );
 
-  const filtered = useMemo(() => {
-    let list = [...legislators];
+  // Federal members
+  const { data: congressData, isLoading: federalLoading, error: federalError, refetch: federalRefetch } = useCongress("members", {
+    limit: 50,
+    state: selectedState,
+  });
 
+  const federalMembers: CongressMember[] = useMemo(() => congressData?.items || [], [congressData]);
+
+  const isLoading = level === "state" ? stateLoading : federalLoading;
+  const error = level === "state" ? stateError : federalError ? (federalError as Error).message : null;
+  const refetch = level === "state" ? stateRefetch : federalRefetch;
+
+  // Filtered state legislators
+  const filteredState = useMemo(() => {
+    let list = [...legislators];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -44,18 +57,36 @@ const Politicians = () => {
           p.district.toLowerCase().includes(q)
       );
     }
-
-    if (sortBy === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === "party") {
-      list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
-    }
-
+    if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === "party") list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
     return list;
   }, [legislators, search, sortBy]);
 
+  // Filtered federal members
+  const filteredFederal = useMemo(() => {
+    let list = [...federalMembers];
+    if (federalChamberFilter !== "all") {
+      list = list.filter((m) => m.chamber === federalChamberFilter || m.chamber === `${federalChamberFilter} of Representatives`);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.party.toLowerCase().includes(q) ||
+          (m.state && m.state.toLowerCase().includes(q))
+      );
+    }
+    if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === "party") list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
+    return list;
+  }, [federalMembers, federalChamberFilter, search, sortBy]);
+
   const senateCt = legislators.filter((l) => l.chamber === "Senate").length;
   const assemblyCt = legislators.filter((l) => l.chamber === "Assembly").length;
+
+  const fedSenateCt = federalMembers.filter((m) => m.chamber === "Senate").length;
+  const fedHouseCt = federalMembers.filter((m) => m.chamber !== "Senate").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -81,28 +112,56 @@ const Politicians = () => {
                 <Users className="h-5 w-5 text-primary-foreground" />
               </div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-headline">
-                State Officials Directory
+                Officials Directory
               </h1>
             </div>
             <p className="mt-2 max-w-xl font-body text-sm text-tertiary">
-              Browse state legislators across all 50 states via OpenStates. Select a state to see its current officeholders.
+              Browse state and federal legislators across all 50 states. Select a state and level to see current officeholders.
             </p>
 
-            {/* State selector */}
-            <div className="mt-4 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Select value={selectedState} onValueChange={setSelectedState}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {US_STATES.map((s) => (
-                    <SelectItem key={s.abbr} value={s.abbr}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* State selector + Level toggle */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedState} onValueChange={setSelectedState}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {US_STATES.map((s) => (
+                      <SelectItem key={s.abbr} value={s.abbr}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Level toggle */}
+              <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
+                <button
+                  onClick={() => setLevel("state")}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                    level === "state"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  State
+                </button>
+                <button
+                  onClick={() => setLevel("federal")}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                    level === "federal"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Landmark className="h-3.5 w-3.5" />
+                  Federal
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -111,26 +170,51 @@ const Politicians = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Chamber filter tabs */}
         <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
-          {(["all", "Senate", "Assembly"] as const).map((tab) => {
-            const count = tab === "all" ? legislators.length : tab === "Senate" ? senateCt : assemblyCt;
-            const Icon = tab === "all" ? Users : tab === "Senate" ? Landmark : Building2;
-            return (
-              <button
-                key={tab}
-                onClick={() => setChamberFilter(tab)}
-                className={`relative flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
-                  chamberFilter === tab
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab === "all" ? "All" : tab} ({count})
-              </button>
-            );
-          })}
+          {level === "state" ? (
+            <>
+              {(["all", "Senate", "Assembly"] as const).map((tab) => {
+                const count = tab === "all" ? legislators.length : tab === "Senate" ? senateCt : assemblyCt;
+                const Icon = tab === "all" ? Users : tab === "Senate" ? Landmark : Building2;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setChamberFilter(tab)}
+                    className={`relative flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
+                      chamberFilter === tab
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab === "all" ? "All" : tab} ({count})
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              {(["all", "Senate", "House"] as const).map((tab) => {
+                const count = tab === "all" ? federalMembers.length : tab === "Senate" ? fedSenateCt : fedHouseCt;
+                const Icon = tab === "all" ? Users : tab === "Senate" ? Landmark : Building2;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setFederalChamberFilter(tab)}
+                    className={`relative flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 font-body text-sm font-medium transition-colors ${
+                      federalChamberFilter === tab
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab === "all" ? "All" : tab} ({count})
+                  </button>
+                );
+              })}
+            </>
+          )}
           <div className="ml-auto">
-            <Button variant="ghost" size="sm" onClick={refetch} disabled={isLoading} className="gap-1.5 text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isLoading} className="gap-1.5 text-muted-foreground">
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
@@ -144,7 +228,7 @@ const Politicians = () => {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, party, or district…"
+              placeholder={level === "state" ? "Search by name, party, or district…" : "Search by name or party…"}
               className="pl-9 pr-9"
             />
             {search && (
@@ -174,10 +258,10 @@ const Politicians = () => {
           <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
             <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
             <div>
-              <p className="font-body text-sm font-medium text-foreground">Failed to load legislators</p>
+              <p className="font-body text-sm font-medium text-foreground">Failed to load officials</p>
               <p className="font-body text-xs text-muted-foreground">{error}</p>
             </div>
-            <Button variant="outline" size="sm" className="ml-auto" onClick={refetch}>Retry</Button>
+            <Button variant="outline" size="sm" className="ml-auto" onClick={() => refetch()}>Retry</Button>
           </div>
         )}
 
@@ -185,18 +269,20 @@ const Politicians = () => {
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="mt-3 font-body text-sm text-muted-foreground">Loading {stateName} legislators…</p>
+            <p className="mt-3 font-body text-sm text-muted-foreground">
+              Loading {stateName} {level === "state" ? "legislators" : "congressional delegation"}…
+            </p>
           </div>
         )}
 
-        {/* Legislators grid */}
-        {!isLoading && !error && (
+        {/* Content */}
+        {!isLoading && !error && level === "state" && (
           <>
             <p className="mb-4 font-body text-xs text-muted-foreground">
-              Showing {filtered.length} of {legislators.length} {stateName} legislators
+              Showing {filteredState.length} of {legislators.length} {stateName} state legislators
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((leg) => (
+              {filteredState.map((leg) => (
                 <LegislatorRow key={leg.id} legislator={leg} onClick={() => {
                   const repId = leg.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                   navigate(`/politicians/${repId}`, {
@@ -219,10 +305,48 @@ const Politicians = () => {
                 }} />
               ))}
             </div>
-            {filtered.length === 0 && (
+            {filteredState.length === 0 && (
               <div className="flex flex-col items-center py-16">
                 <Users className="h-10 w-10 text-muted-foreground/50" />
-                <p className="mt-3 font-body text-sm text-muted-foreground">No legislators found.</p>
+                <p className="mt-3 font-body text-sm text-muted-foreground">No state legislators found.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {!isLoading && !error && level === "federal" && (
+          <>
+            <p className="mb-4 font-body text-xs text-muted-foreground">
+              Showing {filteredFederal.length} of {federalMembers.length} {stateName} federal officials
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredFederal.map((member) => (
+                <FederalMemberRow key={member.bioguideId} member={member} onClick={() => {
+                  const repId = member.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+                  navigate(`/politicians/${repId}`, {
+                    state: {
+                      civicRep: {
+                        name: member.name,
+                        office: `U.S. ${member.chamber === "Senate" ? "Senator" : "Representative"}${member.district ? `, District ${member.district}` : ""}`,
+                        party: member.party,
+                        level: "federal",
+                        photoUrl: member.depiction?.imageUrl,
+                        phone: undefined,
+                        email: undefined,
+                        website: member.url,
+                        socialHandles: {},
+                        channels: [],
+                        jurisdiction: member.state,
+                      },
+                    },
+                  });
+                }} />
+              ))}
+            </div>
+            {filteredFederal.length === 0 && (
+              <div className="flex flex-col items-center py-16">
+                <Landmark className="h-10 w-10 text-muted-foreground/50" />
+                <p className="mt-3 font-body text-sm text-muted-foreground">No federal officials found.</p>
               </div>
             )}
           </>
@@ -232,7 +356,12 @@ const Politicians = () => {
   );
 };
 
+/* ── State legislator card ── */
 function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClick: () => void }) {
+  const chamberConfig: Record<string, { icon: typeof Landmark; color: string }> = {
+    Senate: { icon: Landmark, color: "bg-amber-500/20 text-amber-400" },
+    Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
+  };
   const config = chamberConfig[legislator.chamber] || chamberConfig.Assembly;
   const Icon = config.icon;
   const partyDot =
@@ -250,12 +379,7 @@ function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClic
       className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-surface-hover"
     >
       {legislator.imageUrl ? (
-        <img
-          src={legislator.imageUrl}
-          alt={legislator.name}
-          className="h-12 w-12 rounded-lg object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-        />
+        <img src={legislator.imageUrl} alt={legislator.name} className="h-12 w-12 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
       ) : (
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${config.color}`}>
           <Icon className="h-5 w-5" />
@@ -271,6 +395,47 @@ function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClic
         {legislator.socialHandles && Object.keys(legislator.socialHandles).length > 0 && (
           <SocialIcons socialHandles={legislator.socialHandles} size="sm" className="mt-1" />
         )}
+      </div>
+    </motion.button>
+  );
+}
+
+/* ── Federal member card ── */
+function FederalMemberRow({ member, onClick }: { member: CongressMember; onClick: () => void }) {
+  const isSenate = member.chamber === "Senate";
+  const partyDot =
+    member.party === "Democrat" || member.party === "Democratic"
+      ? "bg-[hsl(217,72%,48%)]"
+      : member.party === "Republican"
+      ? "bg-[hsl(0,68%,48%)]"
+      : "bg-muted-foreground";
+
+  const chamberLabel = isSenate ? "Senate" : "House";
+  const title = isSenate
+    ? "U.S. Senator"
+    : `U.S. Representative${member.district ? `, District ${member.district}` : ""}`;
+
+  return (
+    <motion.button
+      onClick={onClick}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-surface-hover"
+    >
+      {member.depiction?.imageUrl ? (
+        <img src={member.depiction.imageUrl} alt={member.name} className="h-12 w-12 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      ) : (
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${isSenate ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
+          {isSenate ? <Landmark className="h-5 w-5" /> : <Building2 className="h-5 w-5" />}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h4 className="font-display text-sm font-bold text-headline truncate">{member.name}</h4>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${partyDot}`} title={member.party} />
+        </div>
+        <p className="font-body text-xs text-muted-foreground truncate">{title}</p>
+        <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{member.party} · {chamberLabel}</p>
       </div>
     </motion.button>
   );

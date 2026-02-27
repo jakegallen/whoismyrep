@@ -56,15 +56,15 @@ interface CongressResponse {
 
 export function useCongress(
   endpoint: CongressEndpoint = "bills",
-  options?: { search?: string; congress?: number; limit?: number; offset?: number; billType?: string; billNumber?: string }
+  options?: { search?: string; congress?: number; limit?: number; offset?: number; billType?: string; billNumber?: string; state?: string }
 ) {
-  const { search, congress, limit = 20, offset = 0, billType, billNumber } = options || {};
+  const { search, congress, limit = 20, offset = 0, billType, billNumber, state } = options || {};
 
   return useQuery<CongressResponse>({
-    queryKey: ["congress", endpoint, search, congress, limit, offset, billType, billNumber],
+    queryKey: ["congress", endpoint, search, congress, limit, offset, billType, billNumber, state],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-congress", {
-        body: { endpoint, search, congress, limit, offset, billType, billNumber },
+        body: { endpoint, search, congress, limit, offset, billType, billNumber, state },
       });
       if (error) throw error;
       return data as CongressResponse;

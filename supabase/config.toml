@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.fetch-polymarket]
 verify_jwt = false
+
+[functions.fetch-congress-trades]
+verify_jwt = false

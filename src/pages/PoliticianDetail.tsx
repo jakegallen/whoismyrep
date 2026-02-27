@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -27,6 +27,7 @@ import {
   Flag,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import SiteNav from "@/components/SiteNav";
 import { SocialIcons } from "@/components/SocialIcons";
@@ -1090,8 +1091,24 @@ function StockTradesSection({ politicianName }: { politicianName: string }) {
 
   const { data, isLoading, error } = useCongressTrades({
     politician: lastName,
-    limit: 20,
+    limit: 200,
   });
+
+  // Build monthly volume chart data
+  const chartData = useMemo(() => {
+    if (!data?.trades.length) return [];
+    const buckets: Record<string, { month: string; purchases: number; sales: number }> = {};
+    for (const t of data.trades) {
+      if (!t.transactionDate) continue;
+      const d = new Date(t.transactionDate);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!buckets[key]) buckets[key] = { month: key, purchases: 0, sales: 0 };
+      if (t.type?.toLowerCase().includes("purchase")) buckets[key].purchases++;
+      else if (t.type?.toLowerCase().includes("sale")) buckets[key].sales++;
+      else buckets[key].purchases++; // default bucket
+    }
+    return Object.values(buckets).sort((a, b) => a.month.localeCompare(b.month));
+  }, [data]);
 
   return (
     <div>
@@ -1132,8 +1149,13 @@ function StockTradesSection({ politicianName }: { politicianName: string }) {
                 </span>
               </div>
 
+              {/* Mini volume chart */}
+              {chartData.length > 1 && (
+                <TradeVolumeChart data={chartData} />
+              )}
+
               <div className="space-y-2">
-                {data.trades.map((trade, i) => (
+                {data.trades.slice(0, 20).map((trade, i) => (
                   <StockTradeRow key={`${trade.ticker}-${trade.transactionDate}-${i}`} trade={trade} />
                 ))}
               </div>
@@ -1194,6 +1216,44 @@ function StockTradeRow({ trade }: { trade: CongressTrade }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function TradeVolumeChart({ data }: { data: { month: string; purchases: number; sales: number }[] }) {
+  return (
+    <div className="mb-6 rounded-xl border border-border bg-card p-4">
+      <p className="mb-3 font-body text-xs font-medium text-muted-foreground">Trade Volume by Month</p>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={data} barGap={1}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v: string) => {
+              const [y, m] = v.split("-");
+              return `${m}/${y.slice(2)}`;
+            }}
+          />
+          <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} width={24} allowDecimals={false} />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+            labelFormatter={(v: string) => {
+              const [y, m] = v.split("-");
+              return `${m}/${y}`;
+            }}
+          />
+          <Bar dataKey="purchases" stackId="a" fill="hsl(142,71%,45%)" radius={[0, 0, 0, 0]} name="Purchases" />
+          <Bar dataKey="sales" stackId="a" fill="hsl(var(--destructive))" radius={[2, 2, 0, 0]} name="Sales" />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

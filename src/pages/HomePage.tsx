@@ -246,7 +246,7 @@ const HomePage = () => {
                         onChange={(e) => setNameQuery(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && nameQuery.trim()) {
-                            navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}`);
+                            navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}&level=federal`);
                           }
                         }}
                         placeholder="Search by representative name…"
@@ -256,7 +256,7 @@ const HomePage = () => {
                     <Button
                       onClick={() => {
                         if (nameQuery.trim()) {
-                          navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}`);
+                          navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}&level=federal`);
                         }
                       }}
                       disabled={!nameQuery.trim()}

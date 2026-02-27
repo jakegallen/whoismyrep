@@ -21,7 +21,7 @@ const Politicians = () => {
   const [searchParams] = useSearchParams();
   const [selectedState, setSelectedState] = useState("NV");
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
-  const [level, setLevel] = useState<Level>("state");
+  const [level, setLevel] = useState<Level>(() => (searchParams.get("level") === "federal" ? "federal" : "state"));
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
   const [federalChamberFilter, setFederalChamberFilter] = useState<"all" | "Senate" | "House">("all");
   const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");

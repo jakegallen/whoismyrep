@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.unified-search]
 verify_jwt = false
+
+[functions.fetch-kalshi]
+verify_jwt = false
+
+[functions.fetch-polymarket]
+verify_jwt = false

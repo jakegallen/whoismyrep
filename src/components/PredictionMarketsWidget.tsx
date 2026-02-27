@@ -57,7 +57,7 @@ export default function PredictionMarketsWidget({ politicianName, state }: Props
 
   if (allMarkets.length === 0) return null;
 
-  const top = allMarkets.slice(0, 3);
+  const top = allMarkets.slice(0, 1);
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -72,9 +72,9 @@ export default function PredictionMarketsWidget({ politicianName, state }: Props
         ))}
       </div>
 
-      {allMarkets.length > 3 && (
+      {allMarkets.length > 1 && (
         <p className="text-center font-body text-[11px] text-muted-foreground">
-          +{allMarkets.length - 3} more markets
+          +{allMarkets.length - 1} more on Markets tab
         </p>
       )}
     </div>

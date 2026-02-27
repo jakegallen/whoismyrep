@@ -82,7 +82,7 @@ const Auth = () => {
         <p className="font-body text-sm text-secondary-custom">
           {isLogin
             ? "Sign in to manage your alert preferences."
-            : "Create an account to get Nevada political alerts."}
+            : "Create an account to get local political alerts."}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

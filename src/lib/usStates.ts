@@ -73,3 +73,40 @@ export function abbrToOcdJurisdiction(abbr: string): string {
   if (lower === "pr") return "ocd-jurisdiction/country:us/territory:pr/government";
   return `ocd-jurisdiction/country:us/state:${lower}/government`;
 }
+
+/** Guess the user's state from their browser timezone. Falls back to "CA". */
+export function detectStateFromTimezone(): string {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const map: Record<string, string> = {
+    "America/New_York": "NY",
+    "America/Detroit": "MI",
+    "America/Indiana/Indianapolis": "IN",
+    "America/Indiana/Knox": "IN",
+    "America/Indiana/Marengo": "IN",
+    "America/Indiana/Petersburg": "IN",
+    "America/Indiana/Tell_City": "IN",
+    "America/Indiana/Vevay": "IN",
+    "America/Indiana/Vincennes": "IN",
+    "America/Indiana/Winamac": "IN",
+    "America/Kentucky/Louisville": "KY",
+    "America/Kentucky/Monticello": "KY",
+    "America/Chicago": "IL",
+    "America/Menominee": "MI",
+    "America/North_Dakota/Beulah": "ND",
+    "America/North_Dakota/Center": "ND",
+    "America/North_Dakota/New_Salem": "ND",
+    "America/Denver": "CO",
+    "America/Boise": "ID",
+    "America/Phoenix": "AZ",
+    "America/Los_Angeles": "CA",
+    "America/Anchorage": "AK",
+    "America/Juneau": "AK",
+    "America/Sitka": "AK",
+    "America/Metlakatla": "AK",
+    "America/Yakutat": "AK",
+    "America/Nome": "AK",
+    "America/Adak": "AK",
+    "Pacific/Honolulu": "HI",
+  };
+  return map[tz] ?? "CA";
+}

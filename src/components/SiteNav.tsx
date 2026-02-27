@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Menu, X, LogIn, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "./ThemeToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { to: "/#states", label: "States" },
+  { to: "/politicians", label: "Politicians" },
   { to: "/bills", label: "Bills" },
   { to: "/district-map", label: "Map" },
   { to: "/congress-trades", label: "Stock Tracker" },
@@ -18,6 +20,8 @@ const navLinks = [
 export default function SiteNav() {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -46,6 +50,23 @@ export default function SiteNav() {
             <div className="ml-1">
               <ThemeToggle />
             </div>
+            {user ? (
+              <button
+                onClick={() => signOut()}
+                className="ml-1 flex items-center gap-1.5 rounded-lg px-3 py-2 font-body text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
+            ) : (
+              <Link
+                to="/auth"
+                className="ml-1 flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Link>
+            )}
           </div>
         )}
 
@@ -85,6 +106,24 @@ export default function SiteNav() {
                   {link.label}
                 </Link>
               ))}
+              {user ? (
+                <button
+                  onClick={() => { signOut(); setMenuOpen(false); }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 font-body text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              ) : (
+                <Link
+                  to="/auth"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2.5 font-body text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Sign In
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { US_STATES } from "@/lib/usStates";
+import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useCongress, type CongressMember } from "@/hooks/useCongress";
 
@@ -19,7 +19,7 @@ type Level = "state" | "federal";
 const Politicians = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [selectedState, setSelectedState] = useState("NV");
+  const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [level, setLevel] = useState<Level>(() => (searchParams.get("level") === "federal" ? "federal" : "state"));
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");

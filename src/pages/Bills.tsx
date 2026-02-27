@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBills, type Bill } from "@/hooks/useBills";
 import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
-import { US_STATES } from "@/lib/usStates";
+import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
 
 const chamberConfig = {
   Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
@@ -30,7 +30,7 @@ const chamberConfig = {
 
 const Bills = () => {
   const navigate = useNavigate();
-  const [selectedState, setSelectedState] = useState("NV");
+  const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [chamberFilter, setChamberFilter] = useState<"all" | "Assembly" | "Senate">("all");

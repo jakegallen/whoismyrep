@@ -42,6 +42,7 @@ import { useCommittees } from "@/hooks/useCommittees";
 import { useCongress } from "@/hooks/useCongress";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import { useFederalRegister } from "@/hooks/useFederalRegister";
+import { useCongressTrades, type CongressTrade } from "@/hooks/useCongressTrades";
 
 // midterms data is now AI-generated per politician
 import { Badge } from "@/components/ui/badge";
@@ -323,6 +324,8 @@ const PoliticianDetail = () => {
             {activeTab === "money" && (
               <div className="space-y-10">
                 <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
+                <div className="h-px bg-border" />
+                <StockTradesSection politicianName={politician.name} />
                 <div className="h-px bg-border" />
                 <PredictionMarketsTab politicianName={politician.name} state={politician.jurisdiction} />
               </div>
@@ -1072,6 +1075,124 @@ function ErrorBox({ message }: { message: string }) {
       <div>
         <p className="font-body text-sm font-medium text-foreground">Couldn't load data</p>
         <p className="mt-1 font-body text-xs text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+
+/* ═══════════════════════════════════════════ */
+/*  Stock Trades Section (STOCK Act)           */
+/* ═══════════════════════════════════════════ */
+function StockTradesSection({ politicianName }: { politicianName: string }) {
+  const nameParts = politicianName.trim().split(/\s+/);
+  const lastName = nameParts[nameParts.length - 1];
+
+  const { data, isLoading, error } = useCongressTrades({
+    politician: lastName,
+    limit: 20,
+  });
+
+  return (
+    <div>
+      <h2 className="mb-4 font-display text-xl font-bold text-headline flex items-center gap-2">
+        <BarChart3 className="h-5 w-5 text-primary" />
+        Stock Trades (STOCK Act)
+      </h2>
+      <p className="mb-4 font-body text-xs text-muted-foreground">
+        Financial disclosures filed under the STOCK Act. Trades by {politicianName} or their spouse.
+      </p>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 py-8 justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">Loading disclosures…</span>
+        </div>
+      )}
+
+      {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load trades"} />}
+
+      {data && !isLoading && (
+        <>
+          {data.trades.length === 0 ? (
+            <p className="py-8 text-center font-body text-sm text-muted-foreground">
+              No STOCK Act disclosures found for {politicianName}.
+            </p>
+          ) : (
+            <>
+              <div className="mb-4 flex flex-wrap gap-3">
+                <span className="rounded-lg bg-surface-elevated px-3 py-1.5 font-mono text-xs font-medium text-muted-foreground">
+                  {data.total} total trades
+                </span>
+                <span className="rounded-lg bg-[hsl(142,71%,45%)]/10 px-3 py-1.5 font-mono text-xs font-medium text-[hsl(142,71%,45%)]">
+                  {data.purchaseCount} purchases
+                </span>
+                <span className="rounded-lg bg-destructive/10 px-3 py-1.5 font-mono text-xs font-medium text-destructive">
+                  {data.saleCount} sales
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {data.trades.map((trade, i) => (
+                  <StockTradeRow key={`${trade.ticker}-${trade.transactionDate}-${i}`} trade={trade} />
+                ))}
+              </div>
+
+              {data.total > 20 && (
+                <p className="mt-3 text-center font-body text-xs text-muted-foreground">
+                  Showing 20 of {data.total} trades.{" "}
+                  <a href="/congress-trades" className="text-primary hover:underline">View all →</a>
+                </p>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StockTradeRow({ trade }: { trade: CongressTrade }) {
+  const isPurchase = trade.type?.toLowerCase().includes("purchase");
+  const isSale = trade.type?.toLowerCase().includes("sale");
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+        isPurchase ? "bg-[hsl(142,71%,45%)]/10" : isSale ? "bg-destructive/10" : "bg-surface-elevated"
+      }`}>
+        {isPurchase ? (
+          <TrendingUp className="h-4 w-4 text-[hsl(142,71%,45%)]" />
+        ) : isSale ? (
+          <span className="font-mono text-xs font-bold text-destructive">S</span>
+        ) : (
+          <span className="font-mono text-xs font-bold text-muted-foreground">?</span>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          {trade.ticker && trade.ticker !== "--" && (
+            <span className="font-mono text-sm font-bold text-primary">${trade.ticker}</span>
+          )}
+          <span className="truncate font-body text-xs text-muted-foreground">{trade.assetDescription}</span>
+        </div>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+          <span className={`font-body text-[11px] font-medium ${
+            isPurchase ? "text-[hsl(142,71%,45%)]" : isSale ? "text-destructive" : "text-muted-foreground"
+          }`}>
+            {trade.type}
+          </span>
+          <span className="font-body text-[11px] text-muted-foreground">{trade.amount}</span>
+          {trade.transactionDate && (
+            <span className="font-body text-[11px] text-muted-foreground">
+              {new Date(trade.transactionDate).toLocaleDateString()}
+            </span>
+          )}
+          {trade.owner && trade.owner !== "--" && (
+            <span className="font-body text-[11px] text-muted-foreground">({trade.owner})</span>
+          )}
+        </div>
       </div>
     </div>
   );

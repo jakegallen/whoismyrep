@@ -34,7 +34,6 @@ import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } f
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
-import PredictionMarketsWidget from "@/components/PredictionMarketsWidget";
 import PredictionMarketsTab from "@/components/PredictionMarketsTab";
 import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
@@ -121,18 +120,10 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
 
 const tabs = [
   { id: "overview", label: "Overview", icon: User },
-  { id: "voting", label: "Voting Record", icon: BarChart3 },
-  { id: "bills", label: "Bills", icon: FileText },
-  { id: "committees", label: "Committees", icon: Building2 },
-  { id: "finance", label: "Campaign Finance", icon: DollarSign },
-  { id: "markets", label: "Markets", icon: TrendingUp },
-  { id: "lobbying", label: "Lobbying", icon: Briefcase },
-  { id: "court", label: "Court Cases", icon: Scale },
-  { id: "calendar", label: "Calendar", icon: CalendarDays },
-  { id: "federal", label: "Federal Register", icon: Landmark },
-  { id: "news", label: "News", icon: Newspaper },
-  { id: "midterms", label: "2026 Midterms", icon: Flag },
-  { id: "timeline", label: "Timeline", icon: Clock },
+  { id: "legislation", label: "Voting & Bills", icon: FileText },
+  { id: "money", label: "Money & Markets", icon: DollarSign },
+  { id: "accountability", label: "Accountability", icon: Scale },
+  { id: "media", label: "Media & News", icon: Newspaper },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -275,14 +266,11 @@ const PoliticianDetail = () => {
             </div>
 
             {/* Right: Polymarket widget */}
-            <div className="mt-6 lg:mt-0 lg:w-80 shrink-0">
-              <PredictionMarketsWidget politicianName={politician.name} state={politician.jurisdiction} />
-            </div>
           </div>
 
           {/* ═══════ TABS ═══════ */}
           <div className="mt-8 border-b border-border">
-            <nav className="-mb-px flex gap-1 overflow-x-auto scrollbar-hide">
+            <nav className="-mb-px flex gap-1 flex-wrap">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -309,38 +297,74 @@ const PoliticianDetail = () => {
             {activeTab === "overview" && (
               <OverviewTab politician={politician} analysis={analysis} isLoading={isLoading} error={error} />
             )}
-            {activeTab === "voting" && (
-              <VotingScorecard
-                politicianId={politician.id}
-                politicianName={politician.name}
-                keyIssues={politician.keyIssues}
-                party={politician.party}
-                level={politician.level}
-                chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
-                jurisdiction={politician.jurisdiction}
-              />
+
+            {activeTab === "legislation" && (
+              <div className="space-y-12">
+                <Section title="Voting Record" icon={BarChart3}>
+                  <VotingScorecard
+                    politicianId={politician.id}
+                    politicianName={politician.name}
+                    keyIssues={politician.keyIssues}
+                    party={politician.party}
+                    level={politician.level}
+                    chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
+                    jurisdiction={politician.jurisdiction}
+                  />
+                </Section>
+                <Section title="Sponsored Bills" icon={FileText}>
+                  <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} />
+                </Section>
+                <Section title="Committee Assignments" icon={Building2}>
+                  <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />
+                </Section>
+                <Section title="Legislative Calendar" icon={CalendarDays}>
+                  <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} stateAbbr={politician.stateAbbr} jurisdiction={politician.jurisdiction} />
+                </Section>
+              </div>
             )}
-            {activeTab === "bills" && <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} />}
-            {activeTab === "committees" && <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />}
-            {activeTab === "finance" && (
-              <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
+
+            {activeTab === "money" && (
+              <div className="space-y-12">
+                <Section title="Campaign Finance" icon={DollarSign}>
+                  <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
+                </Section>
+                <Section title="Prediction Markets" icon={TrendingUp}>
+                  <PredictionMarketsTab politicianName={politician.name} state={politician.jurisdiction} />
+                </Section>
+              </div>
             )}
-            {activeTab === "markets" && (
-              <PredictionMarketsTab politicianName={politician.name} state={politician.jurisdiction} />
+
+            {activeTab === "accountability" && (
+              <div className="space-y-12">
+                <Section title="Lobbying Connections" icon={Briefcase}>
+                  <LobbyingTab politicianName={politician.name} />
+                </Section>
+                <Section title="Court Cases" icon={Scale}>
+                  <CourtCasesTab politicianName={politician.name} />
+                </Section>
+                <Section title="Federal Register" icon={Landmark}>
+                  <FederalRegisterTab politicianName={politician.name} />
+                </Section>
+                <Section title="Accountability Timeline" icon={Clock}>
+                  <AccountabilityTimeline
+                    politicianName={politician.name}
+                    chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
+                    twitterHandle={politician.socialHandles?.x}
+                    jurisdiction={politician.jurisdiction}
+                  />
+                </Section>
+              </div>
             )}
-            {activeTab === "lobbying" && <LobbyingTab politicianName={politician.name} />}
-            {activeTab === "court" && <CourtCasesTab politicianName={politician.name} />}
-            {activeTab === "calendar" && <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} stateAbbr={politician.stateAbbr} jurisdiction={politician.jurisdiction} />}
-            {activeTab === "federal" && <FederalRegisterTab politicianName={politician.name} />}
-            {activeTab === "news" && <NewsTab politicianName={politician.name} />}
-            {activeTab === "midterms" && <MidtermsTab politician={politician} />}
-            {activeTab === "timeline" && (
-              <AccountabilityTimeline
-                politicianName={politician.name}
-                chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
-                twitterHandle={politician.socialHandles?.x}
-                jurisdiction={politician.jurisdiction}
-              />
+
+            {activeTab === "media" && (
+              <div className="space-y-12">
+                <Section title="News Coverage" icon={Newspaper}>
+                  <NewsTab politicianName={politician.name} />
+                </Section>
+                <Section title="2026 Midterms" icon={Flag}>
+                  <MidtermsTab politician={politician} />
+                </Section>
+              </div>
             )}
           </div>
         </motion.div>
@@ -348,6 +372,21 @@ const PoliticianDetail = () => {
     </div>
   );
 };
+
+/* ═══════════════════════════════════════════ */
+/*  Section wrapper for mega-tabs              */
+/* ═══════════════════════════════════════════ */
+function Section({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+  return (
+    <section>
+      <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
+        <Icon className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-lg font-bold text-headline">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 /* ═══════════════════════════════════════════ */
 /*  Overview Tab                               */

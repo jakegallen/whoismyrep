@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import SiteNav from "@/components/SiteNav";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, Building2, Landmark, MapPin, Globe, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { SocialIcons } from "@/components/SocialIcons";
@@ -17,8 +17,9 @@ const chamberConfig = {
 
 const Politicians = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedState, setSelectedState] = useState("NV");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
   const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");
 

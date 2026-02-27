@@ -101,6 +101,8 @@ const FEATURES = [
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const [searchMode, setSearchMode] = useState<"address" | "name">("address");
+  const [nameQuery, setNameQuery] = useState("");
   const [address, setAddress] = useState("");
   const { groups, isLoading, error, lookup, elections, voterInfo } = useCivicReps();
   const reps = groups || [];
@@ -154,57 +156,132 @@ const HomePage = () => {
               Enter any U.S. address to instantly discover your elected officials — from Congress to city hall — with voting records, campaign finance, and AI-powered analysis.
             </p>
 
+            {/* Search mode toggle */}
+            <div className="mx-auto mt-6 flex items-center justify-center gap-1 rounded-full border border-border bg-card/50 p-1 backdrop-blur-sm w-fit">
+              <button
+                onClick={() => setSearchMode("address")}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 font-body text-xs font-medium transition-all ${
+                  searchMode === "address"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                By Address
+              </button>
+              <button
+                onClick={() => setSearchMode("name")}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 font-body text-xs font-medium transition-all ${
+                  searchMode === "name"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                By Name
+              </button>
+            </div>
+
             {/* Search bar */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="mx-auto mt-8 max-w-xl"
+              className="mx-auto mt-4 max-w-xl"
             >
-              <div className="flex gap-2">
-                <AddressAutocomplete
-                  value={address}
-                  onChange={setAddress}
-                  onSelect={(addr) => {
-                    setAddress(addr);
-                    lookup(addr);
-                    setTimeout(() => {
-                      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 300);
-                  }}
-                  placeholder="Enter your U.S. address…"
-                  disabled={isLoading}
-                  inputClassName="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                />
-                <Button
-                  onClick={handleSearch}
-                  disabled={isLoading || !address.trim()}
-                  className="h-14 rounded-xl px-6 gradient-brand font-display font-semibold text-white shadow-glow hover:opacity-90 transition-opacity"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="mr-2 h-5 w-5" />
-                      Find Reps
-                    </>
-                  )}
-                </Button>
-              </div>
+              {searchMode === "address" ? (
+                <>
+                  <div className="flex gap-2">
+                    <AddressAutocomplete
+                      value={address}
+                      onChange={setAddress}
+                      onSelect={(addr) => {
+                        setAddress(addr);
+                        lookup(addr);
+                        setTimeout(() => {
+                          resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 300);
+                      }}
+                      placeholder="Enter your U.S. address…"
+                      disabled={isLoading}
+                      inputClassName="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    />
+                    <Button
+                      onClick={handleSearch}
+                      disabled={isLoading || !address.trim()}
+                      className="h-14 rounded-xl px-6 gradient-brand font-display font-semibold text-white shadow-glow hover:opacity-90 transition-opacity"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Search className="mr-2 h-5 w-5" />
+                          Find Reps
+                        </>
+                      )}
+                    </Button>
+                  </div>
 
-              {/* Example addresses */}
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                <span className="font-body text-xs text-muted-foreground">Try:</span>
-                {EXAMPLE_ADDRESSES.map((addr) => (
-                  <button
-                    key={addr}
-                    onClick={() => { setAddress(addr); }}
-                    className="rounded-md border border-border px-2.5 py-1 font-body text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-                  >
-                    {addr}
-                  </button>
-                ))}
-              </div>
+                  {/* Example addresses */}
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <span className="font-body text-xs text-muted-foreground">Try:</span>
+                    {EXAMPLE_ADDRESSES.map((addr) => (
+                      <button
+                        key={addr}
+                        onClick={() => { setAddress(addr); }}
+                        className="rounded-md border border-border px-2.5 py-1 font-body text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                      >
+                        {addr}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Input
+                        value={nameQuery}
+                        onChange={(e) => setNameQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && nameQuery.trim()) {
+                            navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}`);
+                          }
+                        }}
+                        placeholder="Search by representative name…"
+                        className="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => {
+                        if (nameQuery.trim()) {
+                          navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}`);
+                        }
+                      }}
+                      disabled={!nameQuery.trim()}
+                      className="h-14 rounded-xl px-6 gradient-brand font-display font-semibold text-white shadow-glow hover:opacity-90 transition-opacity"
+                    >
+                      <Search className="mr-2 h-5 w-5" />
+                      Search
+                    </Button>
+                  </div>
+
+                  {/* Example names */}
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    <span className="font-body text-xs text-muted-foreground">Try:</span>
+                    {["Nancy Pelosi", "Ted Cruz", "Alexandria Ocasio-Cortez"].map((name) => (
+                      <button
+                        key={name}
+                        onClick={() => setNameQuery(name)}
+                        className="rounded-md border border-border px-2.5 py-1 font-body text-[11px] text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
 

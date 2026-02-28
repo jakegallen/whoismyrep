@@ -53,3 +53,24 @@ verify_jwt = false
 
 [functions.fetch-congress-trades]
 verify_jwt = false
+
+[functions.fetch-politician-news]
+verify_jwt = false
+
+[functions.fetch-politician-timeline]
+verify_jwt = false
+
+[functions.fetch-committees]
+verify_jwt = false
+
+[functions.fetch-fec-data]
+verify_jwt = false
+
+[functions.fetch-legislative-calendar]
+verify_jwt = false
+
+[functions.fetch-state-news]
+verify_jwt = false
+
+[functions.fetch-voting-records]
+verify_jwt = false

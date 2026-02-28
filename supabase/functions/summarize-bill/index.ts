@@ -53,11 +53,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Summarize with Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    // Step 2: Summarize with OpenAI
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ success: false, error: 'LOVABLE_API_KEY not configured' }),
+        JSON.stringify({ success: false, error: 'OPENAI_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -70,14 +70,14 @@ Deno.serve(async (req) => {
 
 Format your response in markdown. Be factual and non-partisan. If the content is insufficient, note what information is available.`;
 
-    const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           {

@@ -88,10 +88,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ success: false, error: 'AI gateway not configured' }),
+        JSON.stringify({ success: false, error: 'OPENAI_API_KEY not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
       .map((r, i) => `[${i + 1}] Title: ${r.title}\nURL: ${r.url}\nSource: ${r.source}\nDescription: ${r.description}`)
       .join('\n\n');
 
-    const aiResult = await categorizeWithAI(articlesText, LOVABLE_API_KEY, stateName);
+    const aiResult = await categorizeWithAI(articlesText, OPENAI_API_KEY, stateName);
     if ('error' in aiResult) {
       return new Response(
         JSON.stringify({ success: false, error: aiResult.error }),
@@ -250,14 +250,14 @@ async function fetchFirecrawlResults(stateName: string, search: string): Promise
 
 // ── AI categorization via Lovable gateway ───────────────────────────────
 async function categorizeWithAI(articlesText: string, apiKey: string, stateName: string): Promise<any> {
-  const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-3-flash-preview',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',

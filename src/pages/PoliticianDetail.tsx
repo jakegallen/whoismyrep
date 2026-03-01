@@ -45,6 +45,8 @@ import { useCongress } from "@/hooks/useCongress";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import { useFederalRegister } from "@/hooks/useFederalRegister";
 import { useCongressTrades, type CongressTrade } from "@/hooks/useCongressTrades";
+import { useVotingRecords } from "@/hooks/useVotingRecords";
+import { useFECFinance, formatUSD } from "@/hooks/useFECFinance";
 
 // midterms data is now AI-generated per politician
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +197,17 @@ const PoliticianDetail = () => {
     return existing;
   }, [politician, socialLookup]);
 
+  // Hero stat data — React Query deduplicates; bills lifted to avoid double-fetch with BillsTab
+  const heroChamberId = politician?.office.includes("Senate") ? "Senate" : politician?.office.includes("Assembly") ? "Assembly" : undefined;
+  const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction);
+  const { data: fecData, isLoading: fecLoading } = useFECFinance(
+    politician?.level === "federal" ? politician?.name : undefined,
+  );
+  const { bills, total: billsTotal, isLoading: billsLoading, error: billsError } = useBills(
+    politician?.name,
+    politician?.jurisdiction,
+  );
+
   useEffect(() => {
     if (!politician) {
       navigate("/");
@@ -237,6 +250,14 @@ const PoliticianDetail = () => {
         ? "text-primary"
         : "text-[hsl(43,90%,55%)]";
 
+  // Hex colors so `${partyHex}50` produces a valid 8-digit hex with ~31% alpha
+  const partyHex =
+    politician.party === "Democrat"
+      ? "#308ce8"
+      : politician.party === "Republican"
+        ? "#dc2828"
+        : "#f39a25";
+
   return (
     <div className="min-h-screen bg-background">
       <SiteNav />
@@ -252,58 +273,174 @@ const PoliticianDetail = () => {
         </button>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          {/* Profile header — two-column layout */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:gap-8">
-            {/* Left: avatar + info + contacts */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start gap-5">
-                {politician.imageUrl ? (
-                  <img
-                    src={politician.imageUrl}
-                    alt={politician.name}
-                    className="h-20 w-20 shrink-0 rounded-full object-cover bg-surface-elevated"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-2xl font-bold text-muted-foreground">
-                    {politician.name.split(" ").map((n) => n[0]).join("")}
+          {/* ═══════ HERO CARD ═══════ */}
+          <div className="rounded-2xl border border-border bg-surface-elevated overflow-hidden">
+            {/* Party-colored accent stripe */}
+            <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${partyHex}, ${partyHex}50)` }} />
+
+            <div className="p-6 sm:p-8">
+              {/* Top row: avatar + identity + contacts */}
+              <div className="flex flex-col sm:flex-row sm:items-start gap-6">
+                {/* Avatar with party ring */}
+                <div className="shrink-0">
+                  <div
+                    className="rounded-full p-[3px]"
+                    style={{ background: `linear-gradient(135deg, ${partyHex}, ${partyHex}50)` }}
+                  >
+                    {politician.imageUrl ? (
+                      <img
+                        src={politician.imageUrl}
+                        alt={politician.name}
+                        className="h-28 w-28 rounded-full object-cover bg-surface-elevated"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-28 w-28 items-center justify-center rounded-full bg-surface-elevated font-display text-3xl font-bold text-muted-foreground">
+                        {politician.name.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div>
-                  <h1 className="font-display text-3xl font-bold text-headline">{politician.name}</h1>
-                  <p className={`font-body text-base font-semibold ${partyColor}`}>
+                </div>
+
+                {/* Identity + contacts */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <h1 className="font-display text-3xl font-bold text-headline leading-tight">{politician.name}</h1>
+                    <span
+                      className="mt-1.5 shrink-0 rounded-full px-2.5 py-0.5 font-body text-xs font-bold tracking-wide"
+                      style={{ backgroundColor: `${partyHex}20`, color: partyHex }}
+                    >
+                      {politician.level.charAt(0).toUpperCase() + politician.level.slice(1)}
+                    </span>
+                  </div>
+                  <p className="mt-1 font-body text-base font-semibold" style={{ color: partyHex }}>
                     {politician.title} · {politician.party}
                   </p>
                   {politician.region && (
-                    <div className="mt-1 flex items-center gap-1.5">
+                    <div className="mt-1.5 flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-tertiary" />
                       <span className="font-body text-sm text-tertiary">{politician.region}</span>
                     </div>
                   )}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {politician.website && (
+                      <ContactLink href={politician.website} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
+                    )}
+                    {politician.phone && (
+                      <ContactLink href={`tel:${politician.phone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={politician.phone} />
+                    )}
+                    {politician.email && (
+                      <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
+                    )}
+                    {politician.contactForm && (
+                      <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
+                    )}
+                  </div>
+                  <SocialIcons socialHandles={effectiveSocialHandles} size="md" className="mt-3" />
                 </div>
               </div>
 
-              {/* Contact links row */}
-              <div className="mt-5 flex flex-wrap gap-2">
-                {politician.website && (
-                  <ContactLink href={politician.website} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
-                )}
-                {politician.phone && (
-                  <ContactLink href={`tel:${politician.phone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={politician.phone} />
-                )}
-                {politician.email && (
-                  <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
-                )}
-                {politician.contactForm && (
-                  <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
-                )}
+              {/* ── Stat tiles ── */}
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Vote Participation */}
+                <button
+                  onClick={() => setActiveTab("legislation")}
+                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-body text-xs text-muted-foreground">Vote Participation</span>
+                  </div>
+                  <div className="mt-2">
+                    {votingLoading ? (
+                      <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                    ) : votingData?.summary ? (
+                      <span className="font-display text-2xl font-bold text-headline">
+                        {Math.round(votingData.summary.attendance * 100)}%
+                      </span>
+                    ) : (
+                      <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">View voting →</span>
+                </button>
+
+                {/* Party Alignment */}
+                <button
+                  onClick={() => setActiveTab("legislation")}
+                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-body text-xs text-muted-foreground">Party Alignment</span>
+                  </div>
+                  <div className="mt-2">
+                    {votingLoading ? (
+                      <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                    ) : votingData?.summary ? (
+                      <span className="font-display text-2xl font-bold text-headline">
+                        {Math.round(votingData.summary.partyLineRate * 100)}%
+                      </span>
+                    ) : (
+                      <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
+                    )}
+                  </div>
+                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">See trends →</span>
+                </button>
+
+                {/* Total Raised */}
+                <button
+                  onClick={() => setActiveTab("money")}
+                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-body text-xs text-muted-foreground">Total Raised</span>
+                  </div>
+                  <div className="mt-2">
+                    {fecLoading && politician.level === "federal" ? (
+                      <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                    ) : fecData?.totals?.[0] && politician.level === "federal" ? (
+                      <span className="font-display text-2xl font-bold text-headline">
+                        {formatUSD(fecData.totals[0].receipts)}
+                      </span>
+                    ) : (
+                      <span className="font-display text-2xl font-bold text-muted-foreground">
+                        {politician.level !== "federal" ? "N/A" : "—"}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">
+                    {politician.level === "federal" && fecData?.totals?.[0]
+                      ? `FEC cycle ${fecData.totals[0].cycle}`
+                      : politician.level !== "federal"
+                        ? "Federal only"
+                        : "View finance →"}
+                  </span>
+                </button>
+
+                {/* Bills Sponsored */}
+                <button
+                  onClick={() => setActiveTab("legislation")}
+                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <ScrollText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-body text-xs text-muted-foreground">Bills Sponsored</span>
+                  </div>
+                  <div className="mt-2">
+                    {billsLoading ? (
+                      <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                    ) : (
+                      <span className="font-display text-2xl font-bold text-headline">
+                        {billsTotal > 0 ? billsTotal : "—"}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">View bills →</span>
+                </button>
               </div>
-
-              {/* Social links */}
-              <SocialIcons socialHandles={effectiveSocialHandles} size="md" className="mt-3" />
             </div>
-
-            {/* Right: Polymarket widget */}
           </div>
 
           {/* ═══════ TABS ═══════ */}
@@ -348,7 +485,7 @@ const PoliticianDetail = () => {
                   jurisdiction={politician.jurisdiction}
                 />
                 <div className="h-px bg-border" />
-                <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} />
+                <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} bills={bills} isLoading={billsLoading} error={billsError} />
                 <div className="h-px bg-border" />
                 <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />
                 <div className="h-px bg-border" />
@@ -478,8 +615,7 @@ function OverviewTab({
 /* ═══════════════════════════════════════════ */
 /*  Bills Tab                                  */
 /* ═══════════════════════════════════════════ */
-function BillsTab({ politicianName, jurisdiction }: { politicianName: string; jurisdiction?: string }) {
-  const { bills, isLoading, error } = useBills(politicianName, jurisdiction);
+function BillsTab({ politicianName, bills, isLoading, error }: { politicianName: string; jurisdiction?: string; bills: Bill[]; isLoading: boolean; error: string | null }) {
 
   return (
     <div className="space-y-6">

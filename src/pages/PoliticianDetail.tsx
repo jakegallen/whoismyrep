@@ -169,9 +169,7 @@ const PoliticianDetail = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const searchQuery = politician.socialHandles?.x
-          ? `https://x.com/${politician.socialHandles.x}`
-          : `https://www.google.com/search?q=${encodeURIComponent(politician.name + " politics")}`;
+        const searchQuery = `https://www.google.com/search?q=${encodeURIComponent(politician.name + " politics")}`;
         const { data, error: fnError } = await supabase.functions.invoke("analyze-article", {
           body: {
             url: searchQuery,

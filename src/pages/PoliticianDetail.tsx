@@ -202,6 +202,10 @@ const PoliticianDetail = () => {
   const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction);
   const { data: fecData, isLoading: fecLoading } = useFECFinance(
     politician?.level === "federal" ? politician?.name : undefined,
+    undefined,
+    undefined,
+    undefined,
+    politician?.stateAbbr,
   );
   const { bills, total: billsTotal, isLoading: billsLoading, error: billsError } = useBills(
     politician?.name,
@@ -412,7 +416,7 @@ const PoliticianDetail = () => {
                   </div>
                   <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">
                     {politician.level === "federal" && fecData?.totals?.[0]
-                      ? `FEC cycle ${fecData.totals[0].cycle}`
+                      ? `FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`
                       : politician.level !== "federal"
                         ? "Federal only"
                         : "View finance →"}

@@ -59,13 +59,14 @@ export function useFECFinance(
   candidateName?: string,
   candidateId?: string,
   office?: string,
-  cycle?: number
+  cycle?: number,
+  state?: string
 ) {
   return useQuery<FECResponse>({
-    queryKey: ["fec-finance", candidateName, candidateId, office, cycle],
+    queryKey: ["fec-finance", candidateName, candidateId, office, cycle, state],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-fec-data", {
-        body: { candidateName, candidateId, state: "NV", office, cycle },
+        body: { candidateName, candidateId, state, office, cycle },
       });
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch FEC data");

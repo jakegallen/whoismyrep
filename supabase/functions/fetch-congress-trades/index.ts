@@ -28,10 +28,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { chamber, politician, ticker, type, limit = 100, offset = 0 } = body;
 
-    const quiverKey = Deno.env.get('QUIVER_API_KEY');
+    const fmpKey = Deno.env.get('FMP_API_KEY');
 
-    if (!quiverKey) {
-      console.warn('QUIVER_API_KEY not set — returning empty results');
+    if (!fmpKey) {
+      console.warn('FMP_API_KEY not set — returning empty results');
       return new Response(
         JSON.stringify({
           success: true,
@@ -41,40 +41,66 @@ Deno.serve(async (req) => {
           saleCount: 0,
           topTraders: [],
           topTickers: [],
-          warning: 'QUIVER_API_KEY is not configured. Add it via: supabase secrets set QUIVER_API_KEY=your_key',
+          warning: 'FMP_API_KEY is not configured. Add it via: supabase secrets set FMP_API_KEY=your_key',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Fetching congress trades from Quiver Quantitative: chamber=${chamber}, politician=${politician}, ticker=${ticker}`);
+    console.log(`Fetching congress trades from FMP: chamber=${chamber}, politician=${politician}, ticker=${ticker}`);
 
-    let trades: CongressTrade[] = [];
+    // FMP paginates in pages of ~100. Fetch pages 0-4 (up to ~500 recent trades).
+    const MAX_PAGES = 5;
 
-    // ── Quiver Quantitative — Congressional Trading ───────────────────────────
-    // Docs: https://www.quiverquant.com/sources/senatetrading
-    //       https://www.quiverquant.com/sources/housetrading
-    // Field names: Representative, Ticker, Transaction, Range, Party, State,
-    //              District ("Senate" for senators), Date, TransactionDate, ReportDate
-    try {
-      const resp = await fetch('https://api.quiverquant.com/beta/live/congresstrading', {
-        headers: {
-          'Authorization': `Token ${quiverKey}`,
-          'Accept': 'application/json',
-        },
-      });
+    const fetchSenate = !chamber || chamber === 'senate';
+    const fetchHouse  = !chamber || chamber === 'house';
 
-      if (resp.ok) {
-        const data = await resp.json();
-        trades = (Array.isArray(data) ? data : []).map(normalizeQuiverTrade);
-        console.log(`Quiver returned ${trades.length} raw trades`);
-      } else {
-        const errText = await resp.text().catch(() => '');
-        console.error(`Quiver API error ${resp.status}:`, errText);
+    // Build page fetch promises for each chamber
+    const senatePromises: Promise<CongressTrade[]>[] = [];
+    const housePromises:  Promise<CongressTrade[]>[] = [];
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      if (fetchSenate) {
+        senatePromises.push(
+          fetch(`https://financialmodelingprep.com/api/v4/senate-trading-rss-feed?page=${page}&apikey=${fmpKey}`)
+            .then(r => {
+              if (!r.ok) throw new Error(`Senate page ${page}: ${r.status}`);
+              return r.json();
+            })
+            .then((data: any[]) => {
+              if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+              return data.map(t => normalizeFmpTrade(t, 'Senate'));
+            })
+            .catch(err => {
+              if (!String(err).includes('empty')) console.warn('Senate FMP error:', err);
+              return [];
+            })
+        );
       }
-    } catch (e) {
-      console.error('Quiver fetch error:', e);
+
+      if (fetchHouse) {
+        housePromises.push(
+          fetch(`https://financialmodelingprep.com/api/v4/house-disclosure-rss-feed?page=${page}&apikey=${fmpKey}`)
+            .then(r => {
+              if (!r.ok) throw new Error(`House page ${page}: ${r.status}`);
+              return r.json();
+            })
+            .then((data: any[]) => {
+              if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+              return data.map(t => normalizeFmpTrade(t, 'House'));
+            })
+            .catch(err => {
+              if (!String(err).includes('empty')) console.warn('House FMP error:', err);
+              return [];
+            })
+        );
+      }
     }
+
+    const allResults = await Promise.all([...senatePromises, ...housePromises]);
+    let trades: CongressTrade[] = allResults.flat();
+
+    console.log(`FMP returned ${trades.length} raw trades`);
 
     // ── Apply filters ─────────────────────────────────────────────────────────
     if (chamber) {
@@ -94,7 +120,7 @@ Deno.serve(async (req) => {
       trades = trades.filter(t => t.type?.toLowerCase().includes(q));
     }
 
-    // ── Sort: most recent first ───────────────────────────────────────────────
+    // ── Sort: most recent transaction date first ──────────────────────────────
     trades.sort((a, b) => {
       const da = a.transactionDate ? new Date(a.transactionDate).getTime() : 0;
       const db = b.transactionDate ? new Date(b.transactionDate).getTime() : 0;
@@ -106,7 +132,7 @@ Deno.serve(async (req) => {
 
     // ── Summary stats ─────────────────────────────────────────────────────────
     const purchaseCount = trades.filter(t => t.type?.toLowerCase().includes('purchase')).length;
-    const saleCount = trades.filter(t => t.type?.toLowerCase().includes('sale')).length;
+    const saleCount     = trades.filter(t => t.type?.toLowerCase().includes('sale')).length;
 
     const traderCounts: Record<string, number> = {};
     for (const t of trades) {
@@ -141,54 +167,45 @@ Deno.serve(async (req) => {
   }
 });
 
-// ── Normalizers ────────────────────────────────────────────────────────────────
+// ── Normalizer ─────────────────────────────────────────────────────────────────
+// FMP senate-trading-rss-feed and house-disclosure-rss-feed field names:
+//   firstName, lastName, office, dateRecieved, transactionDate, owner,
+//   assetDescription, assetType, type, amount, comment, symbol
+//   (party and state are not always present; office describes role)
 
-function normalizeQuiverTrade(t: any): CongressTrade {
-  // Quiver Quant congressional trading fields:
-  //   Representative, Ticker, Transaction, Range, Party, State,
-  //   District ("Senate" for senators, number for House members),
-  //   Date (disclosure/report date), TransactionDate, ReportDate, Owner, Comment
-  const districtRaw = String(t.District || t.district || '');
-  const isSenate = districtRaw.toLowerCase() === 'senate';
+function normalizeFmpTrade(t: any, defaultChamber: 'House' | 'Senate'): CongressTrade {
+  const firstName = t.firstName || t.first_name || '';
+  const lastName  = t.lastName  || t.last_name  || '';
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unknown';
+
+  // "office" can be "Senator", "Representative", chamber name, etc.
+  const office = String(t.office || '').toLowerCase();
+  let chamber: 'House' | 'Senate' = defaultChamber;
+  if (office.includes('senate') || office.includes('senator')) chamber = 'Senate';
+  if (office.includes('house') || office.includes('representative')) chamber = 'House';
 
   return {
-    politician: t.Representative || t.representative || 'Unknown',
-    party: normalizeParty(t.Party || t.party || ''),
-    state: t.State || t.state || null,
-    district: isSenate ? null : (districtRaw || null),
-    chamber: isSenate ? 'Senate' : 'House',
-    ticker: t.Ticker || t.ticker || null,
-    assetDescription: t.Asset || t.asset || t.AssetDescription || t.asset_description || t.Ticker || t.ticker || 'Unknown',
-    type: t.Transaction || t.transaction || 'Unknown',
-    amount: t.Range || t.range || 'Unknown',
-    transactionDate: parseDate(t.TransactionDate || t.transaction_date || t.Date || t.date || null),
-    disclosureDate: parseDate(t.ReportDate || t.report_date || t.DisclosureDate || t.disclosure_date || null),
-    owner: t.Owner || t.owner || null,
-    source: 'quiverquant',
+    politician: name,
+    party: normalizeParty(t.party || ''),
+    state: t.state || null,
+    district: t.district || null,
+    chamber,
+    ticker: t.symbol || t.ticker || null,
+    assetDescription: t.assetDescription || t.asset_description || t.symbol || t.ticker || 'Unknown',
+    type: t.type || t.transactionType || 'Unknown',
+    amount: t.amount || 'Unknown',
+    transactionDate: t.transactionDate || t.transaction_date || null,
+    disclosureDate: t.dateRecieved || t.date_recieved || t.disclosureDate || t.disclosure_date || null,
+    owner: t.owner || null,
+    source: 'fmp',
   };
 }
 
 function normalizeParty(raw: string): string {
-  const r = raw.trim();
-  if (r === 'D') return 'Democrat';
-  if (r === 'R') return 'Republican';
-  if (r === 'I') return 'Independent';
-  const lo = r.toLowerCase();
-  if (lo.includes('democrat')) return 'Democrat';
-  if (lo.includes('republican')) return 'Republican';
-  if (lo.includes('independent')) return 'Independent';
-  return r || 'Unknown';
-}
-
-// Handles "MM/DD/YYYY" → "YYYY-MM-DD" and passthrough for ISO strings
-function parseDate(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const s = String(raw).trim();
-  const mmddyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-  const match = s.match(mmddyyyy);
-  if (match) {
-    return `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
-  }
-  // Already ISO or unknown — return as-is
-  return s;
+  if (!raw) return 'Unknown';
+  const lo = raw.toLowerCase().trim();
+  if (lo === 'd' || lo.includes('democrat')) return 'Democrat';
+  if (lo === 'r' || lo.includes('republican')) return 'Republican';
+  if (lo === 'i' || lo.includes('independent')) return 'Independent';
+  return raw;
 }

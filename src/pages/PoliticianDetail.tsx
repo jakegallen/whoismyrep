@@ -370,7 +370,7 @@ const PoliticianDetail = () => {
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
                     ) : votingData?.summary ? (
                       <span className="font-display text-2xl font-bold text-headline">
-                        {Math.round(votingData.summary.attendance * 100)}%
+                        {votingData.summary.attendance}%
                       </span>
                     ) : (
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
@@ -393,7 +393,7 @@ const PoliticianDetail = () => {
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
                     ) : votingData?.summary ? (
                       <span className="font-display text-2xl font-bold text-headline">
-                        {Math.round(votingData.summary.partyLineRate * 100)}%
+                        {votingData.summary.partyLineRate}%
                       </span>
                     ) : (
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>

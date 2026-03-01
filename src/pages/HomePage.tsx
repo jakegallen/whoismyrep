@@ -21,8 +21,8 @@ import {
   Star,
   ArrowRight,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { NameAutocomplete } from "@/components/NameAutocomplete";
 import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
 import { SocialIcons } from "@/components/SocialIcons";
@@ -241,20 +241,11 @@ const HomePage = () => {
               ) : (
                 <>
                   <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      <Input
-                        value={nameQuery}
-                        onChange={(e) => setNameQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && nameQuery.trim()) {
-                            navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}&level=federal`);
-                          }
-                        }}
-                        placeholder="Search by representative name…"
-                        className="h-14 rounded-xl border-border bg-card pl-12 pr-4 font-body text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                      />
-                    </div>
+                    <NameAutocomplete
+                      value={nameQuery}
+                      onChange={setNameQuery}
+                      onSelect={(name) => navigate(`/politicians?q=${encodeURIComponent(name)}&level=federal`)}
+                    />
                     <Button
                       onClick={() => {
                         if (nameQuery.trim()) {

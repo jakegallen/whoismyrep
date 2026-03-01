@@ -25,9 +25,9 @@ import { useCivicReps } from "@/hooks/useCivicReps";
 import { US_STATES } from "@/lib/usStates";
 
 const EXAMPLE_ADDRESSES = [
-  "1600 Pennsylvania Ave, Washington, DC",
-  "200 N Spring St, Los Angeles, CA",
-  "100 State St, Albany, NY",
+  "3799 S Las Vegas Blvd, Las Vegas, NV",
+  "350 5th Ave, New York, NY",
+  "1600 Pennsylvania Ave NW, Washington, DC",
 ];
 
 const STATS = [
@@ -293,7 +293,7 @@ const HomePage = () => {
                   {/* Example names */}
                   <div className="mt-3 flex flex-nowrap items-center justify-center gap-2">
                     <span className="font-body text-xs text-muted-foreground">Try:</span>
-                    {["Nancy Pelosi", "Ted Cruz", "Alexandria Ocasio-Cortez"].map((name) => (
+                    {["Nancy Pelosi", "Ted Cruz", "Thomas Massie"].map((name) => (
                       <button
                         key={name}
                         onClick={() => setNameQuery(name)}
@@ -336,7 +336,7 @@ const HomePage = () => {
                   {/* Example states */}
                   <div className="mt-3 flex flex-nowrap items-center justify-center gap-2">
                     <span className="font-body text-xs text-muted-foreground">Try:</span>
-                    {["California", "Texas", "New York"].map((name) => (
+                    {["Georgia", "Colorado", "Florida"].map((name) => (
                       <button
                         key={name}
                         onClick={() => navigate(`/state/${US_STATES.find((s) => s.name === name)!.abbr.toLowerCase()}`)}

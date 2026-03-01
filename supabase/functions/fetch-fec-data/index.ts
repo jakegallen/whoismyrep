@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       const nameParts = candidateName.trim().split(' ');
       const lastName = nameParts[nameParts.length - 1];
       searchUrl.searchParams.set('q', lastName);
-      searchUrl.searchParams.set('state', state || 'NV');
+      if (state) searchUrl.searchParams.set('state', state);
       searchUrl.searchParams.set('per_page', '5');
       searchUrl.searchParams.set('sort', '-receipts');
       if (office) {

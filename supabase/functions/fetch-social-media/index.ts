@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
 
     if (!consumerKey || !consumerSecret) {
       return new Response(
-        JSON.stringify({ success: false, error: 'X/Twitter API credentials not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, posts: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

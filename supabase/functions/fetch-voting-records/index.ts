@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { legislatorName, chamber, page = 1, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
+    const { legislatorName, chamber, page = 1, jurisdiction = 'Nevada', bioguideId, level } = await req.json().catch(() => ({}));
 
     if (!legislatorName) {
       return new Response(
@@ -57,7 +57,111 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Fetching voting records for: ${legislatorName}, chamber: ${chamber}`);
+    console.log(`Fetching voting records for: ${legislatorName}, chamber: ${chamber}, level: ${level}, bioguideId: ${bioguideId}`);
+
+    // Federal politicians: use congress.gov /member/{bioguideId}/votes
+    if (level === 'federal' && bioguideId) {
+      const congressApiKey = Deno.env.get('CONGRESS_API_KEY');
+      if (!congressApiKey) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Congress.gov API key not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const params = new URLSearchParams({ api_key: congressApiKey, format: 'json', limit: '250' });
+      const votesUrl = `https://api.congress.gov/v3/member/${bioguideId}/votes?${params}`;
+      console.log('Fetching congress.gov member votes:', votesUrl.replace(congressApiKey, '***'));
+
+      const votesResp = await fetch(votesUrl, { headers: { 'Accept': 'application/json' } });
+      if (!votesResp.ok) {
+        const errText = await votesResp.text();
+        console.error(`Congress.gov votes error: ${votesResp.status} ${errText}`);
+        return new Response(
+          JSON.stringify({ success: false, error: `Congress.gov API error: ${votesResp.status}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const votesData = await votesResp.json();
+      const rawVotes: any[] = votesData.votes || [];
+      console.log(`Got ${rawVotes.length} votes from congress.gov for ${bioguideId}`);
+
+      let yesVotes = 0, noVotes = 0, abstainVotes = 0, notVoting = 0;
+      let partyLineVotes = 0, totalPartyVotes = 0;
+
+      const votes: VoteDetail[] = rawVotes.map((v: any) => {
+        const memberPos = (v.memberPosition || '').toLowerCase();
+        let vote: VoteDetail['vote'];
+        if (memberPos === 'yea' || memberPos === 'yes') {
+          vote = 'Yes'; yesVotes++;
+        } else if (memberPos === 'nay' || memberPos === 'no') {
+          vote = 'No'; noVotes++;
+        } else if (memberPos === 'not voting' || memberPos === 'absent') {
+          vote = 'Not Voting'; notVoting++;
+        } else {
+          vote = 'Abstain'; abstainVotes++;
+        }
+
+        const totalYea = v.totals?.yea || v.yea || 0;
+        const totalNay = v.totals?.nay || v.nay || 0;
+        const totalAbstain = (v.totals?.present || v.present || 0) + (v.totals?.notVoting || 0);
+        const passed = (v.result || '').toLowerCase().includes('pass') ||
+                       (v.result || '').toLowerCase().includes('agreed') ||
+                       (v.result || '').toLowerCase().includes('confirm');
+        const result: VoteDetail['result'] = passed ? 'Passed' : 'Failed';
+
+        // Simple party-line heuristic: majority side
+        if (vote === 'Yes' || vote === 'No') {
+          totalPartyVotes++;
+          const majorityVoted = totalYea > totalNay ? 'Yes' : 'No';
+          if (vote === majorityVoted) partyLineVotes++;
+        }
+
+        const bill = v.bill || {};
+        return {
+          billId: bill.number ? `${bill.congress}-${bill.type}-${bill.number}` : v.voteNumber || '',
+          billNumber: bill.number ? `${bill.type || ''} ${bill.number}`.trim() : `Vote ${v.voteNumber || ''}`,
+          billTitle: v.question || v.description || 'No description',
+          date: v.date || '',
+          motion: v.question || '',
+          vote,
+          result,
+          yesCount: totalYea,
+          noCount: totalNay,
+          abstainCount: totalAbstain,
+        };
+      });
+
+      const totalVoted = yesVotes + noVotes + abstainVotes + notVoting;
+      const attendance = totalVoted > 0
+        ? Math.round(((yesVotes + noVotes + abstainVotes) / totalVoted) * 100)
+        : 0;
+      const partyLineRate = totalPartyVotes > 0
+        ? Math.round((partyLineVotes / totalPartyVotes) * 100)
+        : 0;
+
+      const summary = {
+        totalVotes: totalVoted,
+        yesVotes,
+        noVotes,
+        abstainVotes,
+        notVoting,
+        attendance: Math.min(100, attendance),
+        partyLineRate,
+        session: String(new Date().getFullYear()),
+        legislatorName,
+        party: '',
+        chamber: chamber || '',
+      };
+
+      console.log(`Federal votes summary for ${legislatorName}:`, JSON.stringify(summary));
+
+      return new Response(
+        JSON.stringify({ success: true, votes, summary, total: rawVotes.length, legislatorFound: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Step 1: Find the legislator in OpenStates to get their ID
     const peoplePath = `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(jurisdiction)}&name=${encodeURIComponent(legislatorName)}&per_page=5`;

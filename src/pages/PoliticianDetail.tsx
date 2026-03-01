@@ -199,7 +199,7 @@ const PoliticianDetail = () => {
 
   // Hero stat data — React Query deduplicates; bills lifted to avoid double-fetch with BillsTab
   const heroChamberId = politician?.office.includes("Senate") ? "Senate" : politician?.office.includes("Assembly") ? "Assembly" : undefined;
-  const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction);
+  const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction, politician?.bioguideId, politician?.level);
   const { data: fecData, isLoading: fecLoading } = useFECFinance(
     politician?.level === "federal" ? politician?.name : undefined,
     undefined,

@@ -37,13 +37,13 @@ interface VotingRecordsResponse {
   error?: string;
 }
 
-export function useVotingRecords(legislatorName: string | undefined, chamber?: string, jurisdiction?: string) {
+export function useVotingRecords(legislatorName: string | undefined, chamber?: string, jurisdiction?: string, bioguideId?: string, level?: string) {
   return useQuery<VotingRecordsResponse>({
-    queryKey: ["voting-records", legislatorName, chamber, jurisdiction],
+    queryKey: ["voting-records", legislatorName, chamber, jurisdiction, bioguideId, level],
     queryFn: async () => {
       if (!legislatorName) throw new Error("No legislator name");
       const { data, error } = await supabase.functions.invoke("fetch-voting-records", {
-        body: { legislatorName, chamber, jurisdiction },
+        body: { legislatorName, chamber, jurisdiction, bioguideId, level },
       });
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch voting records");

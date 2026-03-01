@@ -357,10 +357,7 @@ const PoliticianDetail = () => {
               {/* ── Stat tiles ── */}
               <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* Vote Participation */}
-                <button
-                  onClick={() => setActiveTab("legislation")}
-                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
-                >
+                <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-1.5">
                     <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="font-body text-xs text-muted-foreground">Vote Participation</span>
@@ -376,14 +373,10 @@ const PoliticianDetail = () => {
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
                     )}
                   </div>
-                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">View voting →</span>
-                </button>
+                </div>
 
                 {/* Party Alignment */}
-                <button
-                  onClick={() => setActiveTab("legislation")}
-                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
-                >
+                <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-1.5">
                     <Flag className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="font-body text-xs text-muted-foreground">Party Alignment</span>
@@ -399,14 +392,10 @@ const PoliticianDetail = () => {
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
                     )}
                   </div>
-                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">See trends →</span>
-                </button>
+                </div>
 
                 {/* Total Raised */}
-                <button
-                  onClick={() => setActiveTab("money")}
-                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
-                >
+                <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-1.5">
                     <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="font-body text-xs text-muted-foreground">Total Raised</span>
@@ -424,20 +413,15 @@ const PoliticianDetail = () => {
                       </span>
                     )}
                   </div>
-                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">
-                    {politician.level === "federal" && fecData?.totals?.[0]
-                      ? `FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`
-                      : politician.level !== "federal"
-                        ? "Federal only"
-                        : "View finance →"}
-                  </span>
-                </button>
+                  {politician.level === "federal" && fecData?.totals?.[0] && (
+                    <span className="mt-1 font-body text-[10px] text-muted-foreground">
+                      {`FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`}
+                    </span>
+                  )}
+                </div>
 
                 {/* Bills Sponsored */}
-                <button
-                  onClick={() => setActiveTab("legislation")}
-                  className="group flex flex-col rounded-xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover cursor-pointer"
-                >
+                <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-1.5">
                     <ScrollText className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="font-body text-xs text-muted-foreground">Bills Sponsored</span>
@@ -451,8 +435,7 @@ const PoliticianDetail = () => {
                       </span>
                     )}
                   </div>
-                  <span className="mt-1 font-body text-[10px] text-muted-foreground group-hover:text-primary transition-colors">View bills →</span>
-                </button>
+                </div>
               </div>
             </div>
           </div>

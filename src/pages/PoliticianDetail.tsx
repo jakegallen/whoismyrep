@@ -26,6 +26,7 @@ import {
   Landmark,
   Newspaper,
   Flag,
+  Zap,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
@@ -41,7 +42,8 @@ import { useBills, type Bill } from "@/hooks/useBills";
 import { useLobbying } from "@/hooks/useLobbying";
 import { useCourtCases } from "@/hooks/useCourtCases";
 import { useCommittees } from "@/hooks/useCommittees";
-import { useCongress } from "@/hooks/useCongress";
+import { useCongress, useMemberDetail } from "@/hooks/useCongress";
+import type { CongressTerm } from "@/hooks/useCongress";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import { useFederalRegister } from "@/hooks/useFederalRegister";
 import { useCongressTrades, type CongressTrade } from "@/hooks/useCongressTrades";
@@ -229,6 +231,35 @@ const PoliticianDetail = () => {
     politician?.jurisdiction,
   );
 
+  // ── Election year ──────────────────────────────────────────────────────────
+  const isSenator = politician?.office?.toLowerCase().includes("senator") || politician?.office?.toLowerCase().includes("senate");
+  const isRepresentative = politician?.level === "federal" && !isSenator;
+  // Only fetch member detail for federal politicians with a bioguide ID
+  const { data: memberDetailData } = useMemberDetail(
+    politician?.level === "federal" ? derivedBioguideId : undefined
+  );
+
+  const electionYear = useMemo((): number | null => {
+    if (!politician || politician.level !== "federal") return null;
+    if (isRepresentative) return 2026;
+    if (isSenator) {
+      const terms: CongressTerm[] = memberDetailData?.terms || [];
+      const senateTerms = terms.filter((t) => t.chamber.toLowerCase().includes("senate"));
+      const N = senateTerms.length;
+      if (N === 0) return null;
+      // Groups of 3 Congresses = 1 six-year Senate term
+      const position = N % 3;
+      const offset = position === 0 ? 3 : position;
+      const termStartIndex = N - offset;
+      const currentTermStartYear = senateTerms[termStartIndex]?.startYear;
+      if (!currentTermStartYear) return null;
+      return currentTermStartYear + 5;
+    }
+    return null;
+  }, [politician, isSenator, isRepresentative, memberDetailData]);
+
+  const isMidterms = electionYear !== null && electionYear <= 2026;
+
   useEffect(() => {
     if (!politician) {
       navigate("/");
@@ -303,7 +334,7 @@ const PoliticianDetail = () => {
               {/* Top row: avatar + identity + contacts */}
               <div className="flex flex-col sm:flex-row sm:items-start gap-6">
                 {/* Avatar with party ring */}
-                <div className="shrink-0">
+                <div className="shrink-0 flex flex-col items-center gap-2">
                   <div
                     className="rounded-full p-[3px]"
                     style={{ background: `linear-gradient(135deg, ${partyHex}, ${partyHex}50)` }}
@@ -321,6 +352,47 @@ const PoliticianDetail = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Re-election badge */}
+                  {electionYear !== null && (
+                    <motion.div
+                      initial={{ scale: 0.6, opacity: 0, y: -4 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.3 }}
+                    >
+                      {isMidterms ? (
+                        <div
+                          className="relative flex items-center gap-1 rounded-full px-2.5 py-1 font-body text-xs font-bold tracking-wide select-none"
+                          style={{
+                            background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.15))",
+                            border: "1px solid rgba(245,158,11,0.45)",
+                            color: "#f59e0b",
+                            boxShadow: "0 0 12px rgba(245,158,11,0.35), 0 0 4px rgba(234,88,12,0.2)",
+                          }}
+                        >
+                          {/* pulse ring */}
+                          <span
+                            className="absolute inset-0 rounded-full animate-ping"
+                            style={{ background: "rgba(245,158,11,0.15)", animationDuration: "2s" }}
+                          />
+                          <Zap className="relative h-3 w-3 shrink-0" fill="currentColor" />
+                          <span className="relative">Midterms {electionYear}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center gap-1 rounded-full px-2.5 py-1 font-body text-xs font-medium select-none"
+                          style={{
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            color: "hsl(var(--muted-foreground))",
+                          }}
+                        >
+                          <CalendarDays className="h-3 w-3 shrink-0" />
+                          <span>Up in {electionYear}</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
                 </div>
 
                 {/* Identity + contacts */}
@@ -408,11 +480,6 @@ const PoliticianDetail = () => {
                       <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="font-body text-xs text-muted-foreground">Total Raised</span>
                     </div>
-                    {politician.level === "federal" && fecData?.totals?.[0] && (
-                      <span className="font-body text-[10px] text-muted-foreground">
-                        {`FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`}
-                      </span>
-                    )}
                   </div>
                   <div className="mt-2">
                     {fecLoading && politician.level === "federal" ? (

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type CongressEndpoint = "bills" | "members" | "member_bills" | "committee_reports" | "nominations" | "bill_detail";
+export type CongressEndpoint = "bills" | "members" | "member_bills" | "committee_reports" | "nominations" | "bill_detail" | "member_detail";
 
 export interface CongressBill {
   congress: number;
@@ -46,10 +46,18 @@ export interface Nomination {
   url: string;
 }
 
+export interface CongressTerm {
+  chamber: string;
+  congress: number;
+  startYear: number;
+  endYear: number;
+}
+
 interface CongressResponse {
   success: boolean;
   items?: any[];
   bill?: any;
+  terms?: CongressTerm[];
   pagination?: { count?: number; next?: string };
   error?: string;
 }
@@ -70,5 +78,20 @@ export function useCongress(
       return data as CongressResponse;
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useMemberDetail(bioguideId?: string) {
+  return useQuery<CongressResponse>({
+    queryKey: ["congress", "member_detail", bioguideId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("fetch-congress", {
+        body: { endpoint: "member_detail", bioguideId },
+      });
+      if (error) throw error;
+      return data as CongressResponse;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: !!bioguideId,
   });
 }

@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { endpoint = 'bills', search, congress, chamber, state, limit = 20, offset = 0, billType, billNumber, usWide } = await req.json().catch(() => ({}));
+    const { endpoint = 'bills', search, congress, chamber, state, limit = 20, offset = 0, billType, billNumber, usWide, bioguideId } = await req.json().catch(() => ({}));
 
     let url: string;
     const params = new URLSearchParams({ api_key: apiKey, format: 'json' });
@@ -119,6 +119,8 @@ Deno.serve(async (req) => {
       } else {
         url = `${BASE_URL}/nomination?${params}`;
       }
+    } else if (endpoint === 'member_detail' && bioguideId) {
+      url = `${BASE_URL}/member/${bioguideId}?${params}`;
     } else {
       // Default: bills
       params.set('limit', String(limit));
@@ -235,6 +237,15 @@ Deno.serve(async (req) => {
         url: n.url || '',
       }));
       result.pagination = data.pagination || {};
+    } else if (endpoint === 'member_detail') {
+      const member = data.member || {};
+      const rawTerms = member.terms?.item || member.terms || [];
+      result.terms = rawTerms.map((t: any) => ({
+        chamber: t.chamber || '',
+        congress: t.congress || 0,
+        startYear: t.startYear || 0,
+        endYear: t.endYear || 0,
+      }));
     }
 
     return new Response(

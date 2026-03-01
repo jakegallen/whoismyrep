@@ -58,6 +58,7 @@ interface CongressResponse {
   items?: any[];
   bill?: any;
   terms?: CongressTerm[];
+  website?: string;
   pagination?: { count?: number; next?: string };
   error?: string;
 }

@@ -56,6 +56,13 @@ import type { Politician } from "@/lib/politicians";
 import type { CivicRep } from "@/hooks/useCivicReps";
 import { US_STATES } from "@/lib/usStates";
 
+/** Convert "Last, First" DB format to "First Last" for display. */
+function toDisplayName(name: string): string {
+  if (!name.includes(",")) return name;
+  const [last, first] = name.split(",").map((s) => s.trim());
+  return `${first} ${last}`;
+}
+
 /** Unified profile shape that works with both static Politician data and dynamic CivicRep API data */
 interface RepProfile {
   id: string;
@@ -80,10 +87,11 @@ interface RepProfile {
   jurisdiction?: string;
 }
 
-/** Extract state abbreviation from divisionId like "ocd-jurisdiction/country:us/state:ny/government" */
+/** Extract state abbreviation from divisionId like "ocd-jurisdiction/country:us/state:ny/government" or "ocd-jurisdiction/country:us/district:dc/government" */
 function extractStateFromDivisionId(divisionId?: string): { stateAbbr: string; jurisdiction: string } | null {
   if (!divisionId) return null;
-  const match = divisionId.match(/state:([a-z]{2})/);
+  // Match standard state pattern or DC's district pattern
+  const match = divisionId.match(/(?:state|district):([a-z]{2})/);
   if (!match) return null;
   const abbr = match[1].toUpperCase();
   // Import would be circular, so inline a simple lookup
@@ -115,9 +123,42 @@ function bioguidePhotoUrl(bioguideId: string): string {
   return `https://bioguide.congress.gov/bioguide/photo/${bioguideId[0].toUpperCase()}/${bioguideId.toUpperCase()}.jpg`;
 }
 
+/** Convert a raw OCD jurisdiction string to a user-friendly display name */
+function friendlyRegion(region: string): string {
+  if (!region) return "";
+  // Already a friendly name (not an OCD ID)
+  if (!region.startsWith("ocd-")) return region;
+  // Extract state from "ocd-jurisdiction/country:us/state:xx/..." or DC "district:dc"
+  const stateMatch = region.match(/(?:state|district):([a-z]{2})/);
+  if (stateMatch) {
+    const abbr = stateMatch[1].toUpperCase();
+    const stateNames: Record<string, string> = {
+      AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+      CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+      HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+      KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+      MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+      MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+      NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+      OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+      SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+      VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+      DC: "District of Columbia", PR: "Puerto Rico",
+    };
+    return stateNames[abbr] || abbr;
+  }
+  // Federal-level: "ocd-jurisdiction/country:us/government" → "United States"
+  if (region.includes("country:us") && !region.includes("state:") && !region.includes("district:")) return "United States";
+  // Fallback: strip the ocd prefix for display
+  return region.replace(/^ocd-jurisdiction\//, "").replace(/\//g, " · ");
+}
+
 /** Convert a CivicRep (from API) into a RepProfile */
 function civicRepToProfile(rep: CivicRep): RepProfile {
   const stateInfo = extractStateFromDivisionId(rep.divisionId);
+  // Fallback: parse state from office field (e.g. "Colorado Senate") when divisionId is missing
+  const officeState = !stateInfo ? US_STATES.find(s => rep.office?.includes(s.name)) : undefined;
+  const effectiveState = stateInfo ?? (officeState ? { stateAbbr: officeState.abbr, jurisdiction: officeState.jurisdiction } : undefined);
   const bioguideId = rep.bioguideId || bioguideIdFromPhotoUrl(rep.photoUrl);
   const imageUrl = rep.photoUrl || (rep.level === "federal" && bioguideId ? bioguidePhotoUrl(bioguideId) : undefined);
   return {
@@ -126,7 +167,7 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     title: rep.office,
     party: rep.party,
     office: rep.office,
-    region: stateInfo?.jurisdiction || rep.jurisdiction || rep.divisionId || "",
+    region: effectiveState?.jurisdiction || rep.jurisdiction || rep.divisionId || "",
     level: rep.level,
     imageUrl,
     bio: "",
@@ -136,8 +177,8 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     email: rep.email,
     socialHandles: rep.socialHandles,
     bioguideId,
-    stateAbbr: stateInfo?.stateAbbr,
-    jurisdiction: stateInfo?.jurisdiction || rep.jurisdiction,
+    stateAbbr: effectiveState?.stateAbbr,
+    jurisdiction: effectiveState?.jurisdiction || rep.jurisdiction,
   };
 }
 
@@ -160,6 +201,7 @@ const PoliticianDetail = () => {
   const [analysis, setAnalysis] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
 
   // Build profile from either: router state Politician, router state CivicRep, or URL param lookup
   const politician: RepProfile | undefined = (() => {
@@ -206,12 +248,31 @@ const PoliticianDetail = () => {
     enabled: !!(politician?.bioguideId),
   });
 
-  const effectiveSocialHandles = useMemo(() => {
-    const existing = politician?.socialHandles;
-    if (existing && Object.keys(existing).length > 0) return existing;
-    if (politician?.bioguideId && socialLookup) return socialLookup[politician.bioguideId];
-    return existing;
-  }, [politician, socialLookup]);
+  // Fallback: fetch legislators-current.json for phone + website when not populated from router state
+  const { data: legislatorContactLookup } = useQuery({
+    queryKey: ["legislators-current-contact"],
+    queryFn: async (): Promise<Record<string, { phone?: string; website?: string; senateClass?: number }>> => {
+      const resp = await fetch("https://unitedstates.github.io/congress-legislators/legislators-current.json");
+      if (!resp.ok) return {};
+      const data = await resp.json();
+      const lookup: Record<string, { phone?: string; website?: string; senateClass?: number }> = {};
+      for (const entry of data) {
+        const bioguide = entry.id?.bioguide;
+        if (!bioguide) continue;
+        const terms = entry.terms || [];
+        const lastTerm = terms[terms.length - 1] || {};
+        const contact: { phone?: string; website?: string; senateClass?: number } = {};
+        if (lastTerm.phone) contact.phone = lastTerm.phone;
+        if (lastTerm.url) contact.website = lastTerm.url;
+        // Senate class (1, 2, or 3) for authoritative election year calculation
+        if (lastTerm.type === "sen" && lastTerm.class) contact.senateClass = lastTerm.class as number;
+        if (Object.keys(contact).length > 0) lookup[bioguide] = contact;
+      }
+      return lookup;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: !!(politician?.bioguideId || politician?.id?.startsWith("congress-")),
+  });
 
   // Hero stat data — React Query deduplicates; bills lifted to avoid double-fetch with BillsTab
   const heroChamberId = politician?.office.includes("Senate") ? "Senate" : politician?.office.includes("Assembly") ? "Assembly" : undefined;
@@ -229,6 +290,13 @@ const PoliticianDetail = () => {
   const { bills, total: billsTotal, isLoading: billsLoading, error: billsError } = useBills(
     politician?.name,
     politician?.jurisdiction,
+    politician?.level,
+    derivedBioguideId,
+  );
+
+  const billsPassed = useMemo(
+    () => bills.filter((b) => /pass|enroll/i.test(b.status)).length,
+    [bills],
   );
 
   // ── Election year ──────────────────────────────────────────────────────────
@@ -239,15 +307,43 @@ const PoliticianDetail = () => {
     politician?.level === "federal" ? derivedBioguideId : undefined
   );
 
+  const effectiveSocialHandles = useMemo(() => {
+    const existing = politician?.socialHandles;
+    if (existing && Object.keys(existing).length > 0) return existing;
+    if (politician?.bioguideId && socialLookup?.[politician.bioguideId]) return socialLookup[politician.bioguideId];
+    if (votingData?.socialHandles && Object.keys(votingData.socialHandles).length > 0) return votingData.socialHandles;
+    return existing;
+  }, [politician, socialLookup, votingData]);
+
+  const effectivePhone = politician?.phone ||
+    (derivedBioguideId ? legislatorContactLookup?.[derivedBioguideId]?.phone : undefined);
+
+  const effectiveWebsite = politician?.website ||
+    memberDetailData?.website ||
+    (derivedBioguideId ? legislatorContactLookup?.[derivedBioguideId]?.website : undefined);
+
   const electionYear = useMemo((): number | null => {
     if (!politician || politician.level !== "federal") return null;
     if (isRepresentative) return 2026;
     if (isSenator) {
+      // Primary: use authoritative Senate class from legislators-current.json
+      // Class 1 → 2030 cycle, Class 2 → 2026 cycle, Class 3 → 2028 cycle
+      const cls = derivedBioguideId ? legislatorContactLookup?.[derivedBioguideId]?.senateClass : undefined;
+      if (cls) {
+        const BASE: Record<number, number> = { 1: 2030, 2: 2026, 3: 2028 };
+        const base = BASE[cls];
+        if (base) {
+          const now = new Date().getFullYear();
+          let year = base;
+          while (year < now) year += 6;
+          return year;
+        }
+      }
+      // Fallback: heuristic from Congress.gov terms (counts Senate terms mod 3)
       const terms: CongressTerm[] = memberDetailData?.terms || [];
       const senateTerms = terms.filter((t) => t.chamber.toLowerCase().includes("senate"));
       const N = senateTerms.length;
       if (N === 0) return null;
-      // Groups of 3 Congresses = 1 six-year Senate term
       const position = N % 3;
       const offset = position === 0 ? 3 : position;
       const termStartIndex = N - offset;
@@ -256,9 +352,18 @@ const PoliticianDetail = () => {
       return currentTermStartYear + 5;
     }
     return null;
-  }, [politician, isSenator, isRepresentative, memberDetailData]);
+  }, [politician, isSenator, isRepresentative, memberDetailData, legislatorContactLookup, derivedBioguideId]);
 
   const isMidterms = electionYear !== null && electionYear <= 2026;
+
+  // Derive the year they first took their current chamber seat from terms data
+  const inOfficeSince = useMemo((): number | null => {
+    if (politician?.level !== "federal") return null;
+    const terms: CongressTerm[] = memberDetailData?.terms || [];
+    if (terms.length === 0) return null;
+    const sorted = [...terms].sort((a, b) => a.startYear - b.startYear);
+    return sorted[0]?.startYear ?? null;
+  }, [politician, memberDetailData]);
 
   useEffect(() => {
     if (!politician) {
@@ -339,16 +444,24 @@ const PoliticianDetail = () => {
                     className="rounded-full p-[3px]"
                     style={{ background: `linear-gradient(135deg, ${partyHex}, ${partyHex}50)` }}
                   >
-                    {politician.imageUrl ? (
+                    {politician.imageUrl && !imgError ? (
                       <img
                         src={politician.imageUrl}
-                        alt={politician.name}
+                        alt={toDisplayName(politician.name)}
                         className="h-28 w-28 rounded-full object-cover bg-surface-elevated"
                         loading="lazy"
+                        onError={() => setImgError(true)}
+                        onLoad={(e) => {
+                          // Detect ORB-blocked images: browser reports load but image has 0 natural dimensions
+                          const img = e.target as HTMLImageElement;
+                          if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                            setImgError(true);
+                          }
+                        }}
                       />
                     ) : (
                       <div className="flex h-28 w-28 items-center justify-center rounded-full bg-surface-elevated font-display text-3xl font-bold text-muted-foreground">
-                        {politician.name.split(" ").map((n) => n[0]).join("")}
+                        {toDisplayName(politician.name).split(" ").map((n) => n[0]).join("")}
                       </div>
                     )}
                   </div>
@@ -398,7 +511,7 @@ const PoliticianDetail = () => {
                 {/* Identity + contacts */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-start gap-2">
-                    <h1 className="font-display text-3xl font-bold text-headline leading-tight">{politician.name}</h1>
+                    <h1 className="font-display text-3xl font-bold text-headline leading-tight">{toDisplayName(politician.name)}</h1>
                     <span
                       className="mt-1.5 shrink-0 rounded-full px-2.5 py-0.5 font-body text-xs font-bold tracking-wide"
                       style={{ backgroundColor: `${partyHex}20`, color: partyHex }}
@@ -412,15 +525,21 @@ const PoliticianDetail = () => {
                   {politician.region && (
                     <div className="mt-1.5 flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-tertiary" />
-                      <span className="font-body text-sm text-tertiary">{politician.region}</span>
+                      <span className="font-body text-sm text-tertiary">{friendlyRegion(politician.region)}</span>
+                    </div>
+                  )}
+                  {inOfficeSince && (
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <Landmark className="h-3.5 w-3.5 text-tertiary" />
+                      <span className="font-body text-sm text-tertiary">In office since {inOfficeSince}</span>
                     </div>
                   )}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {politician.website && (
-                      <ContactLink href={politician.website} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
+                    {effectiveWebsite && (
+                      <ContactLink href={effectiveWebsite} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
                     )}
-                    {politician.phone && (
-                      <ContactLink href={`tel:${politician.phone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={politician.phone} />
+                    {effectivePhone && (
+                      <ContactLink href={`tel:${effectivePhone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={effectivePhone} />
                     )}
                     {politician.email && (
                       <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
@@ -444,10 +563,12 @@ const PoliticianDetail = () => {
                   <div className="mt-2">
                     {votingLoading ? (
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
-                    ) : votingData?.summary ? (
+                    ) : votingData?.summary && votingData.summary.totalVotes > 0 ? (
                       <span className="font-display text-2xl font-bold text-headline">
                         {votingData.summary.attendance}%
                       </span>
+                    ) : votingData?.summary ? (
+                      <span className="font-body text-sm text-muted-foreground">No data</span>
                     ) : (
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
                     )}
@@ -463,34 +584,51 @@ const PoliticianDetail = () => {
                   <div className="mt-2">
                     {votingLoading ? (
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
-                    ) : votingData?.summary ? (
+                    ) : votingData?.summary && votingData.summary.totalVotes > 0 ? (
                       <span className="font-display text-2xl font-bold text-headline">
                         {votingData.summary.partyLineRate}%
                       </span>
+                    ) : votingData?.summary ? (
+                      <span className="font-body text-sm text-muted-foreground">No data</span>
                     ) : (
                       <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
                     )}
                   </div>
                 </div>
 
-                {/* Total Raised */}
+                {/* Total Raised (federal) / Bills Passed (state+) */}
                 <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-body text-xs text-muted-foreground">Total Raised</span>
+                      {politician.level === "federal" ? (
+                        <>
+                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-body text-xs text-muted-foreground">Total Raised</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-body text-xs text-muted-foreground">Bills Passed</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2">
-                    {fecLoading && politician.level === "federal" ? (
+                    {politician.level === "federal" ? (
+                      fecLoading ? (
+                        <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                      ) : fecData?.totals?.[0] ? (
+                        <span className="font-display text-2xl font-bold text-headline">
+                          {formatUSD(fecData.totals[0].receipts)}
+                        </span>
+                      ) : (
+                        <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
+                      )
+                    ) : billsLoading ? (
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
-                    ) : fecData?.totals?.[0] && politician.level === "federal" ? (
-                      <span className="font-display text-2xl font-bold text-headline">
-                        {formatUSD(fecData.totals[0].receipts)}
-                      </span>
                     ) : (
-                      <span className="font-display text-2xl font-bold text-muted-foreground">
-                        {politician.level !== "federal" ? "N/A" : "—"}
+                      <span className="font-display text-2xl font-bold text-headline">
+                        {billsPassed}
                       </span>
                     )}
                   </div>
@@ -505,9 +643,11 @@ const PoliticianDetail = () => {
                   <div className="mt-2">
                     {billsLoading ? (
                       <div className="h-7 w-16 animate-pulse rounded bg-surface-elevated" />
+                    ) : billsError ? (
+                      <span className="font-display text-2xl font-bold text-muted-foreground">—</span>
                     ) : (
                       <span className="font-display text-2xl font-bold text-headline">
-                        {billsTotal > 0 ? billsTotal : "—"}
+                        {billsTotal}
                       </span>
                     )}
                   </div>
@@ -568,11 +708,11 @@ const PoliticianDetail = () => {
 
             {activeTab === "money" && (
               <div className="space-y-10">
-                <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
+                <CampaignFinance fecData={fecData} isLoading={fecLoading} level={politician.level} />
                 {politician.level === "federal" && (
                   <>
                     <div className="h-px bg-border" />
-                    <StockTradesSection politicianName={politician.name} />
+                    <StockTradesSection politicianName={politician.name} chamber={isSenator ? "senate" : "house"} />
                   </>
                 )}
                 <div className="h-px bg-border" />
@@ -625,6 +765,10 @@ function OverviewTab({
   isLoading: boolean;
   error: string | null;
 }) {
+  const chamber = politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined;
+  const { data: committeesData, isLoading: commLoading } = useCommittees(chamber, politician.name, politician.jurisdiction, politician.stateAbbr);
+  const legislatorCommittees = committeesData?.legislatorCommittees || [];
+
   return (
     <div className="space-y-8">
       {/* Bio */}
@@ -640,6 +784,31 @@ function OverviewTab({
               {issue}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Committee Assignments */}
+      {commLoading && (
+        <div className="flex items-center gap-3 py-2">
+          <Building2 className="h-4 w-4 text-muted-foreground/40" />
+          <div className="h-4 w-48 animate-pulse rounded bg-surface-elevated" />
+        </div>
+      )}
+      {!commLoading && legislatorCommittees.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            <h3 className="font-display text-sm font-bold text-headline">Committee Assignments</h3>
+            <span className="rounded-md bg-surface-elevated px-1.5 py-0.5 font-body text-[10px] text-muted-foreground">{legislatorCommittees.length}</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {legislatorCommittees.map((name) => (
+              <div key={name} className="flex items-start gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                <Landmark className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="font-body text-xs leading-snug text-secondary-custom">{name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1331,7 +1500,7 @@ function ErrorBox({ message }: { message: string }) {
 /* ═══════════════════════════════════════════ */
 /*  Stock Trades Section (STOCK Act)           */
 /* ═══════════════════════════════════════════ */
-function StockTradesSection({ politicianName }: { politicianName: string }) {
+function StockTradesSection({ politicianName, chamber }: { politicianName: string; chamber?: "house" | "senate" }) {
   // Handle both "First Last" and "Last, First" name formats from different data sources
   const searchName = (() => {
     const name = politicianName.trim();
@@ -1346,6 +1515,7 @@ function StockTradesSection({ politicianName }: { politicianName: string }) {
 
   const { data, isLoading, error } = useCongressTrades({
     politician: searchName,
+    chamber,
     limit: 200,
   });
 

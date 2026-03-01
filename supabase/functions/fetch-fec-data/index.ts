@@ -29,9 +29,20 @@ Deno.serve(async (req) => {
     if (!fecCandidateId && candidateName) {
       const searchUrl = new URL(`${FEC_BASE}/candidates/search/`);
       searchUrl.searchParams.set('api_key', apiKey);
-      // FEC stores names as "LAST, FIRST" — search by last name for better matching
-      const nameParts = candidateName.trim().split(' ');
-      const lastName = nameParts[nameParts.length - 1];
+      // FEC stores names as "LAST, FIRST" — parse carefully to extract last name
+      // Handle both "Last, First Middle" format and "First Last" format
+      let lastName: string;
+      let firstName: string;
+      if (candidateName.includes(',')) {
+        // "Menefee, Christian D." → lastName="Menefee", firstName="Christian"
+        const commaIdx = candidateName.indexOf(',');
+        lastName = candidateName.slice(0, commaIdx).trim();
+        firstName = candidateName.slice(commaIdx + 1).trim().split(' ')[0];
+      } else {
+        const nameParts = candidateName.trim().split(' ');
+        lastName = nameParts[nameParts.length - 1];
+        firstName = nameParts[0];
+      }
       searchUrl.searchParams.set('q', lastName);
       if (state) searchUrl.searchParams.set('state', state);
       searchUrl.searchParams.set('per_page', '5');
@@ -50,9 +61,8 @@ Deno.serve(async (req) => {
         console.log(`FEC search returned ${candidates.length} candidates`);
         if (candidates.length > 0) {
           // Try to match by first name if multiple results
-          const firstName = nameParts[0].toLowerCase();
           const best = candidates.find((c: any) =>
-            c.name.toLowerCase().includes(firstName)
+            c.name.toLowerCase().includes(firstName.toLowerCase())
           ) || candidates[0];
           fecCandidateId = best.candidate_id;
           result.candidate = {

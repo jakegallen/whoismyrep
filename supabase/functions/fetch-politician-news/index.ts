@@ -61,21 +61,39 @@ Deno.serve(async (req) => {
       const description = extractTag(item, 'description');
 
       if (title && link) {
-        // Clean HTML from description
-        const cleanDesc = description
-          ?.replace(/<[^>]*>/g, '')
-          ?.replace(/&amp;/g, '&')
-          ?.replace(/&lt;/g, '<')
-          ?.replace(/&gt;/g, '>')
-          ?.replace(/&quot;/g, '"')
-          ?.replace(/&#39;/g, "'")
-          ?.trim() || '';
+        // Decode all HTML entities, then strip any remaining tags
+        const decodeEntities = (s: string | undefined) =>
+          s?.replace(/&amp;/g, '&')
+           ?.replace(/&lt;/g, '<')
+           ?.replace(/&gt;/g, '>')
+           ?.replace(/&quot;/g, '"')
+           ?.replace(/&#39;/g, "'")
+           ?.replace(/&nbsp;/g, ' ')
+           ?.replace(/&#160;/g, ' ')
+           || '';
+
+        const cleanTitle = decodeEntities(title).replace(/<[^>]*>/g, '').trim();
+        const cleanSource = decodeEntities(source).replace(/<[^>]*>/g, '').trim();
+
+        // Clean description: decode entities, strip tags, remove duplicate title text
+        let cleanDesc = decodeEntities(description).replace(/<[^>]*>/g, '').trim();
+        // Google News descriptions often just repeat the headline + source name.
+        // Strip the title prefix from the description, or clear it if it's mostly a duplicate.
+        if (cleanDesc && cleanTitle) {
+          // Title often has " - Source" suffix; get the core headline
+          const coreTitle = cleanTitle.replace(/\s*[-–—]\s*[^-–—]+$/, '').trim();
+          if (cleanDesc.startsWith(coreTitle)) {
+            cleanDesc = cleanDesc.slice(coreTitle.length).replace(/^\s*[-–—]\s*/, '').trim();
+          }
+          // If what remains is just the source name or very short, discard it
+          if (cleanDesc.length < 30) cleanDesc = '';
+        }
 
         articles.push({
           id: `gnews-${i}-${Date.now()}`,
-          title: title.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'"),
+          title: cleanTitle,
           url: link,
-          source: source || 'Google News',
+          source: cleanSource || 'Google News',
           date: pubDate ? new Date(pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           summary: cleanDesc.slice(0, 300),
         });

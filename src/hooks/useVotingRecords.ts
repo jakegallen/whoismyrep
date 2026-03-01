@@ -34,6 +34,7 @@ interface VotingRecordsResponse {
   summary: VotingSummary;
   total: number;
   legislatorFound: boolean;
+  socialHandles?: Record<string, string>;
   error?: string;
 }
 

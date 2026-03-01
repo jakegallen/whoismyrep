@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -37,6 +37,50 @@ const partyDot: Record<string, string> = {
   Independent: "bg-[hsl(43,90%,48%)]",
   Nonpartisan: "bg-muted-foreground",
 };
+
+const partyPillColors: Record<string, { bg: string; text: string }> = {
+  Democrat: { bg: "bg-[hsl(217,72%,48%/0.12)]", text: "text-[hsl(217,72%,48%)]" },
+  Democratic: { bg: "bg-[hsl(217,72%,48%/0.12)]", text: "text-[hsl(217,72%,48%)]" },
+  Republican: { bg: "bg-[hsl(0,68%,48%/0.12)]", text: "text-[hsl(0,68%,48%)]" },
+  Independent: { bg: "bg-[hsl(43,90%,48%/0.12)]", text: "text-[hsl(43,90%,48%)]" },
+  Nonpartisan: { bg: "bg-muted/40", text: "text-muted-foreground" },
+};
+
+/** Individual rep card image with error fallback to initials */
+function RepCardImage({ photoUrl, name, style: levelStyle, Icon }: {
+  photoUrl?: string;
+  name: string;
+  style: { bg: string; text: string; border: string };
+  Icon: typeof Landmark;
+}) {
+  const [failed, setFailed] = useState(false);
+  const handleError = useCallback(() => setFailed(true), []);
+  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.target as HTMLImageElement;
+    // ORB-blocked images may fire onload with 0 dimensions
+    if (img.naturalWidth === 0 || img.naturalHeight === 0) setFailed(true);
+  }, []);
+
+  if (!photoUrl || failed) {
+    return (
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${levelStyle.bg}`}>
+        <span className={`font-display text-sm font-bold ${levelStyle.text}`}>
+          {name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={photoUrl}
+      alt={name}
+      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+      onError={handleError}
+      onLoad={handleLoad}
+    />
+  );
+}
 
 interface RepResultsState {
   groups: CivicGroup[];
@@ -129,7 +173,9 @@ const RepResults = () => {
                   {/* Rep cards */}
                   <div className="grid gap-3 sm:grid-cols-2">
                     {group.representatives.map((rep, ri) => {
-                      const dot = partyDot[rep.party] || partyDot.Nonpartisan;
+                      const pill = partyPillColors[rep.party] || partyPillColors.Nonpartisan;
+                      const repLevel = rep.level || group.level;
+                      const lvl = levelStyles[repLevel] || levelStyles.local;
 
                       return (
                         <motion.div
@@ -144,28 +190,21 @@ const RepResults = () => {
                           }}
                         >
                           <div className="flex items-start gap-3">
-                            {rep.photoUrl ? (
-                              <img
-                                src={rep.photoUrl}
-                                alt={rep.name}
-                                className="h-12 w-12 rounded-lg object-cover"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                              />
-                            ) : (
-                              <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${style.bg}`}>
-                                <Icon className={`h-5 w-5 ${style.text}`} />
-                              </div>
-                            )}
+                            <RepCardImage photoUrl={rep.photoUrl} name={rep.name} style={style} Icon={Icon} />
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-display text-sm font-bold text-headline">
-                                  {rep.name}
-                                </h4>
-                                <div className={`h-2 w-2 rounded-full ${dot}`} title={rep.party} />
-                              </div>
+                              <h4 className="font-display text-sm font-bold text-headline">
+                                {rep.name}
+                              </h4>
                               <p className="font-body text-xs text-muted-foreground">{rep.office}</p>
-                              <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{rep.party}</p>
-                              <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-1" />
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${pill.bg} ${pill.text}`}>
+                                  {rep.party}
+                                </span>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${lvl.bg} ${lvl.text} border ${lvl.border}`}>
+                                  {repLevel.charAt(0).toUpperCase() + repLevel.slice(1)}
+                                </span>
+                              </div>
+                              <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-1.5" />
                             </div>
                             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                           </div>

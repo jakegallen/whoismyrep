@@ -25,7 +25,7 @@ interface UseBillsResult {
   refetch: () => void;
 }
 
-export function useBills(search?: string, jurisdiction?: string): UseBillsResult {
+export function useBills(search?: string, jurisdiction?: string, level?: string, bioguideId?: string): UseBillsResult {
   const [bills, setBills] = useState<Bill[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +37,7 @@ export function useBills(search?: string, jurisdiction?: string): UseBillsResult
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-bills", {
-        body: { search, jurisdiction },
+        body: { search, jurisdiction, level, bioguideId },
       });
 
       if (fnError) throw new Error(fnError.message);
@@ -51,7 +51,7 @@ export function useBills(search?: string, jurisdiction?: string): UseBillsResult
     } finally {
       setIsLoading(false);
     }
-  }, [search, jurisdiction]);
+  }, [search, jurisdiction, level, bioguideId]);
 
   useEffect(() => {
     fetchBills();

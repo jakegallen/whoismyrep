@@ -3,12 +3,109 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+/** Map state name → 2-letter abbreviation for building OCD jurisdiction IDs */
+function jurisdictionToAbbr(jurisdiction: string): string {
+  const map: Record<string, string> = {
+    'Alabama': 'al', 'Alaska': 'ak', 'Arizona': 'az', 'Arkansas': 'ar', 'California': 'ca',
+    'Colorado': 'co', 'Connecticut': 'ct', 'Delaware': 'de', 'Florida': 'fl', 'Georgia': 'ga',
+    'Hawaii': 'hi', 'Idaho': 'id', 'Illinois': 'il', 'Indiana': 'in', 'Iowa': 'ia',
+    'Kansas': 'ks', 'Kentucky': 'ky', 'Louisiana': 'la', 'Maine': 'me', 'Maryland': 'md',
+    'Massachusetts': 'ma', 'Michigan': 'mi', 'Minnesota': 'mn', 'Mississippi': 'ms', 'Missouri': 'mo',
+    'Montana': 'mt', 'Nebraska': 'ne', 'Nevada': 'nv', 'New Hampshire': 'nh', 'New Jersey': 'nj',
+    'New Mexico': 'nm', 'New York': 'ny', 'North Carolina': 'nc', 'North Dakota': 'nd', 'Ohio': 'oh',
+    'Oklahoma': 'ok', 'Oregon': 'or', 'Pennsylvania': 'pa', 'Rhode Island': 'ri',
+    'South Carolina': 'sc', 'South Dakota': 'sd', 'Tennessee': 'tn', 'Texas': 'tx', 'Utah': 'ut',
+    'Vermont': 'vt', 'Virginia': 'va', 'Washington': 'wa', 'West Virginia': 'wv', 'Wisconsin': 'wi',
+    'Wyoming': 'wy', 'District of Columbia': 'dc', 'Puerto Rico': 'pr',
+  };
+  return map[jurisdiction] || jurisdiction.toLowerCase().slice(0, 2);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const { session, search, page = 1, per_page = 20, jurisdiction = 'Nevada', level, bioguideId } = await req.json().catch(() => ({}));
+
+    // Federal politicians: use Congress.gov API via bioguideId
+    if (level === 'federal' && bioguideId) {
+      const congressApiKey = Deno.env.get('CONGRESS_API_KEY');
+      if (!congressApiKey) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Congress API key not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const url = new URL(`https://api.congress.gov/v3/member/${encodeURIComponent(bioguideId)}/sponsored-legislation`);
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('limit', String(per_page));
+      url.searchParams.set('offset', String((page - 1) * per_page));
+      url.searchParams.set('api_key', congressApiKey);
+
+      console.log(`Fetching federal bills for bioguideId=${bioguideId} from Congress.gov`);
+      const resp = await fetch(url.toString());
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`Congress.gov API error: ${resp.status} ${errText}`);
+        return new Response(
+          JSON.stringify({ success: false, error: `Congress.gov API error: ${resp.status}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const data = await resp.json();
+      const items: any[] = data.sponsoredLegislation || [];
+      const total: number = data.pagination?.count || items.length;
+
+      const bills = items.map((item: any) => {
+        const typeCode: string = (item.type || '').toUpperCase();
+        const chamber = typeCode.startsWith('H') ? 'House' : 'Senate';
+        const congress: number = item.congress || 119;
+        const billNum: string = item.number || '';
+
+        // Build congress.gov URL
+        const typeSlug: Record<string, string> = {
+          'HR': 'house-bill', 'HJRES': 'house-joint-resolution',
+          'HCONRES': 'house-concurrent-resolution', 'HRES': 'house-simple-resolution',
+          'S': 'senate-bill', 'SJRES': 'senate-joint-resolution',
+          'SCONRES': 'senate-concurrent-resolution', 'SRES': 'senate-simple-resolution',
+        };
+        const slug = typeSlug[typeCode] || 'bill';
+        const ordinal = congress === 119 ? '119th' : `${congress}th`;
+        const billUrl = `https://www.congress.gov/bill/${ordinal}-congress/${slug}/${billNum}`;
+
+        let type = 'Bill';
+        if (typeCode.includes('JRES')) type = 'Joint Resolution';
+        else if (typeCode.includes('CONRES')) type = 'Concurrent Resolution';
+        else if (typeCode.endsWith('RES')) type = 'Resolution';
+
+        return {
+          id: `congress-${congress}-${typeCode}-${billNum}`,
+          billNumber: `${typeCode} ${billNum}`,
+          title: item.title || '',
+          chamber,
+          type,
+          session: `${congress}th Congress`,
+          status: item.latestAction?.text || 'Introduced',
+          dateIntroduced: item.introducedDate || '',
+          latestActionDate: item.latestAction?.actionDate || '',
+          url: billUrl,
+          sponsors: [],
+          abstract: '',
+          subject: item.policyArea?.name ? [item.policyArea.name] : [],
+        };
+      });
+
+      console.log(`Congress.gov: ${bills.length} sponsored bills for ${bioguideId} (total=${total})`);
+      return new Response(
+        JSON.stringify({ success: true, bills, total, page, maxPage: Math.ceil(total / per_page) || 1, session: '' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const apiKey = Deno.env.get('OPENSTATES_API_KEY');
     if (!apiKey) {
       return new Response(
@@ -17,11 +114,46 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { session, search, page = 1, per_page = 20, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
+    // Convert state name to OCD jurisdiction ID (e.g. "Colorado" → "ocd-jurisdiction/country:us/state:co/government")
+    const stateAbbr = jurisdictionToAbbr(jurisdiction);
+    // DC uses "district:dc" not "state:dc" in OCD format
+    const ocdJurisdiction = stateAbbr === 'dc'
+      ? `ocd-jurisdiction/country:us/district:dc/government`
+      : `ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
+
+    // Normalise "Last, First" → "First Last" for OpenStates name search
+    let personName = search || '';
+    if (personName.includes(',')) {
+      const [last, firstPart] = personName.split(',');
+      personName = `${(firstPart || '').trim().split(' ')[0]} ${last.trim()}`;
+    }
+
+    // Look up the legislator's OpenStates person ID so we can filter by sponsor
+    let sponsorId: string | undefined;
+    if (personName) {
+      try {
+        const peopleResp = await fetch(
+          `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(ocdJurisdiction)}&name=${encodeURIComponent(personName)}&per_page=5`,
+          { headers: { 'X-API-KEY': apiKey } }
+        );
+        if (peopleResp.ok) {
+          const peopleData = await peopleResp.json();
+          const people = peopleData.results || [];
+          if (people.length > 0) {
+            sponsorId = people[0].id;
+            console.log(`Person lookup: "${personName}" → ${sponsorId}`);
+          } else {
+            console.log(`Person lookup: no results for "${personName}" in ${ocdJurisdiction}`);
+          }
+        }
+      } catch (e) {
+        console.log(`Person lookup failed:`, e);
+      }
+    }
 
     // Build query params for OpenStates v3 REST API
     const params = new URLSearchParams({
-      jurisdiction,
+      jurisdiction: ocdJurisdiction,
       per_page: String(per_page),
       page: String(page),
       sort: 'updated_desc',
@@ -30,7 +162,12 @@ Deno.serve(async (req) => {
     params.append('include', 'abstracts');
 
     if (session) params.set('session', session);
-    if (search) params.set('q', search);
+    // Use sponsor ID filter when we found the person; fall back to text search
+    if (sponsorId) {
+      params.set('sponsor', sponsorId);
+    } else if (search) {
+      params.set('q', search);
+    }
 
     const url = `https://v3.openstates.org/bills?${params}`;
     console.log('Fetching bills from OpenStates:', url);

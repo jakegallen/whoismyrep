@@ -246,6 +246,7 @@ Deno.serve(async (req) => {
         startYear: t.startYear || 0,
         endYear: t.endYear || 0,
       }));
+      if (member.officialWebsiteUrl) result.website = member.officialWebsiteUrl;
     }
 
     return new Response(

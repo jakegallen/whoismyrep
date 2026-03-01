@@ -8,11 +8,7 @@ import {
   Loader2,
   Users,
   FileText,
-  Vote,
-  Shield,
   BarChart3,
-  DollarSign,
-  Scale,
   Globe,
   Star,
 } from "lucide-react";
@@ -37,38 +33,6 @@ const STATS = [
   { label: "Data Sources", value: "12+", icon: BarChart3 },
 ];
 
-const FEATURES = [
-  {
-    icon: Users,
-    title: "Every Level of Government",
-    desc: "From the U.S. Senate to your city council — see everyone who represents you in one place.",
-  },
-  {
-    icon: Vote,
-    title: "Live Voting Records",
-    desc: "Track how your representatives vote on the issues that matter most, powered by OpenStates.",
-  },
-  {
-    icon: DollarSign,
-    title: "Campaign Finance",
-    desc: "Follow the money — see who funds your officials with real-time FEC data.",
-  },
-  {
-    icon: Scale,
-    title: "Court Cases & Lobbying",
-    desc: "Discover court opinions and lobbying activity connected to your representatives.",
-  },
-  {
-    icon: Shield,
-    title: "AI-Powered Analysis",
-    desc: "Get plain-language summaries and accountability insights for every politician.",
-  },
-  {
-    icon: BarChart3,
-    title: "Prediction Markets",
-    desc: "See real-time odds from Polymarket on elections and policy outcomes.",
-  },
-];
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -279,8 +243,11 @@ const HomePage = () => {
                     <Button
                       onClick={() => {
                         if (nameQuery.trim()) {
-                          nameAutocompleteRef.current?.closeDropdown();
-                          navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}&level=federal`);
+                          const selected = nameAutocompleteRef.current?.selectFirst();
+                          if (!selected) {
+                            nameAutocompleteRef.current?.closeDropdown();
+                            navigate(`/politicians?q=${encodeURIComponent(nameQuery.trim())}&level=federal`);
+                          }
                         }
                       }}
                       disabled={!nameQuery.trim()}
@@ -378,74 +345,6 @@ const HomePage = () => {
           </div>
         </div>
       )}
-
-      {/* ═══════ FEATURES ═══════ */}
-      <section className="container mx-auto px-4 pb-16">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-10 text-center">
-              <h2 className="font-display text-2xl font-bold text-headline md:text-3xl">
-                Everything you need to hold power accountable
-              </h2>
-              <p className="mx-auto mt-3 max-w-lg font-body text-sm text-muted-foreground">
-                One address. Every elected official. Complete transparency.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map((feat, i) => (
-                <motion.div
-                  key={feat.title}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                  className="group rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/30 hover:shadow-glow"
-                >
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/15">
-                    <feat.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <h3 className="font-display text-sm font-bold text-headline">{feat.title}</h3>
-                  <p className="mt-2 font-body text-xs leading-relaxed text-muted-foreground">{feat.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-      {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="border-t border-border py-16">
-          <div className="container mx-auto px-4">
-            <div className="mx-auto max-w-3xl">
-              <div className="mb-10 text-center">
-                <h2 className="font-display text-2xl font-bold text-headline">
-                  How It Works
-                </h2>
-              </div>
-              <div className="grid gap-6 sm:grid-cols-3">
-                {[
-                  { step: "1", icon: Search, title: "Find Your Reps", desc: "Search by address, name, or state — we'll match you to every official who represents you." },
-                  { step: "2", icon: Users, title: "See Your Reps", desc: "Get a complete list of your elected officials, from the U.S. Senate to city council." },
-                  { step: "3", icon: FileText, title: "Dig Deeper", desc: "Explore voting records, campaign finance, bills, court cases, and AI analysis." },
-                ].map((item, i) => (
-                  <motion.div
-                    key={item.title}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="relative rounded-xl border border-border bg-card p-6 text-center"
-                  >
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex h-6 w-6 items-center justify-center rounded-full gradient-brand font-display text-xs font-bold text-white">
-                      {item.step}
-                    </div>
-                    <div className="mx-auto mb-3 mt-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                      <item.icon className="h-6 w-6 text-primary" />
-                    </div>
-                    <h3 className="font-display text-sm font-bold text-headline">{item.title}</h3>
-                    <p className="mt-2 font-body text-xs text-muted-foreground">{item.desc}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
 
       {/* Footer */}
       <footer className="border-t border-border py-12">

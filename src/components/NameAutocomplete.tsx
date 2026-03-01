@@ -24,6 +24,7 @@ interface NameAutocompleteProps {
 
 export interface NameAutocompleteRef {
   closeDropdown: () => void;
+  selectFirst: () => boolean;
 }
 
 const PARTY_DOT: Record<string, string> = {
@@ -51,6 +52,13 @@ export const NameAutocomplete = forwardRef<NameAutocompleteRef, NameAutocomplete
     closeDropdown: () => {
       setIsOpen(false);
       setSuggestions([]);
+    },
+    selectFirst: () => {
+      if (suggestions.length > 0) {
+        handleSelect(suggestions[0]);
+        return true;
+      }
+      return false;
     },
   }));
 

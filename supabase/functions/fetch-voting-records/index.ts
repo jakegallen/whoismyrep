@@ -62,13 +62,34 @@ Deno.serve(async (req) => {
     // Federal politicians: use GovTrack API (free, no key required)
     if (level === 'federal') {
       try {
-        // 1. Find the person on GovTrack by name search
-        const searchResp = await fetch(
-          `https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(legislatorName)}&limit=10`
-        );
-        if (!searchResp.ok) throw new Error(`GovTrack person search failed: ${searchResp.status}`);
-        const searchData = await searchResp.json();
-        const persons: any[] = searchData.objects || [];
+        // 1. Find the person on GovTrack — prefer direct bioguideId lookup (avoids "Last, First" format issues)
+        let persons: any[] = [];
+        if (bioguideId) {
+          const bioResp = await fetch(
+            `https://www.govtrack.us/api/v2/person?bioguideid=${encodeURIComponent(bioguideId)}&limit=1`
+          );
+          if (bioResp.ok) {
+            const bioData = await bioResp.json();
+            persons = bioData.objects || [];
+          }
+        }
+
+        // Fall back to name search if bioguideId lookup returned nothing
+        if (persons.length === 0) {
+          // Convert "Last, First Middle" → "First Last" for GovTrack's name search
+          let searchName = legislatorName;
+          if (legislatorName.includes(',')) {
+            const [last, firstPart] = legislatorName.split(',');
+            const first = (firstPart || '').trim().split(' ')[0];
+            searchName = `${first} ${last.trim()}`;
+          }
+          const searchResp = await fetch(
+            `https://www.govtrack.us/api/v2/person?q=${encodeURIComponent(searchName)}&limit=10`
+          );
+          if (!searchResp.ok) throw new Error(`GovTrack person search failed: ${searchResp.status}`);
+          const searchData = await searchResp.json();
+          persons = searchData.objects || [];
+        }
 
         // Prefer match by bioguideId if available, else first result
         let person = bioguideId
@@ -88,6 +109,11 @@ Deno.serve(async (req) => {
         const govtrackId = person.link?.split('/').pop();
         if (!govtrackId) throw new Error('Could not extract GovTrack person ID from link');
         console.log(`GovTrack: found ${person.name} (id=${govtrackId})`);
+
+        // Extract social media handles from GovTrack person object
+        const socialHandles: Record<string, string> = {};
+        if (person.twitterid) socialHandles.x = person.twitterid;
+        if (person.youtubeid) socialHandles.youtube = person.youtubeid;
 
         // Current congress: 119th (2025-2026); formula: floor((year-1789)/2)+1
         const currentYear = new Date().getFullYear();
@@ -177,7 +203,7 @@ Deno.serve(async (req) => {
         console.log(`GovTrack federal summary for ${legislatorName}:`, JSON.stringify(summary));
 
         return new Response(
-          JSON.stringify({ success: true, votes, summary, total: totalVoted, legislatorFound: true }),
+          JSON.stringify({ success: true, votes, summary, total: totalVoted, legislatorFound: true, socialHandles }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (e) {
@@ -190,7 +216,20 @@ Deno.serve(async (req) => {
     }
 
     // Step 1: Find the legislator in OpenStates to get their ID
-    const peoplePath = `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(jurisdiction)}&name=${encodeURIComponent(legislatorName)}&per_page=5`;
+    // Normalise "Last, First" → "First Last" so OpenStates name search works
+    let searchName = legislatorName;
+    if (legislatorName.includes(',')) {
+      const [last, firstPart] = legislatorName.split(',');
+      const first = (firstPart || '').trim().split(' ')[0];
+      searchName = `${first} ${last.trim()}`;
+    }
+    // Convert plain state name ("Colorado") → OCD jurisdiction ID
+    const stateAbbr = jurisdictionToAbbr(jurisdiction);
+    // DC uses "district:dc" not "state:dc" in OCD format
+    const ocdJurisdictionId = stateAbbr === 'dc'
+      ? `ocd-jurisdiction/country:us/district:dc/government`
+      : `ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
+    const peoplePath = `https://v3.openstates.org/people?jurisdiction=${encodeURIComponent(ocdJurisdictionId)}&name=${encodeURIComponent(searchName)}&per_page=5`;
     const peopleResp = await fetch(peoplePath, {
       headers: { 'X-API-KEY': apiKey },
     });
@@ -221,9 +260,8 @@ Deno.serve(async (req) => {
 
     // Step 2: Fetch bills with votes where this legislator voted
     // OpenStates v3 bills endpoint with include=votes
-    // First, discover available sessions
-    const stateAbbr = jurisdictionToAbbr(jurisdiction);
-    const sessionsUrl = `https://v3.openstates.org/jurisdictions/ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
+    // First, discover available sessions — ocdJurisdictionId already computed above
+    const sessionsUrl = `https://v3.openstates.org/jurisdictions/${ocdJurisdictionId}`;
     console.log('Fetching jurisdiction info for sessions...');
     
     let sessionIds: string[] = [];
@@ -256,7 +294,7 @@ Deno.serve(async (req) => {
       let sessionBills: any[] = [];
       for (let p = 1; p <= 3; p++) {
         const billsUrl = new URL('https://v3.openstates.org/bills');
-        billsUrl.searchParams.set('jurisdiction', jurisdiction);
+        billsUrl.searchParams.set('jurisdiction', ocdJurisdictionId);
         billsUrl.searchParams.set('session', session);
         billsUrl.searchParams.set('include', 'votes');
         billsUrl.searchParams.set('per_page', '50');

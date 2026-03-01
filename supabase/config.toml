@@ -72,5 +72,8 @@ verify_jwt = false
 [functions.fetch-state-news]
 verify_jwt = false
 
+[functions.search-politicians]
+verify_jwt = false
+
 [functions.fetch-voting-records]
 verify_jwt = false

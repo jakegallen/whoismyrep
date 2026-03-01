@@ -485,7 +485,7 @@ const HomePage = () => {
                   </span>
                 </Link>
                 <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground">
-                  A free, nonpartisan platform for U.S. political transparency. Data sourced from Congress.gov, OpenStates, FEC, CourtListener, and more.
+                  A free, nonpartisan platform for U.S. political transparency.
                 </p>
               </div>
 
@@ -531,7 +531,7 @@ const HomePage = () => {
               </p>
               <div className="flex items-center gap-4">
                 <a href="https://x.com/Jakegallen" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">𝕏</a>
-                <a href="https://github.com/jakegallen/" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
+                <a href="https://github.com/EmblemCompany" target="_blank" rel="noopener noreferrer" className="font-body text-[11px] text-muted-foreground hover:text-foreground transition-colors">GitHub</a>
               </div>
             </div>
           </div>

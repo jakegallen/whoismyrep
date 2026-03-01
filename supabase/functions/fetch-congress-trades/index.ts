@@ -3,8 +3,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const HOUSE_URL = 'https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json';
-const SENATE_URL = 'https://senate-stock-watcher-data.s3-us-west-2.amazonaws.com/aggregate/all_transactions.json';
+interface CongressTrade {
+  politician: string;
+  party: string | null;
+  state: string | null;
+  district: string | null;
+  chamber: 'House' | 'Senate';
+  ticker: string | null;
+  assetDescription: string;
+  type: string;
+  amount: string;
+  transactionDate: string | null;
+  disclosureDate: string | null;
+  owner: string | null;
+  source: string;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,80 +28,73 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { chamber, politician, ticker, type, limit = 100, offset = 0 } = body;
 
-    console.log(`Fetching congress trades: chamber=${chamber}, politician=${politician}, ticker=${ticker}, type=${type}`);
+    const quiverKey = Deno.env.get('QUIVER_API_KEY');
 
-    // Fetch from both chambers or a specific one
-    const fetchHouse = !chamber || chamber === 'house';
-    const fetchSenate = !chamber || chamber === 'senate';
-
-    const fetches: Promise<any[]>[] = [];
-
-    if (fetchHouse) {
-      fetches.push(
-        fetch(HOUSE_URL)
-          .then(r => {
-            if (!r.ok) throw new Error(`House API returned ${r.status}`);
-            return r.json();
-          })
-          .then((data: any[]) =>
-            data.map(t => ({
-              ...normalizeHouseTrade(t),
-              chamber: 'House' as const,
-            }))
-          )
-          .catch(err => {
-            console.error('House fetch error:', err);
-            return [];
-          })
+    if (!quiverKey) {
+      console.warn('QUIVER_API_KEY not set — returning empty results');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          trades: [],
+          total: 0,
+          purchaseCount: 0,
+          saleCount: 0,
+          topTraders: [],
+          topTickers: [],
+          warning: 'QUIVER_API_KEY is not configured. Add it via: supabase secrets set QUIVER_API_KEY=your_key',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (fetchSenate) {
-      fetches.push(
-        fetch(SENATE_URL)
-          .then(r => {
-            if (!r.ok) throw new Error(`Senate API returned ${r.status}`);
-            return r.json();
-          })
-          .then((data: any[]) =>
-            data.map(t => ({
-              ...normalizeSenateTrade(t),
-              chamber: 'Senate' as const,
-            }))
-          )
-          .catch(err => {
-            console.error('Senate fetch error:', err);
-            return [];
-          })
-      );
+    console.log(`Fetching congress trades from Quiver Quantitative: chamber=${chamber}, politician=${politician}, ticker=${ticker}`);
+
+    let trades: CongressTrade[] = [];
+
+    // ── Quiver Quantitative — Congressional Trading ───────────────────────────
+    // Docs: https://www.quiverquant.com/sources/senatetrading
+    //       https://www.quiverquant.com/sources/housetrading
+    // Field names: Representative, Ticker, Transaction, Range, Party, State,
+    //              District ("Senate" for senators), Date, TransactionDate, ReportDate
+    try {
+      const resp = await fetch('https://api.quiverquant.com/beta/live/congresstrading', {
+        headers: {
+          'Authorization': `Token ${quiverKey}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        trades = (Array.isArray(data) ? data : []).map(normalizeQuiverTrade);
+        console.log(`Quiver returned ${trades.length} raw trades`);
+      } else {
+        const errText = await resp.text().catch(() => '');
+        console.error(`Quiver API error ${resp.status}:`, errText);
+      }
+    } catch (e) {
+      console.error('Quiver fetch error:', e);
     }
 
-    const results = await Promise.all(fetches);
-    let trades = results.flat();
-
-    // Apply filters
+    // ── Apply filters ─────────────────────────────────────────────────────────
+    if (chamber) {
+      const c = chamber.toLowerCase();
+      trades = trades.filter(t => t.chamber.toLowerCase() === c);
+    }
     if (politician) {
       const q = politician.toLowerCase();
-      trades = trades.filter(t =>
-        t.politician.toLowerCase().includes(q)
-      );
+      trades = trades.filter(t => t.politician.toLowerCase().includes(q));
     }
-
     if (ticker) {
       const q = ticker.toUpperCase();
-      trades = trades.filter(t =>
-        t.ticker?.toUpperCase() === q
-      );
+      trades = trades.filter(t => t.ticker?.toUpperCase() === q);
     }
-
     if (type) {
       const q = type.toLowerCase();
-      trades = trades.filter(t =>
-        t.type?.toLowerCase().includes(q)
-      );
+      trades = trades.filter(t => t.type?.toLowerCase().includes(q));
     }
 
-    // Sort by date descending (most recent first)
+    // ── Sort: most recent first ───────────────────────────────────────────────
     trades.sort((a, b) => {
       const da = a.transactionDate ? new Date(a.transactionDate).getTime() : 0;
       const db = b.transactionDate ? new Date(b.transactionDate).getTime() : 0;
@@ -96,15 +102,12 @@ Deno.serve(async (req) => {
     });
 
     const total = trades.length;
-
-    // Paginate
     const paginated = trades.slice(offset, offset + limit);
 
-    // Get summary stats
+    // ── Summary stats ─────────────────────────────────────────────────────────
     const purchaseCount = trades.filter(t => t.type?.toLowerCase().includes('purchase')).length;
     const saleCount = trades.filter(t => t.type?.toLowerCase().includes('sale')).length;
 
-    // Top traders by trade count
     const traderCounts: Record<string, number> = {};
     for (const t of trades) {
       traderCounts[t.politician] = (traderCounts[t.politician] || 0) + 1;
@@ -114,12 +117,9 @@ Deno.serve(async (req) => {
       .slice(0, 10)
       .map(([name, count]) => ({ name, tradeCount: count }));
 
-    // Top tickers
     const tickerCounts: Record<string, number> = {};
     for (const t of trades) {
-      if (t.ticker) {
-        tickerCounts[t.ticker] = (tickerCounts[t.ticker] || 0) + 1;
-      }
+      if (t.ticker) tickerCounts[t.ticker] = (tickerCounts[t.ticker] || 0) + 1;
     }
     const topTickers = Object.entries(tickerCounts)
       .sort((a, b) => b[1] - a[1])
@@ -129,15 +129,7 @@ Deno.serve(async (req) => {
     console.log(`Returning ${paginated.length} of ${total} trades`);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        trades: paginated,
-        total,
-        purchaseCount,
-        saleCount,
-        topTraders,
-        topTickers,
-      }),
+      JSON.stringify({ success: true, trades: paginated, total, purchaseCount, saleCount, topTraders, topTickers }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
@@ -149,46 +141,54 @@ Deno.serve(async (req) => {
   }
 });
 
-function normalizeHouseTrade(t: any) {
+// ── Normalizers ────────────────────────────────────────────────────────────────
+
+function normalizeQuiverTrade(t: any): CongressTrade {
+  // Quiver Quant congressional trading fields:
+  //   Representative, Ticker, Transaction, Range, Party, State,
+  //   District ("Senate" for senators, number for House members),
+  //   Date (disclosure/report date), TransactionDate, ReportDate, Owner, Comment
+  const districtRaw = String(t.District || t.district || '');
+  const isSenate = districtRaw.toLowerCase() === 'senate';
+
   return {
-    politician: t.representative || 'Unknown',
-    party: t.party || null,
-    state: t.state || null,
-    district: t.district || null,
-    ticker: t.ticker || null,
-    assetDescription: t.asset_description || t.ticker || 'Unknown',
-    type: t.type || 'Unknown',
-    amount: t.amount || 'Unknown',
-    transactionDate: t.transaction_date || null,
-    disclosureDate: t.disclosure_date || null,
-    owner: t.owner || null,
-    source: 'house-stock-watcher',
+    politician: t.Representative || t.representative || 'Unknown',
+    party: normalizeParty(t.Party || t.party || ''),
+    state: t.State || t.state || null,
+    district: isSenate ? null : (districtRaw || null),
+    chamber: isSenate ? 'Senate' : 'House',
+    ticker: t.Ticker || t.ticker || null,
+    assetDescription: t.Asset || t.asset || t.AssetDescription || t.asset_description || t.Ticker || t.ticker || 'Unknown',
+    type: t.Transaction || t.transaction || 'Unknown',
+    amount: t.Range || t.range || 'Unknown',
+    transactionDate: parseDate(t.TransactionDate || t.transaction_date || t.Date || t.date || null),
+    disclosureDate: parseDate(t.ReportDate || t.report_date || t.DisclosureDate || t.disclosure_date || null),
+    owner: t.Owner || t.owner || null,
+    source: 'quiverquant',
   };
 }
 
-function normalizeSenateTrade(t: any) {
-  return {
-    politician: formatSenateName(t.senator || t.first_name + ' ' + t.last_name || 'Unknown'),
-    party: t.party || null,
-    state: t.state || null,
-    district: null,
-    ticker: t.ticker || null,
-    assetDescription: t.asset_description || t.asset_type || t.ticker || 'Unknown',
-    type: t.type || t.transaction_type || 'Unknown',
-    amount: t.amount || 'Unknown',
-    transactionDate: t.transaction_date || null,
-    disclosureDate: t.disclosure_date || null,
-    owner: t.owner || null,
-    source: 'senate-stock-watcher',
-  };
+function normalizeParty(raw: string): string {
+  const r = raw.trim();
+  if (r === 'D') return 'Democrat';
+  if (r === 'R') return 'Republican';
+  if (r === 'I') return 'Independent';
+  const lo = r.toLowerCase();
+  if (lo.includes('democrat')) return 'Democrat';
+  if (lo.includes('republican')) return 'Republican';
+  if (lo.includes('independent')) return 'Independent';
+  return r || 'Unknown';
 }
 
-function formatSenateName(name: string): string {
-  if (!name) return 'Unknown';
-  // Handle "Last, First" format
-  if (name.includes(',')) {
-    const [last, first] = name.split(',').map(s => s.trim());
-    return `${first} ${last}`;
+// Handles "MM/DD/YYYY" → "YYYY-MM-DD" and passthrough for ISO strings
+function parseDate(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const mmddyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const match = s.match(mmddyyyy);
+  if (match) {
+    return `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
   }
-  return name;
+  // Already ISO or unknown — return as-is
+  return s;
 }

@@ -266,6 +266,7 @@ const HomePage = () => {
                               party: suggestion.party,
                               level: suggestion.level,
                               photoUrl: undefined,
+                              website: suggestion.website,
                               socialHandles,
                               bioguideId,
                               channels: [],

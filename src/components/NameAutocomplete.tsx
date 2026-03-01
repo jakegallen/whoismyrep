@@ -10,6 +10,8 @@ interface PoliticianSuggestion {
   party: string;
   state: string;
   level: "federal" | "state";
+  bioguideId?: string;
+  website?: string;
 }
 
 interface NameAutocompleteProps {

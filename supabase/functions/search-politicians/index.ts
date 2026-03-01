@@ -11,6 +11,7 @@ export interface PoliticianSuggestion {
   state: string;
   level: 'federal' | 'state';
   bioguideId?: string;
+  website?: string;
 }
 
 Deno.serve(async (req) => {
@@ -78,6 +79,7 @@ Deno.serve(async (req) => {
             state: m.state || '',
             level: 'federal',
             bioguideId: m.bioguideId || undefined,
+            website: m.url || undefined,
           });
         }
       } catch (e) {
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
         const params = new URLSearchParams({
           name: q,
           per_page: '6',
-          include: 'other_names',
+          include: 'other_names,links',
         });
         const resp = await fetch(
           `https://v3.openstates.org/people?${params}`,
@@ -105,6 +107,8 @@ Deno.serve(async (req) => {
             const chamber = (role.chamber || '').toLowerCase();
             const title = chamber === 'upper' ? 'State Senator' : chamber === 'lower' ? 'State Representative' : 'State Legislator';
             const stateAbbr = (p.jurisdiction?.name || '').replace('Nevada', 'NV');
+            const homepage = (p.links || []).find((l: any) => l.note === 'homepage' || l.note === 'website');
+            const website = homepage?.url || (p.links?.[0]?.url) || undefined;
             suggestions.push({
               id: `state-${p.id}`,
               name: p.name || '',
@@ -112,6 +116,7 @@ Deno.serve(async (req) => {
               party: normalizeParty(p.party || ''),
               state: p.jurisdiction?.name || stateAbbr,
               level: 'state',
+              website,
             });
           }
         }

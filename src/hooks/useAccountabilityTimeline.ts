@@ -19,14 +19,13 @@ interface TimelineResponse {
 export function useAccountabilityTimeline(
   legislatorName: string | undefined,
   chamber?: string,
-  twitterHandle?: string,
   jurisdiction?: string
 ) {
   return useQuery<TimelineResponse>({
-    queryKey: ["accountability-timeline", legislatorName, chamber, twitterHandle, jurisdiction],
+    queryKey: ["accountability-timeline", legislatorName, chamber, jurisdiction],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-politician-timeline", {
-        body: { legislatorName, chamber, twitterHandle, jurisdiction },
+        body: { legislatorName, chamber, jurisdiction },
       });
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || "Failed to fetch timeline");

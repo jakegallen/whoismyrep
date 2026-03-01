@@ -11,11 +11,9 @@ import YouTubeCard from "@/components/YouTubeCard";
 import TrendingSidebar from "@/components/TrendingSidebar";
 import VoterRegistration from "@/components/VoterRegistration";
 import NewsCharts from "@/components/NewsCharts";
-import SocialMediaCard from "@/components/SocialMediaCard";
 import { useStateNews } from "@/hooks/useStateNews";
 import { usePodcasts } from "@/hooks/usePodcasts";
 import { useYouTube } from "@/hooks/useYouTube";
-import { useSocialMedia } from "@/hooks/useSocialMedia";
 import { US_STATES } from "@/lib/usStates";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -29,12 +27,10 @@ const Index = () => {
   const { news, trending, trendingIndividuals, isLoading, error, refetch, lastUpdated } = useStateNews(stateName);
   const { episodes, isLoading: podcastsLoading, refetch: refetchPodcasts } = usePodcasts();
   const { videos, isLoading: youtubeLoading, refetch: refetchYouTube } = useYouTube();
-  const { posts: socialPosts, isLoading: socialLoading, refetch: refetchSocial } = useSocialMedia();
 
   const isPodcastTab = activeCategory === "podcasts";
   const isYouTubeTab = activeCategory === "youtube";
-  const isSocialMediaTab = activeCategory === "social-media";
-  const isMediaTab = isPodcastTab || isYouTubeTab || isSocialMediaTab;
+  const isMediaTab = isPodcastTab || isYouTubeTab;
 
   const filtered = isMediaTab
     ? []
@@ -77,11 +73,11 @@ const Index = () => {
               </span>
             )}
             <button
-              onClick={() => { refetch(); refetchPodcasts(); refetchYouTube(); refetchSocial(); }}
-              disabled={isLoading || podcastsLoading || youtubeLoading || socialLoading}
+              onClick={() => { refetch(); refetchPodcasts(); refetchYouTube(); }}
+              disabled={isLoading || podcastsLoading || youtubeLoading}
               className="flex items-center gap-1.5 rounded-lg bg-surface-elevated px-3 py-2 font-body text-xs font-medium text-foreground transition-colors hover:bg-surface-hover disabled:opacity-50"
             >
-              {(isLoading || podcastsLoading || youtubeLoading || socialLoading) ? (
+              {(isLoading || podcastsLoading || youtubeLoading) ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -100,35 +96,9 @@ const Index = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.25 }}
-            className={`grid gap-4 ${(isPodcastTab || isSocialMediaTab) ? "sm:grid-cols-1" : "sm:grid-cols-2"}`}
+            className={`grid gap-4 ${isPodcastTab ? "sm:grid-cols-1" : "sm:grid-cols-2"}`}
           >
-            {isSocialMediaTab ? (
-              <>
-                {socialLoading && socialPosts.length === 0 ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="animate-pulse rounded-xl border border-border bg-card p-5">
-                      <div className="flex gap-3">
-                        <div className="h-10 w-10 rounded-full bg-muted" />
-                        <div className="flex-1">
-                          <div className="mb-2 h-4 w-32 rounded bg-muted" />
-                          <div className="mb-2 h-5 w-3/4 rounded bg-muted" />
-                          <div className="h-4 w-full rounded bg-muted" />
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  socialPosts.map((post, i) => (
-                    <SocialMediaCard key={post.id} post={post} index={i} />
-                  ))
-                )}
-                {!socialLoading && socialPosts.length === 0 && (
-                  <div className="col-span-full flex items-center justify-center py-20">
-                    <p className="font-body text-muted-foreground">No social media posts available right now.</p>
-                  </div>
-                )}
-              </>
-            ) : isPodcastTab ? (
+            {isPodcastTab ? (
               <>
                 {podcastsLoading && episodes.length === 0 ? (
                   Array.from({ length: 4 }).map((_, i) => (

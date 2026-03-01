@@ -11,7 +11,6 @@ import {
   ChevronUp,
   Heart,
   Repeat2,
-  ExternalLink,
 } from "lucide-react";
 import { useAccountabilityTimeline, type TimelineEvent } from "@/hooks/useAccountabilityTimeline";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +18,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AccountabilityTimelineProps {
   politicianName: string;
   chamber?: string;
-  twitterHandle?: string;
   jurisdiction?: string;
 }
 
@@ -56,13 +54,11 @@ const typeConfig: Record<
 const AccountabilityTimeline = ({
   politicianName,
   chamber,
-  twitterHandle,
   jurisdiction,
 }: AccountabilityTimelineProps) => {
   const { data, isLoading, error } = useAccountabilityTimeline(
     politicianName,
     chamber,
-    twitterHandle,
     jurisdiction
   );
   const [filter, setFilter] = useState<TimelineEvent["type"] | "all">("all");
@@ -250,17 +246,6 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
                   <span className="flex items-center gap-1 font-body text-[10px] text-muted-foreground">
                     <Repeat2 className="h-3 w-3" /> {event.meta.retweets}
                   </span>
-                )}
-                {event.meta.tweetId && (
-                  <a
-                    href={`https://x.com/i/web/status/${event.meta.tweetId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 font-body text-[10px] text-primary hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    View <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
                 )}
               </div>
             )}

@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { Scale, Landmark, Users, MessageCircle, LayoutGrid, Headphones, Youtube, Share2 } from "lucide-react";
+import { Scale, Landmark, Users, MessageCircle, LayoutGrid, Headphones, Youtube } from "lucide-react";
 import type { NewsCategory } from "@/lib/mockNews";
 
-export type TabKey = NewsCategory | "all" | "podcasts" | "youtube" | "social-media";
+export type TabKey = NewsCategory | "all" | "podcasts" | "youtube";
 
 interface CategoryTabsProps {
   active: TabKey;
@@ -11,7 +11,6 @@ interface CategoryTabsProps {
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "all", label: "News", icon: LayoutGrid },
-  { key: "social-media", label: "Social Media", icon: Share2 },
   { key: "podcasts", label: "Podcasts", icon: Headphones },
   { key: "youtube", label: "YouTube", icon: Youtube },
 ];

@@ -343,7 +343,6 @@ const PoliticianDetail = () => {
                 <AccountabilityTimeline
                   politicianName={politician.name}
                   chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
-                  twitterHandle={politician.socialHandles?.x}
                   jurisdiction={politician.jurisdiction}
                 />
               </div>

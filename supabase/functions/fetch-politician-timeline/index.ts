@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { legislatorName, chamber, twitterHandle, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
+    const { legislatorName, chamber, jurisdiction } = await req.json().catch(() => ({}));
 
     if (!legislatorName) {
       return new Response(
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
 
       if (session) {
         const votesUrl = new URL('https://v3.openstates.org/bills');
-        votesUrl.searchParams.set('jurisdiction', 'Nevada');
+        votesUrl.searchParams.set('jurisdiction', jurisdiction || 'Nevada');
         votesUrl.searchParams.set('session', session);
         votesUrl.searchParams.set('include', 'votes');
         votesUrl.searchParams.set('per_page', '15');
@@ -172,72 +172,6 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.log('Votes fetch error:', e);
         }
-      }
-    }
-
-    // 4. Fetch social media posts if Twitter handle provided
-    if (twitterHandle) {
-      try {
-        const consumerKey = Deno.env.get('TWITTER_CONSUMER_KEY');
-        const consumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET');
-        const accessToken = Deno.env.get('TWITTER_ACCESS_TOKEN');
-        const accessTokenSecret = Deno.env.get('TWITTER_ACCESS_TOKEN_SECRET');
-
-        if (consumerKey && consumerSecret && accessToken && accessTokenSecret) {
-          // Use app-only bearer token for simplicity
-          const basicAuth = btoa(`${consumerKey}:${consumerSecret}`);
-          const tokenResp = await fetch('https://api.x.com/oauth2/token', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${basicAuth}`,
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'grant_type=client_credentials',
-          });
-
-          if (tokenResp.ok) {
-            const tokenData = await tokenResp.json();
-            const bearerToken = tokenData.access_token;
-
-            // Look up user
-            const userResp = await fetch(
-              `https://api.x.com/2/users/by/username/${twitterHandle}?user.fields=id`,
-              { headers: { 'Authorization': `Bearer ${bearerToken}` } }
-            );
-
-            if (userResp.ok) {
-              const userData = await userResp.json();
-              const userId = userData.data?.id;
-
-              if (userId) {
-                const tweetsResp = await fetch(
-                  `https://api.x.com/2/users/${userId}/tweets?max_results=10&tweet.fields=created_at,public_metrics`,
-                  { headers: { 'Authorization': `Bearer ${bearerToken}` } }
-                );
-
-                if (tweetsResp.ok) {
-                  const tweetsData = await tweetsResp.json();
-                  for (const tweet of (tweetsData.data || [])) {
-                    events.push({
-                      id: `tweet-${tweet.id}`,
-                      type: 'social',
-                      date: tweet.created_at || '',
-                      title: 'Post on X',
-                      description: tweet.text || '',
-                      meta: {
-                        likes: tweet.public_metrics?.like_count || 0,
-                        retweets: tweet.public_metrics?.retweet_count || 0,
-                        tweetId: tweet.id,
-                      },
-                    });
-                  }
-                } else { await tweetsResp.text(); }
-              }
-            } else { await userResp.text(); }
-          } else { await tokenResp.text(); }
-        }
-      } catch (e) {
-        console.log('Twitter fetch error:', e);
       }
     }
 

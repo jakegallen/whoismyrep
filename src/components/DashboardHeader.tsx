@@ -79,7 +79,7 @@ const DashboardHeader = () => {
                 <Newspaper className="h-5 w-5 text-primary-foreground" />
               </div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-headline md:text-4xl">
-                Nevada Political Pulse
+                WhoIsMyRep.us
               </h1>
             </div>
 

@@ -74,29 +74,29 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert Nevada political analyst. Given a news article about Nevada or Las Vegas politics, produce a comprehensive analysis in markdown format.
+            content: `You are an expert U.S. political analyst. Given a news article about American politics, produce a comprehensive analysis in markdown format.
 
 Structure your analysis with these sections:
 ## Key Takeaways
 - 3-5 bullet points summarizing the most important facts
 
 ## Background & Context
-A 2-3 paragraph section explaining the broader political context in Nevada, relevant history, and why this matters.
+A 2-3 paragraph section explaining the broader political context, relevant history, and why this matters nationally or for the affected region.
 
 ## Stakeholders & Impact
-Who are the key players involved? How does this affect Nevada residents, businesses, and the political landscape?
+Who are the key players involved? How does this affect constituents, businesses, and the political landscape?
 
 ## What's Next
 What are the likely next steps, upcoming votes, or potential outcomes? What should readers watch for?
 
-## Local Perspective
-How does this specifically impact Las Vegas and Clark County residents?
+## Local vs. National Significance
+How does this story connect local or regional concerns to broader national politics and policy?
 
 Write in a professional, journalistic tone. Be factual and balanced. If you don't have enough information to be certain, say so.`,
           },
           {
             role: 'user',
-            content: `Analyze this Nevada political news article:
+            content: `Analyze this U.S. political news article:
 
 Title: ${title}
 Category: ${category}

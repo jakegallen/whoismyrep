@@ -396,9 +396,16 @@ const PoliticianDetail = () => {
 
                 {/* Total Raised */}
                 <div className="flex flex-col rounded-xl border border-border bg-background p-4">
-                  <div className="flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="font-body text-xs text-muted-foreground">Total Raised</span>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-body text-xs text-muted-foreground">Total Raised</span>
+                    </div>
+                    {politician.level === "federal" && fecData?.totals?.[0] && (
+                      <span className="font-body text-[10px] text-muted-foreground">
+                        {`FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2">
                     {fecLoading && politician.level === "federal" ? (
@@ -413,11 +420,6 @@ const PoliticianDetail = () => {
                       </span>
                     )}
                   </div>
-                  {politician.level === "federal" && fecData?.totals?.[0] && (
-                    <span className="mt-1 font-body text-[10px] text-muted-foreground">
-                      {`FEC · ${new Date(fecData.totals[0].lastReportDate).getFullYear()}`}
-                    </span>
-                  )}
                 </div>
 
                 {/* Bills Sponsored */}

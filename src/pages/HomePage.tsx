@@ -446,31 +446,6 @@ const HomePage = () => {
           </div>
         </section>
 
-      {/* ═══════ CTA ═══════ */}
-      <section className="border-t border-border">
-          <div className="container mx-auto px-4 py-16">
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-auto max-w-2xl rounded-2xl border border-primary/20 bg-primary/5 p-8 text-center md:p-12"
-            >
-              <h2 className="font-display text-2xl font-bold text-headline md:text-3xl">
-                Ready to know your reps?
-              </h2>
-              <p className="mx-auto mt-3 max-w-md font-body text-sm text-muted-foreground">
-                Join thousands of Americans using WhoIsMyRep.us to stay informed about their elected officials.
-              </p>
-              <Button
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                className="mt-6 h-12 rounded-xl px-8 gradient-brand font-display font-semibold text-white shadow-glow hover:opacity-90 transition-opacity"
-              >
-                <Search className="mr-2 h-4 w-4" />
-                Find Your Representatives
-              </Button>
-            </motion.div>
-          </div>
-        </section>
-
       {/* Footer */}
       <footer className="border-t border-border py-12">
         <div className="container mx-auto px-4">

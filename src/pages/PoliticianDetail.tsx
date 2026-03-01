@@ -108,9 +108,16 @@ function bioguideIdFromPhotoUrl(url?: string): string | undefined {
   return m?.[1];
 }
 
+/** Derive a bioguide.congress.gov photo URL from a bioguide ID */
+function bioguidePhotoUrl(bioguideId: string): string {
+  return `https://bioguide.congress.gov/bioguide/photo/${bioguideId[0].toUpperCase()}/${bioguideId.toUpperCase()}.jpg`;
+}
+
 /** Convert a CivicRep (from API) into a RepProfile */
 function civicRepToProfile(rep: CivicRep): RepProfile {
   const stateInfo = extractStateFromDivisionId(rep.divisionId);
+  const bioguideId = rep.bioguideId || bioguideIdFromPhotoUrl(rep.photoUrl);
+  const imageUrl = rep.photoUrl || (rep.level === "federal" && bioguideId ? bioguidePhotoUrl(bioguideId) : undefined);
   return {
     id: rep.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
     name: rep.name,
@@ -119,14 +126,14 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     office: rep.office,
     region: stateInfo?.jurisdiction || rep.jurisdiction || rep.divisionId || "",
     level: rep.level,
-    imageUrl: rep.photoUrl,
+    imageUrl,
     bio: "",
     keyIssues: [],
     website: rep.website,
     phone: rep.phone,
     email: rep.email,
     socialHandles: rep.socialHandles,
-    bioguideId: rep.bioguideId || bioguideIdFromPhotoUrl(rep.photoUrl),
+    bioguideId,
     stateAbbr: stateInfo?.stateAbbr,
     jurisdiction: stateInfo?.jurisdiction || rep.jurisdiction,
   };

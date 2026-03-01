@@ -175,7 +175,7 @@ export interface BillDetailData {
   abstracts: string[];
 }
 
-export function useBillOpenStatesDetail(bill: Bill | null) {
+export function useBillOpenStatesDetail(bill: Bill | null, jurisdiction?: string) {
   const [data, setData] = useState<BillDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +191,7 @@ export function useBillOpenStatesDetail(bill: Bill | null) {
         const { data: resp, error: fnError } = await supabase.functions.invoke("fetch-bill-detail", {
           body: {
             billId: bill.id.startsWith("ocd-bill") ? bill.id : undefined,
-            jurisdiction: "Nevada",
+            jurisdiction,
             session: bill.session,
             identifier: bill.billNumber,
           },

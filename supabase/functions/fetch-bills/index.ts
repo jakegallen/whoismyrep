@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { session, search, page = 1, per_page = 20, jurisdiction = 'Nevada', level, bioguideId } = await req.json().catch(() => ({}));
+    const { session, search, page = 1, per_page = 50, jurisdiction, level, bioguideId } = await req.json().catch(() => ({}));
 
     // Federal politicians: use Congress.gov API via bioguideId
     if (level === 'federal' && bioguideId) {
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       if (!congressApiKey) {
         return new Response(
           JSON.stringify({ success: false, error: 'Congress API key not configured' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -50,9 +50,12 @@ Deno.serve(async (req) => {
       if (!resp.ok) {
         const errText = await resp.text();
         console.error(`Congress.gov API error: ${resp.status} ${errText}`);
+        const error = resp.status === 429
+          ? 'API rate limit reached. Please try again later.'
+          : `Congress.gov API error: ${resp.status}`;
         return new Response(
-          JSON.stringify({ success: false, error: `Congress.gov API error: ${resp.status}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -60,7 +63,7 @@ Deno.serve(async (req) => {
       const items: any[] = data.sponsoredLegislation || [];
       const total: number = data.pagination?.count || items.length;
 
-      const bills = items.map((item: any) => {
+      const bills = items.map((item: any, idx: number) => {
         const typeCode: string = (item.type || '').toUpperCase();
         const chamber = typeCode.startsWith('H') ? 'House' : 'Senate';
         const congress: number = item.congress || 119;
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
         else if (typeCode.endsWith('RES')) type = 'Resolution';
 
         return {
-          id: `congress-${congress}-${typeCode}-${billNum}`,
+          id: `congress-${congress}-${typeCode || 'unknown'}-${billNum || String(idx)}`,
           billNumber: `${typeCode} ${billNum}`,
           title: item.title || '',
           chamber,
@@ -110,7 +113,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -122,9 +125,12 @@ Deno.serve(async (req) => {
       : `ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
 
     // Normalise "Last, First" → "First Last" for OpenStates name search
+    // Handle suffixes like Jr., Sr., III, IV, II that may appear after extra commas
     let personName = search || '';
     if (personName.includes(',')) {
-      const [last, firstPart] = personName.split(',');
+      const suffixes = /\b(jr\.?|sr\.?|ii|iii|iv|v|vi|vii|viii)\b/gi;
+      const cleaned = personName.replace(suffixes, '').replace(/,\s*,/g, ',').replace(/,\s*$/, '');
+      const [last, firstPart] = cleaned.split(',');
       personName = `${(firstPart || '').trim().split(' ')[0]} ${last.trim()}`;
     }
 
@@ -179,9 +185,12 @@ Deno.serve(async (req) => {
     if (!resp.ok) {
       const errText = await resp.text();
       console.error(`OpenStates API error: ${resp.status} ${errText}`);
+      const error = resp.status === 429
+        ? 'API rate limit reached. Please try again later.'
+        : `OpenStates API error: ${resp.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: `OpenStates API error: ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -216,7 +225,7 @@ Deno.serve(async (req) => {
         session: bill.session || session || '',
         status: latestAction,
         dateIntroduced: bill.first_action_date || bill.created_at || '',
-        url: bill.openstates_url || `https://openstates.org/${(jurisdiction || 'Nevada').toLowerCase().replace(/\s+/g, '-')}/bills/${bill.session}/${bill.identifier}/`,
+        url: bill.openstates_url || (jurisdiction ? `https://openstates.org/${jurisdiction.toLowerCase().replace(/\s+/g, '-')}/bills/${bill.session}/${bill.identifier}/` : ''),
         sponsors,
         abstract,
         subject: bill.subject || [],
@@ -241,7 +250,7 @@ Deno.serve(async (req) => {
     console.error('Error fetching bills:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch bills' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

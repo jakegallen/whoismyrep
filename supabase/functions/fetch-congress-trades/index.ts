@@ -31,19 +31,13 @@ Deno.serve(async (req) => {
     const fmpKey = Deno.env.get('FMP_API_KEY');
 
     if (!fmpKey) {
-      console.warn('FMP_API_KEY not set — returning empty results');
+      console.error('FMP_API_KEY not set');
       return new Response(
         JSON.stringify({
-          success: true,
-          trades: [],
-          total: 0,
-          purchaseCount: 0,
-          saleCount: 0,
-          topTraders: [],
-          topTickers: [],
-          warning: 'FMP_API_KEY is not configured. Add it via: supabase secrets set FMP_API_KEY=your_key',
+          success: false,
+          error: 'Congressional trading data is temporarily unavailable.',
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

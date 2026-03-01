@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { BarChart3, CheckCircle2, XCircle, MinusCircle, Clock, Loader2, AlertCircle, TrendingUp, Users } from "lucide-react";
 import { useVotingRecords, type VoteDetail, type VotingSummary } from "@/hooks/useVotingRecords";
-import { getVotingRecord, gradeColor, gradeFromScore, type KeyVote } from "@/lib/votingRecords";
 
 interface VotingScorecardProps {
   politicianId: string;
@@ -11,6 +10,7 @@ interface VotingScorecardProps {
   level: string;
   chamber?: string;
   jurisdiction?: string;
+  bioguideId?: string;
 }
 
 const voteIcons: Record<string, { icon: typeof CheckCircle2; className: string }> = {
@@ -20,20 +20,21 @@ const voteIcons: Record<string, { icon: typeof CheckCircle2; className: string }
   "Not Voting": { icon: Clock, className: "text-muted-foreground" },
 };
 
-const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level, chamber, jurisdiction }: VotingScorecardProps) => {
-  // Fetch live data for state legislators (any state)
-  const isStateLegislator = level === "state" && (chamber === "Senate" || chamber === "Assembly" || !chamber);
+const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level, chamber, jurisdiction, bioguideId }: VotingScorecardProps) => {
+  // Fetch live data for both state and federal legislators
   const { data, isLoading, error } = useVotingRecords(
-    isStateLegislator ? politicianName : undefined,
+    politicianName,
     chamber,
-    isStateLegislator ? jurisdiction : undefined
+    jurisdiction,
+    bioguideId,
+    level,
   );
 
   const hasLiveData = data?.legislatorFound && data.votes.length > 0;
 
-  // Fall back to mock data for non-state or when no live data
-  if (!isStateLegislator || (!isLoading && !hasLiveData)) {
-    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} jurisdiction={jurisdiction} />;
+  // Show "unavailable" when no live data found (no more mock scorecard)
+  if (!isLoading && !hasLiveData) {
+    return <NoDataFallback level={level} />;
   }
 
   if (isLoading) {
@@ -45,14 +46,14 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
         </div>
         <div className="flex items-center gap-3 py-8">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Loading voting records from OpenStates…</span>
+          <span className="font-body text-sm text-muted-foreground">Loading voting records…</span>
         </div>
       </div>
     );
   }
 
   if (error) {
-    return <MockScorecard politicianId={politicianId} keyIssues={keyIssues} party={party} jurisdiction={jurisdiction} />;
+    return <NoDataFallback level={level} error={error} />;
   }
 
   const summary = data!.summary;
@@ -138,7 +139,7 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
               const iconClass = voteIcons[v.vote]?.className || "text-muted-foreground";
               return (
                 <motion.div
-                  key={`${v.billNumber}-${v.date}-${idx}`}
+                  key={v.billId || `${v.billNumber}-${v.date}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: idx * 0.03, duration: 0.3 }}
@@ -181,77 +182,33 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
       )}
 
       <p className="font-body text-[10px] text-muted-foreground/60 italic">
-        Live data sourced from OpenStates.org. Showing {summary.session} Legislative Session roll call votes.
+        Live data sourced from {level === "federal" ? "GovTrack.us" : "OpenStates.org"}. Showing {summary.session} {level === "federal" ? "Congress" : "Legislative Session"} roll call votes.
       </p>
     </div>
   );
 };
 
-/** Fallback mock scorecard for non-state legislators */
-function MockScorecard({ politicianId, keyIssues, party, jurisdiction }: { politicianId: string; keyIssues: string[]; party: string; jurisdiction?: string }) {
-  const record = getVotingRecord(politicianId, keyIssues, party);
-  const sessionLabel = jurisdiction ? `${jurisdiction} Legislative Session` : "Current Session";
+/** Shown when no live voting data is available */
+function NoDataFallback({ level, error }: { level: string; error?: string }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <BarChart3 className="h-5 w-5 text-primary" />
-        <h2 className="font-display text-xl font-bold text-headline">Voting Scorecard</h2>
-        <span className="rounded-md bg-muted px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Estimated
-        </span>
+        <h2 className="font-display text-xl font-bold text-headline">Voting Record</h2>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Overall Score" value={gradeFromScore(record.overallScore)} subvalue={`${record.overallScore}%`} color={gradeColor(gradeFromScore(record.overallScore))} />
-        <StatCard label="Total Votes" value={String(record.totalVotes)} subvalue="this session" />
-        <StatCard label="Attendance" value={`${record.attendance}%`} subvalue="vote participation" />
+      <div className="rounded-lg border border-border bg-card p-8 text-center">
+        <BarChart3 className="mx-auto h-8 w-8 text-muted-foreground/40" />
+        <p className="mt-3 font-body text-sm text-muted-foreground">
+          {error
+            ? "Unable to load voting records at this time."
+            : "No roll call voting records found for this legislator."}
+        </p>
+        <p className="mt-1 font-body text-xs text-muted-foreground/60">
+          {level === "federal"
+            ? "Voting data is sourced from GovTrack.us for federal legislators."
+            : "Voting data is sourced from OpenStates.org for state legislators."}
+        </p>
       </div>
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="mb-4 font-display text-sm font-bold text-headline">Issue Area Grades</h3>
-        <div className="space-y-3">
-          {record.issueGrades.map((ig, idx) => (
-            <motion.div key={ig.issue} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.04, duration: 0.3 }}>
-              <div className="flex items-center justify-between">
-                <span className="font-body text-sm text-secondary-custom">{ig.issue}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-body text-[10px] text-muted-foreground">{ig.votesFor}Y / {ig.votesAgainst}N{ig.votesAbstain > 0 ? ` / ${ig.votesAbstain}A` : ""}</span>
-                  <span className="inline-flex h-7 w-9 items-center justify-center rounded-md font-display text-xs font-bold" style={{ backgroundColor: `${gradeColor(ig.grade)}20`, color: gradeColor(ig.grade) }}>{ig.grade}</span>
-                </div>
-              </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                <motion.div className="h-full rounded-full" style={{ backgroundColor: gradeColor(ig.grade) }} initial={{ width: 0 }} animate={{ width: `${ig.score}%` }} transition={{ delay: idx * 0.04 + 0.2, duration: 0.5, ease: "easeOut" }} />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-      <div className="rounded-lg border border-border bg-card p-5">
-        <h3 className="mb-4 font-display text-sm font-bold text-headline">Key Votes — {sessionLabel}</h3>
-        <div className="divide-y divide-border">
-          {record.keyVotes.map((kv, idx) => {
-            const VoteIcon = voteIcons[kv.vote].icon;
-            const iconClass = voteIcons[kv.vote].className;
-            return (
-              <motion.div key={kv.billNumber} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.03, duration: 0.3 }} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <VoteIcon className={`h-4 w-4 shrink-0 ${iconClass}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-display text-xs font-bold text-headline">{kv.billNumber}</span>
-                    <span className={`rounded px-1.5 py-0.5 font-body text-[9px] font-bold uppercase tracking-wider ${kv.result === "Passed" ? "bg-[hsl(142,71%,45%/0.15)] text-[hsl(142,71%,45%)]" : kv.result === "Failed" ? "bg-[hsl(0,72%,51%/0.15)] text-[hsl(0,72%,51%)]" : "bg-muted text-muted-foreground"}`}>{kv.result}</span>
-                  </div>
-                  <p className="mt-0.5 line-clamp-1 font-body text-xs text-muted-foreground">{kv.title}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <span className={`font-body text-xs font-semibold ${iconClass}`}>{kv.vote}</span>
-                  <p className="font-body text-[10px] text-muted-foreground">{kv.date}</p>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-      <p className="font-body text-[10px] text-muted-foreground/60 italic">
-        Estimated scorecard based on legislative voting patterns. Live data sourced from OpenStates when available.
-      </p>
     </div>
   );
 }

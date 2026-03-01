@@ -38,8 +38,8 @@ const Bills = () => {
   const [chamberFilter, setChamberFilter] = useState<"all" | "Assembly" | "Senate">("all");
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>("all");
 
-  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
-  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada";
+  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || selectedState;
+  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || selectedState;
 
   // Debounce search for edge function
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -191,18 +191,25 @@ const Bills = () => {
         )}
 
         {/* Error state */}
-        {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-            <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
-            <div>
-              <p className="font-body text-sm font-medium text-foreground">Failed to load bills</p>
-              <p className="font-body text-xs text-muted-foreground">{error}</p>
+        {error && (() => {
+          const isRateLimit = /rate.?limit/i.test(error);
+          return (
+            <div className={`mb-6 flex items-center gap-3 rounded-lg border p-4 ${isRateLimit ? 'border-amber-500/30 bg-amber-500/10' : 'border-destructive/30 bg-destructive/10'}`}>
+              <AlertCircle className={`h-5 w-5 shrink-0 ${isRateLimit ? 'text-amber-500' : 'text-destructive'}`} />
+              <div>
+                <p className="font-body text-sm font-medium text-foreground">
+                  {isRateLimit ? 'API limit reached' : 'Failed to load bills'}
+                </p>
+                <p className="font-body text-xs text-muted-foreground">
+                  {isRateLimit ? 'The daily API request limit has been reached. Please try again tomorrow.' : error}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={refetch}>
+                Retry
+              </Button>
             </div>
-            <Button variant="outline" size="sm" className="ml-auto" onClick={refetch}>
-              Retry
-            </Button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Loading state */}
         {isLoading && (
@@ -235,7 +242,7 @@ const Bills = () => {
                   key={bill.id}
                   bill={bill}
                   onClick={() =>
-                    navigate(`/bills/${bill.id}`, { state: { bill } })
+                    navigate(`/bills/${bill.id}`, { state: { bill, jurisdiction } })
                   }
                 />
               ))}

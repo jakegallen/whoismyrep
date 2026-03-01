@@ -42,13 +42,11 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
   }
   const results = await resp.json();
   if (!results.length) return null;
-  
-  // Extract state abbreviation from address details
+
   const stateCode = results[0].address?.["ISO3166-2-lvl4"]?.replace("US-", "") || "";
   const stateName = results[0].address?.state || "";
-  // Fallback: try to extract from display name
-  const stateAbbr = stateCode || extractStateAbbr(stateName) || "NV";
-  
+  const stateAbbr = stateCode || extractStateAbbr(stateName) || "";
+
   return {
     lat: parseFloat(results[0].lat),
     lng: parseFloat(results[0].lon),
@@ -76,113 +74,183 @@ function extractStateAbbr(stateName: string): string {
   return STATE_ABBRS[stateName.toLowerCase()] || "";
 }
 
-// --- Fallback: hardcoded Nevada state officials ---
+// --- Open States bulk CSV: free, no API key, no rate limit ---
+// Data source: https://data.openstates.org/people/current/{state_abbr}.csv
 
-const FALLBACK_STATE_REPS: RepResult[] = [
-  { name: "Joe Lombardo", office: "Governor of Nevada", level: "state", party: "Republican", website: "https://gov.nv.gov", photoUrl: "https://gov.nv.gov/wp-content/uploads/2024/02/jl-headshot-1-scaled.jpg", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Stavros Anthony", office: "Lt. Governor of Nevada", level: "state", party: "Republican", website: "https://ltgov.nv.gov", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Aaron D. Ford", office: "Nevada Attorney General", level: "state", party: "Democrat", website: "https://ag.nv.gov", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Francisco Aguilar", office: "Nevada Secretary of State", level: "state", party: "Democrat", website: "https://www.nvsos.gov", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Zach Conine", office: "Nevada State Treasurer", level: "state", party: "Democrat", website: "https://www.nevadatreasurer.gov", divisionId: "ocd-division/country:us/state:nv" },
-];
+const stateCSVCache = new Map<string, { data: Record<string, string>[]; ts: number }>();
+const CSV_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
-const FALLBACK_FEDERAL_REPS: RepResult[] = [
-  { name: "Catherine Cortez Masto", office: "U.S. Senator — Senior Seat", level: "federal", party: "Democrat", website: "https://www.cortezmasto.senate.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/C/C001113.jpg", phone: "(202) 224-3542", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Jacky Rosen", office: "U.S. Senator — Junior Seat", level: "federal", party: "Democrat", website: "https://www.rosen.senate.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/R/R000608.jpg", phone: "(202) 224-6244", divisionId: "ocd-division/country:us/state:nv" },
-  { name: "Dina Titus", office: "U.S. Representative — District 1", level: "federal", party: "Democrat", website: "https://titus.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/T/T000468.jpg", divisionId: "ocd-division/country:us/state:nv/cd:1" },
-  { name: "Mark Amodei", office: "U.S. Representative — District 2", level: "federal", party: "Republican", website: "https://amodei.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/A/A000369.jpg", divisionId: "ocd-division/country:us/state:nv/cd:2" },
-  { name: "Susie Lee", office: "U.S. Representative — District 3", level: "federal", party: "Democrat", website: "https://susielee.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/L/L000590.jpg", divisionId: "ocd-division/country:us/state:nv/cd:3" },
-  { name: "Steven Horsford", office: "U.S. Representative — District 4", level: "federal", party: "Democrat", website: "https://horsford.house.gov", photoUrl: "https://bioguide.congress.gov/bioguide/photo/H/H001066.jpg", divisionId: "ocd-division/country:us/state:nv/cd:4" },
-];
+function parseCSV(text: string): Record<string, string>[] {
+  const lines: string[] = [];
+  let current = "";
+  let inQuotes = false;
 
-// --- Open States people.geo for state legislators ---
-
-async function fetchStateLegislators(lat: number, lng: number, apiKey: string): Promise<RepResult[]> {
-  try {
-    const url = `https://v3.openstates.org/people.geo?lat=${lat}&lng=${lng}&include=links`;
-    console.log("Fetching Open States people.geo:", url.substring(0, 80));
-    const resp = await fetchWithTimeout(url, {
-      headers: { "X-API-KEY": apiKey },
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      console.error("Open States error:", resp.status, text);
-      console.log("Falling back to local state official data");
-      return FALLBACK_STATE_REPS;
-    }
-    const data = await resp.json();
-    const results: RepResult[] = [];
-
-    for (const person of data.results || []) {
-      const party = (person.party || "Unknown")
-        .replace("Democratic", "Democrat")
-        .replace("Republican", "Republican");
-
-      let office = "State Legislator";
-      let level: RepResult["level"] = "state";
-      const roles = person.current_role;
-      if (roles) {
-        const orgClass = roles.org_classification || "";
-        const chamber = orgClass === "upper" ? "Senate" : "House";
-        const district = roles.district || "";
-        const jurisdictionClass = person.jurisdiction?.classification || "";
-        const jurisdictionName = (person.jurisdiction?.name || "");
-        const isFederal = jurisdictionClass === "government" || jurisdictionName.toLowerCase().includes("united states");
-        
-        console.log(`  ${person.name}: jurisdiction=${jurisdictionClass}/${jurisdictionName}, org=${orgClass}, district=${district}`);
-        
-        if (isFederal) {
-          level = "federal";
-          if (orgClass === "upper") {
-            office = `U.S. Senator`;
-          } else {
-            office = `U.S. Representative — District ${district}`;
-          }
-        } else {
-          // Use jurisdiction name (e.g. "District of Columbia", "California") instead of hardcoded "Nevada"
-          const stateName = jurisdictionName || "State";
-          office = `${stateName} State ${chamber} — District ${district}`;
-        }
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        current += '""';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        current += '"';
       }
-
-      let phone: string | undefined;
-      let email: string | undefined;
-      let website: string | undefined;
-
-      for (const office_entry of person.offices || []) {
-        if (office_entry.voice && !phone) phone = office_entry.voice;
-        if (office_entry.email && !email) email = office_entry.email;
-      }
-      email = email || person.email || undefined;
-
-      for (const link of person.links || []) {
-        if (link.url && !website) website = link.url;
-      }
-
-      results.push({
-        name: person.name,
-        office,
-        level,
-        party,
-        phone,
-        email,
-        website,
-        photoUrl: person.image || undefined,
-        divisionId: person.jurisdiction?.id || "",
-      });
+    } else if (ch === '\n' && !inQuotes) {
+      lines.push(current);
+      current = "";
+    } else if (ch === '\r' && !inQuotes) {
+      // skip CR
+    } else {
+      current += ch;
     }
-
-    if (results.length === 0) {
-      console.log("Open States returned 0 results, using fallback");
-      return FALLBACK_STATE_REPS;
-    }
-
-    return results;
-  } catch (e) {
-    console.error("Open States fetch failed:", e);
-    console.log("Falling back to local state official data");
-    return FALLBACK_STATE_REPS;
   }
+  if (current.trim()) lines.push(current);
+  if (lines.length === 0) return [];
+
+  const header = splitCSVLine(lines[0]);
+  const rows: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = splitCSVLine(lines[i]);
+    const row: Record<string, string> = {};
+    for (let j = 0; j < header.length; j++) {
+      row[header[j]] = vals[j] || "";
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function splitCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+async function fetchStateCSV(stateAbbr: string): Promise<Record<string, string>[]> {
+  const key = stateAbbr.toLowerCase();
+  const cached = stateCSVCache.get(key);
+  if (cached && Date.now() - cached.ts < CSV_CACHE_TTL) {
+    console.log(`CSV cache hit for ${key} (${cached.data.length} rows)`);
+    return cached.data;
+  }
+
+  const url = `https://data.openstates.org/people/current/${key}.csv`;
+  console.log(`Fetching state CSV: ${url}`);
+  const resp = await fetchWithTimeout(url, {}, 15000);
+  if (!resp.ok) {
+    console.error(`CSV fetch failed for ${key}: ${resp.status}`);
+    return [];
+  }
+
+  const text = await resp.text();
+  const rows = parseCSV(text);
+  stateCSVCache.set(key, { data: rows, ts: Date.now() });
+  console.log(`Parsed ${rows.length} state legislators for ${key}`);
+  return rows;
+}
+
+// --- Match state legislators from CSV by district ---
+
+interface DivisionInfo {
+  cd: number | null;        // congressional district
+  sldl: string | null;      // state lower district (e.g. "51")
+  sldu: string | null;      // state upper district (e.g. "14")
+}
+
+function csvRowToRep(r: Record<string, string>, stateAbbr: string): RepResult {
+  const chamberName = r.current_chamber === "upper" ? "Senate" :
+    (stateAbbr.toUpperCase() === "NV" || stateAbbr.toUpperCase() === "CA" || stateAbbr.toUpperCase() === "NY" || stateAbbr.toUpperCase() === "WI") ? "Assembly" : "House";
+  const district = r.current_district || "";
+  const party = r.current_party === "Democratic" ? "Democrat" : (r.current_party || "Unknown");
+
+  // Build state name from abbreviation
+  let stateName = "";
+  for (const [name, abbr] of Object.entries(STATE_ABBRS)) {
+    if (abbr === stateAbbr.toUpperCase()) {
+      stateName = name.split(" ").map(w => w[0].toUpperCase() + w.slice(1)).join(" ");
+      break;
+    }
+  }
+
+  const office = district
+    ? `${stateName} State ${chamberName} — District ${district}`
+    : `${stateName} State ${chamberName}`;
+
+  // Social handles
+  const socialHandles: Record<string, string> = {};
+  if (r.twitter) socialHandles.x = r.twitter.replace(/^@/, "");
+  if (r.facebook) socialHandles.facebook = r.facebook;
+  if (r.instagram) socialHandles.instagram = r.instagram;
+  if (r.youtube) socialHandles.youtube = r.youtube;
+
+  // Website from links (semicolon-separated)
+  let website: string | undefined;
+  const links = (r.links || "").split(";").map(l => l.trim()).filter(Boolean);
+  if (links.length > 0) {
+    website = links.find(l => l.includes(".gov")) || links[0];
+  }
+
+  const phone = r.capitol_voice || r.district_voice || undefined;
+
+  return {
+    name: r.name,
+    office,
+    level: "state",
+    party,
+    phone,
+    email: r.email || undefined,
+    website,
+    photoUrl: r.image ? r.image.replace(/^http:\/\//i, "https://") : undefined,
+    socialHandles: Object.keys(socialHandles).length > 0 ? socialHandles : undefined,
+    divisionId: r.id || "",
+  };
+}
+
+async function fetchStateLegislatorsFromCSV(stateAbbr: string, divisions: DivisionInfo): Promise<RepResult[]> {
+  const rows = await fetchStateCSV(stateAbbr);
+  if (rows.length === 0) return [];
+
+  const results: RepResult[] = [];
+
+  for (const r of rows) {
+    const chamber = r.current_chamber;
+    const district = r.current_district;
+
+    // Match upper chamber by sldu district number
+    if (chamber === "upper" && divisions.sldu !== null) {
+      if (district === divisions.sldu) {
+        results.push(csvRowToRep(r, stateAbbr));
+      }
+    }
+    // Match lower chamber by sldl district number
+    else if (chamber === "lower" && divisions.sldl !== null) {
+      if (district === divisions.sldl) {
+        results.push(csvRowToRep(r, stateAbbr));
+      }
+    }
+  }
+
+  console.log(`CSV match: ${results.length} state legislators for sldl:${divisions.sldl} sldu:${divisions.sldu}`);
+  return results;
 }
 
 // --- Fetch current federal delegation from GitHub (unitedstates project) ---
@@ -191,7 +259,6 @@ let federalCache: { data: any[] | null; fetchedAt: number } = { data: null, fetc
 let socialCache: { data: Record<string, Record<string, string>> | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24h
 
-// Fetch social media handles from theunitedstates.io
 async function fetchFederalSocialMedia(): Promise<Record<string, Record<string, string>>> {
   if (socialCache.data && Date.now() - socialCache.fetchedAt < CACHE_TTL) {
     return socialCache.data;
@@ -228,29 +295,25 @@ async function fetchFederalSocialMedia(): Promise<Record<string, Record<string, 
 
 async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
   const cacheKey = stateAbbr.toUpperCase();
-  
-  // Fetch social media in parallel with main data
+
   const socialMediaPromise = fetchFederalSocialMedia();
-  
-  // Use cached data if fresh
+
   if (federalCache.data && Date.now() - federalCache.fetchedAt < CACHE_TTL) {
     const cached = (federalCache.data as any[]).filter((r: any) => r._state === cacheKey);
     if (cached.length > 0) return cached as unknown as RepResult[];
   }
 
   try {
-    const url = "https://raw.githubusercontent.com/unitedstates/congress-legislators/main/legislators-current.json";
+    const url = "https://unitedstates.github.io/congress-legislators/legislators-current.json";
     console.log("Fetching federal legislators from GitHub (unitedstates)");
     const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
       console.error("Federal data fetch error:", resp.status);
-      if (cacheKey === "NV") return FALLBACK_FEDERAL_REPS;
       return [];
     }
     const all = await resp.json();
     const socialMedia = await socialMediaPromise;
 
-    // Cache ALL members, then filter for requested state
     const allResults: any[] = all.map((m: any) => {
       const term = m.terms[m.terms.length - 1];
       const isSenator = term.type === "sen";
@@ -266,7 +329,6 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
         office = `U.S. Representative — District ${term.district}`;
       }
 
-      // Get social handles from the social media dataset
       const socials = bioguide && socialMedia[bioguide] ? { ...socialMedia[bioguide] } : {};
 
       return {
@@ -296,31 +358,39 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
     return stateMembers;
   } catch (e) {
     console.error("Error fetching federal delegation:", e);
-    if (cacheKey === "NV") return FALLBACK_FEDERAL_REPS;
     return [];
   }
 }
 
-// --- Determine congressional district from lat/lng using Google divisionsByAddress ---
+// --- Fetch divisions from Google Civic (CD, state legislative districts) ---
 
-async function getCongressionalDistrict(address: string, googleKey: string): Promise<number | null> {
+async function fetchDivisions(address: string, googleKey: string): Promise<DivisionInfo> {
+  const result: DivisionInfo = { cd: null, sldl: null, sldu: null };
   try {
     const url = `https://civicinfo.googleapis.com/civicinfo/v2/divisionsByAddress?key=${encodeURIComponent(googleKey)}&address=${encodeURIComponent(address)}`;
     console.log("Fetching divisions by address");
     const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
-      console.error("Divisions API error:", resp.status, await resp.text());
-      return null;
+      console.error("Divisions API error:", resp.status);
+      return result;
     }
     const data = await resp.json();
-    for (const div of data.divisions ? Object.keys(data.divisions) : []) {
-      const match = div.match(/\/cd:(\d+)/);
-      if (match) return parseInt(match[1], 10);
+    const divIds = data.divisions ? Object.keys(data.divisions) : [];
+    for (const div of divIds) {
+      const cdMatch = div.match(/\/cd:(\d+)/);
+      if (cdMatch) result.cd = parseInt(cdMatch[1], 10);
+
+      const sldlMatch = div.match(/\/sldl:(\d+[a-zA-Z]?)/);
+      if (sldlMatch) result.sldl = sldlMatch[1];
+
+      const slduMatch = div.match(/\/sldu:(\d+[a-zA-Z]?)/);
+      if (slduMatch) result.sldu = slduMatch[1];
     }
-    return null;
+    console.log(`Divisions: cd=${result.cd}, sldl=${result.sldl}, sldu=${result.sldu}`);
+    return result;
   } catch (e) {
-    console.error("Error fetching congressional district:", e);
-    return null;
+    console.error("Error fetching divisions:", e);
+    return result;
   }
 }
 
@@ -374,7 +444,7 @@ async function fetchElections(googleKey: string): Promise<ElectionInfo[]> {
     }
     const data = await resp.json();
     return (data.elections || [])
-      .filter((e: any) => e.id !== "2000") // filter out test election
+      .filter((e: any) => e.id !== "2000")
       .map((e: any) => ({
         id: e.id,
         name: e.name,
@@ -427,14 +497,12 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
     console.log("Fetching voter info");
     const resp = await fetchWithTimeout(url, {}, 10000);
     if (!resp.ok) {
-      const text = await resp.text();
-      console.error("Voter info API error:", resp.status, text.substring(0, 200));
+      console.error("Voter info API error:", resp.status);
       return result;
     }
 
     const data = await resp.json();
 
-    // Election
     if (data.election && data.election.id !== "2000") {
       result.election = {
         id: data.election.id,
@@ -444,19 +512,16 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
       };
     }
 
-    // Polling locations
     result.pollingLocations = (data.pollingLocations || []).map(parseLocation);
     result.earlyVoteSites = (data.earlyVoteSites || []).map(parseLocation);
     result.dropOffLocations = (data.dropOffLocations || []).map(parseLocation);
 
-    // State info URLs
     for (const state of data.state || []) {
       const adminBody = state.electionAdministrationBody || {};
       result.stateElectionInfoUrl = adminBody.electionInfoUrl || "";
       result.localElectionInfoUrl = adminBody.votingLocationFinderUrl || adminBody.electionInfoUrl || "";
     }
 
-    // Contests
     result.contests = (data.contests || []).map((c: any) => {
       if (c.type === "Referendum") {
         return {
@@ -490,47 +555,6 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
   return result;
 }
 
-// --- Fetch social media from Google Civic representativeInfoByAddress ---
-
-async function fetchGoogleCivicSocials(address: string, googleKey: string): Promise<Map<string, Record<string, string>>> {
-  const socialMap = new Map<string, Record<string, string>>();
-  try {
-    const url = `https://civicinfo.googleapis.com/civicinfo/v2/representatives?key=${encodeURIComponent(googleKey)}&address=${encodeURIComponent(address)}`;
-    console.log("Fetching Google Civic representatives for social media");
-    const resp = await fetchWithTimeout(url, {}, 10000);
-    if (!resp.ok) {
-      console.warn("Google Civic representatives API error:", resp.status);
-      return socialMap;
-    }
-    const data = await resp.json();
-
-    for (const official of data.officials || []) {
-      if (!official.name) continue;
-      const nameKey = official.name.toLowerCase().replace(/[^a-z]/g, "");
-      const socials: Record<string, string> = {};
-
-      for (const channel of official.channels || []) {
-        const type = (channel.type || "").toLowerCase();
-        const id = channel.id || "";
-        if (!id) continue;
-        if (type === "twitter") socials.x = id;
-        else if (type === "facebook") socials.facebook = id;
-        else if (type === "youtube") socials.youtube = id;
-        else if (type === "instagram") socials.instagram = id;
-        else if (type === "tiktok") socials.tiktok = id;
-      }
-
-      if (Object.keys(socials).length > 0) {
-        socialMap.set(nameKey, socials);
-      }
-    }
-    console.log(`Got social media for ${socialMap.size} officials from Google Civic`);
-  } catch (e) {
-    console.warn("Error fetching Google Civic socials:", e);
-  }
-  return socialMap;
-}
-
 // --- Main handler ---
 
 serve(async (req) => {
@@ -539,19 +563,24 @@ serve(async (req) => {
   }
 
   try {
-    const { address } = await req.json();
-    if (!address || typeof address !== "string") {
+    const { address, stateAbbr: rawStateAbbr } = await req.json();
+
+    // State-only mode: return federal delegation without geocoding
+    if (rawStateAbbr && typeof rawStateAbbr === "string") {
+      const st = rawStateAbbr.toUpperCase();
+      console.log(`State-only federal lookup for ${st}`);
+      const federalReps = await fetchFederalDelegation(st);
+      const clean = federalReps.map(({ _district, _state, ...rest }: any) => rest);
       return new Response(
-        JSON.stringify({ success: false, error: "Address is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, representatives: clean }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const openStatesKey = Deno.env.get("OPENSTATES_API_KEY");
-    if (!openStatesKey) {
+    if (!address || typeof address !== "string") {
       return new Response(
-        JSON.stringify({ success: false, error: "Open States API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "Address or stateAbbr is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -565,42 +594,38 @@ serve(async (req) => {
     }
     console.log(`Geocoded to ${geo.lat}, ${geo.lng}, state: ${geo.stateAbbr}`);
 
-    // Step 2: Fetch state legislators + federal delegation + election data + Google Civic socials in parallel
+    // Step 2: Fetch divisions + federal delegation in parallel
     const googleKey = Deno.env.get("GOOGLE_CIVIC_API_KEY");
 
-    const [stateLegislators, federalAll, district, elections, voterInfo, googleSocials] = await Promise.all([
-      fetchStateLegislators(geo.lat, geo.lng, openStatesKey),
+    const [divisions, federalAll, elections, voterInfo] = await Promise.all([
+      googleKey ? fetchDivisions(address, googleKey) : Promise.resolve({ cd: null, sldl: null, sldu: null } as DivisionInfo),
       fetchFederalDelegation(geo.stateAbbr),
-      googleKey ? getCongressionalDistrict(address, googleKey) : Promise.resolve(null),
       googleKey ? fetchElections(googleKey) : Promise.resolve([]),
       googleKey ? fetchVoterInfo(address, googleKey) : Promise.resolve(null),
-      googleKey ? fetchGoogleCivicSocials(address, googleKey) : Promise.resolve(new Map()),
     ]);
 
-    // Step 3: Filter federal reps to relevant district
+    // Step 3: Fetch state legislators from CSV (uses division district numbers)
+    const stateLegislators = await fetchStateLegislatorsFromCSV(geo.stateAbbr, divisions);
+
+    // Step 4: Filter federal reps to relevant district
     let federalReps = federalAll;
-    if (district !== null) {
-      console.log(`Congressional district: ${district}`);
+    if (divisions.cd !== null) {
+      console.log(`Congressional district: ${divisions.cd}`);
       federalReps = federalAll.filter((r: any) => {
-        if (r._district === null) return true;
-        return r._district === district;
+        if (r._district === null) return true; // senators
+        return r._district === divisions.cd;
       });
     }
 
-    const cleanFederal: RepResult[] = federalReps.map(({ _district, ...rest }: any) => rest);
+    const cleanFederal: RepResult[] = federalReps.map(({ _district, _state, ...rest }: any) => rest);
 
-    // Step 4: Deduplicate by name and merge social media from Google Civic
+    // Step 5: Deduplicate by name
     const seen = new Set<string>();
     const allReps: RepResult[] = [];
     for (const rep of [...cleanFederal, ...stateLegislators]) {
       const key = rep.name.toLowerCase().replace(/[^a-z]/g, "");
       if (!seen.has(key)) {
         seen.add(key);
-        // Merge Google Civic social handles (fills gaps from theunitedstates.io)
-        const googleHandles = googleSocials.get(key);
-        if (googleHandles) {
-          rep.socialHandles = { ...googleHandles, ...(rep.socialHandles || {}) };
-        }
         allReps.push(rep);
       }
     }

@@ -280,7 +280,7 @@ const PoliticianDetail = () => {
   const derivedBioguideId = politician?.bioguideId ||
     (politician?.id?.startsWith("congress-") ? politician.id.slice("congress-".length) : undefined);
   const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction, derivedBioguideId, politician?.level);
-  const { data: fecData, isLoading: fecLoading } = useFECFinance(
+  const { data: fecData, isLoading: fecLoading, error: fecError } = useFECFinance(
     politician?.level === "federal" ? politician?.name : undefined,
     undefined,
     undefined,
@@ -696,9 +696,10 @@ const PoliticianDetail = () => {
                   level={politician.level}
                   chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined}
                   jurisdiction={politician.jurisdiction}
+                  bioguideId={derivedBioguideId}
                 />
                 <div className="h-px bg-border" />
-                <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} bills={bills} isLoading={billsLoading} error={billsError} />
+                <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} level={politician.level} bills={bills} isLoading={billsLoading} error={billsError} />
                 <div className="h-px bg-border" />
                 <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />
                 <div className="h-px bg-border" />
@@ -708,7 +709,7 @@ const PoliticianDetail = () => {
 
             {activeTab === "money" && (
               <div className="space-y-10">
-                <CampaignFinance fecData={fecData} isLoading={fecLoading} level={politician.level} />
+                <CampaignFinance fecData={fecData} isLoading={fecLoading} level={politician.level} error={fecError instanceof Error ? fecError.message : fecError ? String(fecError) : null} />
                 {politician.level === "federal" && (
                   <>
                     <div className="h-px bg-border" />
@@ -857,14 +858,14 @@ function OverviewTab({
 /* ═══════════════════════════════════════════ */
 /*  Bills Tab                                  */
 /* ═══════════════════════════════════════════ */
-function BillsTab({ politicianName, bills, isLoading, error }: { politicianName: string; jurisdiction?: string; bills: Bill[]; isLoading: boolean; error: string | null }) {
+function BillsTab({ politicianName, level, bills, isLoading, error }: { politicianName: string; jurisdiction?: string; level?: string; bills: Bill[]; isLoading: boolean; error: string | null }) {
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <FileText className="h-5 w-5 text-primary" />
         <h2 className="font-display text-xl font-bold text-headline">Bills & Legislation</h2>
-        {!isLoading && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{bills.length} found</span>}
+        {!isLoading && bills.length > 0 && <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">{bills.length} found</span>}
       </div>
 
       {isLoading && <CardListSkeleton />}
@@ -872,7 +873,19 @@ function BillsTab({ politicianName, bills, isLoading, error }: { politicianName:
       {error && <ErrorBox message={error} />}
 
       {!isLoading && bills.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No bills found mentioning this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <FileText className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">
+            {level === "federal"
+              ? `No sponsored legislation found for ${politicianName}.`
+              : `No bills found mentioning ${politicianName}.`}
+          </p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">
+            {level === "federal"
+              ? "Data sourced from Congress.gov."
+              : "Data sourced from OpenStates.org."}
+          </p>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -977,7 +990,11 @@ function CommitteesTab({ politicianName, chamber, jurisdiction, stateAbbr }: { p
       )}
 
       {!isLoading && legislatorCommittees.length === 0 && !commError && (
-        <p className="py-6 text-center font-body text-sm text-muted-foreground">No committee assignments found for this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <Building2 className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No committee assignments found for this representative.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">Data sourced from OpenStates.org and Congress.gov.</p>
+        </div>
       )}
 
       {/* Recent bills from their committees */}
@@ -1017,7 +1034,7 @@ function CommitteesTab({ politicianName, chamber, jurisdiction, stateAbbr }: { p
           <div className="space-y-2">
             {reports.slice(0, 8).map((report: any, idx: number) => (
               <motion.div
-                key={`${report.citation}-${idx}`}
+                key={report.citation || report.number || `report-${report.updateDate}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
@@ -1061,13 +1078,17 @@ function LobbyingTab({ politicianName }: { politicianName: string }) {
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
       {!isLoading && filings.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No lobbying filings found related to this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <Briefcase className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No lobbying filings found related to this representative.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">Data sourced from the Senate Office of Public Records via Congress.gov.</p>
+        </div>
       )}
 
       <div className="space-y-3">
         {filings.slice(0, 20).map((filing: any, idx: number) => (
           <motion.div
-            key={filing.id || idx}
+            key={filing.id || `${filing.registrant}-${filing.filingYear}-${filing.filingPeriod}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.03, duration: 0.25 }}
@@ -1131,7 +1152,11 @@ function CourtCasesTab({ politicianName }: { politicianName: string }) {
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
       {!isLoading && cases.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No court cases found mentioning this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <Scale className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No court cases found mentioning this representative.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">Data sourced from CourtListener (Free Law Project).</p>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -1202,7 +1227,11 @@ function CalendarTab({ politicianName, chamber, stateAbbr, jurisdiction }: { pol
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
       {!isLoading && events.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No upcoming calendar events found for this representative's chamber.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No upcoming calendar events found for this representative's chamber.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">Data sourced from OpenStates.org.</p>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -1255,7 +1284,11 @@ function FederalRegisterTab({ politicianName }: { politicianName: string }) {
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load"} />}
 
       {!isLoading && documents.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No federal register documents found mentioning this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <Landmark className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No federal register documents found mentioning this representative.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">Data sourced from the Federal Register (federalregister.gov).</p>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -1340,7 +1373,11 @@ function NewsTab({ politicianName }: { politicianName: string }) {
       {error && <ErrorBox message={error} />}
 
       {!isLoading && articles.length === 0 && !error && (
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">No recent news articles found mentioning this representative.</p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <Newspaper className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">No recent news articles found mentioning this representative.</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">News sourced from Google News RSS.</p>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -1485,12 +1522,17 @@ function SocialLink({ href, icon, label, color }: { href: string; icon: string; 
 }
 
 function ErrorBox({ message }: { message: string }) {
+  const isRateLimit = /rate.?limit/i.test(message);
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-5">
-      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+    <div className={`flex items-start gap-3 rounded-xl border p-5 ${isRateLimit ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}>
+      <AlertCircle className={`mt-0.5 h-5 w-5 shrink-0 ${isRateLimit ? 'text-amber-500' : 'text-primary'}`} />
       <div>
-        <p className="font-body text-sm font-medium text-foreground">Couldn't load data</p>
-        <p className="mt-1 font-body text-xs text-muted-foreground">{message}</p>
+        <p className="font-body text-sm font-medium text-foreground">
+          {isRateLimit ? 'API limit reached' : 'Couldn\'t load data'}
+        </p>
+        <p className="mt-1 font-body text-xs text-muted-foreground">
+          {isRateLimit ? 'The daily API request limit has been reached. Please try again tomorrow.' : message}
+        </p>
       </div>
     </div>
   );

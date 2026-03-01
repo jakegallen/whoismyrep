@@ -477,7 +477,11 @@ function CivicRepCard({ rep, index, politicianByName, navigate }: { rep: CivicRe
         <p className="truncate font-body text-xs text-muted-foreground">
           {rep.office}
         </p>
-        <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-0.5" />
+        <SocialIcons socialHandles={{
+          ...(rep.website ? { website: rep.website } : {}),
+          ...(rep.email ? { email: rep.email } : {}),
+          ...(rep.socialHandles || {}),
+        }} size="sm" className="mt-0.5" />
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <div

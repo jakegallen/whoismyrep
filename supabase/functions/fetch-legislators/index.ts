@@ -1,7 +1,121 @@
+// fetch-legislators: Returns state legislators from OpenStates bulk CSV data.
+// Data source: https://data.openstates.org/people/current/{state_abbr}.csv
+// This replaces the OpenStates v3 API which requires an API key that has become invalid.
+// CSV data is freely available under CC-0 license, updated regularly.
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+// Map full state names to two-letter abbreviations for CSV URL construction
+const STATE_ABBR: Record<string, string> = {
+  alabama: "al", alaska: "ak", arizona: "az", arkansas: "ar", california: "ca",
+  colorado: "co", connecticut: "ct", delaware: "de", florida: "fl", georgia: "ga",
+  hawaii: "hi", idaho: "id", illinois: "il", indiana: "in", iowa: "ia",
+  kansas: "ks", kentucky: "ky", louisiana: "la", maine: "me", maryland: "md",
+  massachusetts: "ma", michigan: "mi", minnesota: "mn", mississippi: "ms",
+  missouri: "mo", montana: "mt", nebraska: "ne", nevada: "nv",
+  "new hampshire": "nh", "new jersey": "nj", "new mexico": "nm", "new york": "ny",
+  "north carolina": "nc", "north dakota": "nd", ohio: "oh", oklahoma: "ok",
+  oregon: "or", pennsylvania: "pa", "rhode island": "ri", "south carolina": "sc",
+  "south dakota": "sd", tennessee: "tn", texas: "tx", utah: "ut", vermont: "vt",
+  virginia: "va", washington: "wa", "west virginia": "wv", wisconsin: "wi",
+  wyoming: "wy", "district of columbia": "dc",
+};
+
+// Simple CSV parser — handles quoted fields with commas/newlines
+function parseCSV(text: string): Record<string, string>[] {
+  const lines: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        current += '""';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        current += '"';
+      }
+    } else if (ch === '\n' && !inQuotes) {
+      lines.push(current);
+      current = "";
+    } else if (ch === '\r' && !inQuotes) {
+      // skip CR
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) lines.push(current);
+
+  if (lines.length === 0) return [];
+
+  const header = splitCSVLine(lines[0]);
+  const rows: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = splitCSVLine(lines[i]);
+    const row: Record<string, string> = {};
+    for (let j = 0; j < header.length; j++) {
+      row[header[j]] = vals[j] || "";
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function splitCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+// In-memory cache: keyed by state abbreviation, with expiry
+const cache = new Map<string, { data: Record<string, string>[]; ts: number }>();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+
+async function fetchStateCSV(stateAbbr: string): Promise<Record<string, string>[]> {
+  const cached = cache.get(stateAbbr);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    console.log(`Cache hit for ${stateAbbr} (${cached.data.length} legislators)`);
+    return cached.data;
+  }
+
+  const url = `https://data.openstates.org/people/current/${stateAbbr}.csv`;
+  console.log(`Fetching legislators CSV: ${url}`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch CSV for ${stateAbbr}: ${resp.status}`);
+  }
+
+  const text = await resp.text();
+  const rows = parseCSV(text);
+  cache.set(stateAbbr, { data: rows, ts: Date.now() });
+  console.log(`Parsed ${rows.length} legislators for ${stateAbbr}`);
+  return rows;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -9,159 +123,87 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('OPENSTATES_API_KEY');
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const { chamber, search, page = 1, per_page = 50, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
 
-    const params = new URLSearchParams({
-      jurisdiction,
-      per_page: String(per_page),
-      page: String(page),
-    });
-    params.append('include', 'links');
-    params.append('include', 'sources');
-    params.append('include', 'other_names');
-    params.append('include', 'other_identifiers');
-
-    if (chamber === 'upper' || chamber === 'senate') {
-      params.set('org_classification', 'upper');
-    } else if (chamber === 'lower' || chamber === 'assembly') {
-      params.set('org_classification', 'lower');
-    }
-
-    if (search) params.set('name', search);
-
-    const url = `https://v3.openstates.org/people?${params}`;
-    console.log('Fetching legislators from OpenStates:', url);
-
-    const resp = await fetch(url, {
-      headers: { 'X-API-KEY': apiKey },
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error(`OpenStates API error: ${resp.status} ${errText}`);
+    // Resolve state abbreviation
+    const stateAbbr = STATE_ABBR[jurisdiction.toLowerCase()] || jurisdiction.toLowerCase();
+    if (!stateAbbr || stateAbbr.length !== 2) {
       return new Response(
-        JSON.stringify({ success: false, error: `OpenStates API error: ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: `Unknown jurisdiction: ${jurisdiction}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await resp.json();
-    const results = data.results || [];
+    const rows = await fetchStateCSV(stateAbbr);
 
-    const legislators = results.map((person: any) => {
-      const currentRole = (person.current_role) || {};
-      const party = person.party || 'Unknown';
-      const chamber = currentRole.org_classification === 'upper' ? 'Senate' : 'Assembly';
-      const district = currentRole.district || '';
-      const title = currentRole.title || (chamber === 'Senate' ? 'Senator' : 'Assembly Member');
+    // Filter by chamber
+    let filtered = rows;
+    if (chamber === 'upper' || chamber === 'senate') {
+      filtered = filtered.filter(r => r.current_chamber === 'upper');
+    } else if (chamber === 'lower' || chamber === 'assembly') {
+      filtered = filtered.filter(r => r.current_chamber === 'lower');
+    }
 
-      // Extract social handles from links array
-      const socialFromLinks: Record<string, string> = {};
+    // Filter by name search
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(r => r.name.toLowerCase().includes(q));
+    }
+
+    const total = filtered.length;
+
+    // Paginate
+    const pageNum = Math.max(1, Number(page));
+    const perPage = Math.min(100, Math.max(1, Number(per_page)));
+    const start = (pageNum - 1) * perPage;
+    const pageRows = filtered.slice(start, start + perPage);
+
+    // Transform to legislator format matching the frontend interface
+    const legislators = pageRows.map((r) => {
+      const chamberName = r.current_chamber === 'upper' ? 'Senate' : 'Assembly';
+      const district = r.current_district || '';
+      const party = r.current_party === 'Democratic' ? 'Democrat' : (r.current_party || 'Unknown');
+      const title = chamberName === 'Senate' ? 'Senator' : 'Representative';
+
+      // Build social handles
+      const socialHandles: Record<string, string> = {};
+      if (r.twitter) socialHandles.x = r.twitter.replace(/^@/, '');
+      if (r.facebook) socialHandles.facebook = r.facebook;
+      if (r.instagram) socialHandles.instagram = r.instagram;
+      if (r.youtube) socialHandles.youtube = r.youtube;
+
+      // Extract primary website from links (semicolon-separated)
       let website: string | undefined;
-      for (const link of (person.links || [])) {
-        if (!link.url) continue;
-        const lUrl = link.url.toLowerCase();
-        const lNote = (link.note || '').toLowerCase();
-        if (lNote.includes('twitter') || lUrl.includes('x.com') || lUrl.includes('twitter.com')) {
-          socialFromLinks.x = link.url;
-        } else if (lUrl.includes('facebook.com')) {
-          socialFromLinks.facebook = link.url;
-        } else if (lUrl.includes('instagram.com')) {
-          socialFromLinks.instagram = link.url;
-        } else if (lUrl.includes('youtube.com')) {
-          socialFromLinks.youtube = link.url;
-        } else if (lUrl.includes('tiktok.com')) {
-          socialFromLinks.tiktok = link.url;
-        } else if (!website) {
-          website = link.url;
-        }
+      const links = (r.links || '').split(';').map(l => l.trim()).filter(Boolean);
+      if (links.length > 0) {
+        // Prefer official legislative site
+        website = links.find(l => l.includes('.gov')) || links[0];
       }
 
-      // Extract social handles from ids array (OpenStates stores twitter/facebook/youtube/instagram as ids)
-      const socialFromIds: Record<string, string> = {};
-      for (const idObj of (person.ids || [])) {
-        const scheme = (idObj.identifier_type || idObj.scheme || '').toLowerCase();
-        const value = idObj.identifier || idObj.id || '';
-        if (!value) continue;
-        if (scheme === 'twitter' || scheme === 'x') {
-          socialFromIds.x = value.replace(/^@/, '');
-        } else if (scheme === 'facebook') {
-          socialFromIds.facebook = value;
-        } else if (scheme === 'instagram') {
-          socialFromIds.instagram = value;
-        } else if (scheme === 'youtube') {
-          socialFromIds.youtube = value;
-        } else if (scheme === 'tiktok') {
-          socialFromIds.tiktok = value;
-        }
-      }
-
-      // Also check other_identifiers field (some OpenStates versions use this)
-      for (const idObj of (person.other_identifiers || [])) {
-        const scheme = (idObj.scheme || '').toLowerCase();
-        const value = idObj.identifier || '';
-        if (!value) continue;
-        if (scheme === 'twitter' || scheme === 'x') {
-          socialFromIds.x = socialFromIds.x || value.replace(/^@/, '');
-        } else if (scheme === 'facebook') {
-          socialFromIds.facebook = socialFromIds.facebook || value;
-        } else if (scheme === 'instagram') {
-          socialFromIds.instagram = socialFromIds.instagram || value;
-        } else if (scheme === 'youtube') {
-          socialFromIds.youtube = socialFromIds.youtube || value;
-        } else if (scheme === 'tiktok') {
-          socialFromIds.tiktok = socialFromIds.tiktok || value;
-        }
-      }
-
-      // Merge: ids take priority (cleaner handles), links as fallback (full URLs)
-      const merged: Record<string, string> = { ...socialFromLinks, ...socialFromIds };
-      const socialHandles = Object.fromEntries(
-        Object.entries(merged).filter(([, v]) => v)
-      );
-
-      // Log first legislator's raw data for debugging
-      if (results.indexOf(person) === 0) {
-        console.log('Sample person ids:', JSON.stringify(person.ids || []));
-        console.log('Sample person other_identifiers:', JSON.stringify(person.other_identifiers || []));
-        console.log('Sample person links:', JSON.stringify(person.links || []));
-        console.log('Extracted socialHandles:', JSON.stringify(socialHandles));
-      }
+      // Phone: prefer capitol, fallback to district
+      const phone = r.capitol_voice || r.district_voice || undefined;
 
       return {
-        id: person.id,
-        name: person.name,
-        title: `${title}, District ${district}`,
-        party: party === 'Democratic' ? 'Democrat' : party,
-        office: `${jurisdiction} ${chamber}`,
-        region: `District ${district}`,
+        id: r.id,
+        name: r.name,
+        title: district ? `${title}, District ${district}` : title,
+        party,
+        office: `${jurisdiction} ${chamberName}`,
+        region: district ? `District ${district}` : '',
         level: 'state' as const,
-        imageUrl: person.image || undefined,
-        chamber,
+        imageUrl: r.image ? r.image.replace(/^http:\/\//i, 'https://') : undefined,
+        chamber: chamberName,
         district,
-        email: person.email || undefined,
-        website: website || undefined,
-        socialHandles,
-        openstatesUrl: person.openstates_url || undefined,
+        email: r.email || undefined,
+        website,
+        phone,
+        socialHandles: Object.keys(socialHandles).length > 0 ? socialHandles : undefined,
+        openstatesUrl: `https://open.pluralpolicy.com/${r.id?.replace('ocd-person/', '')}` || undefined,
       };
     });
 
-    console.log(`Fetched ${legislators.length} legislators from OpenStates`);
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        legislators,
-        total: data.pagination?.total_items || legislators.length,
-      }),
+      JSON.stringify({ success: true, legislators, total }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

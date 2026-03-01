@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -31,16 +31,19 @@ Deno.serve(async (req) => {
       if (!resp.ok) {
         const errText = await resp.text();
         console.error(`OpenStates bill detail error: ${resp.status} ${errText}`);
+        const error = resp.status === 429
+          ? 'API rate limit reached. Please try again later.'
+          : `OpenStates API error: ${resp.status}`;
         return new Response(
-          JSON.stringify({ success: false, error: `OpenStates API error: ${resp.status}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       bill = await resp.json();
     } else {
       // Search by jurisdiction + session + identifier
       const searchParams = new URLSearchParams({
-        jurisdiction: jurisdiction || 'Nevada',
+        jurisdiction: jurisdiction || '',
         q: identifier || '',
         per_page: '5',
       });
@@ -57,9 +60,12 @@ Deno.serve(async (req) => {
       if (!resp.ok) {
         const errText = await resp.text();
         console.error(`OpenStates search error: ${resp.status} ${errText}`);
+        const error = resp.status === 429
+          ? 'API rate limit reached. Please try again later.'
+          : `OpenStates API error: ${resp.status}`;
         return new Response(
-          JSON.stringify({ success: false, error: `OpenStates API error: ${resp.status}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       const data = await resp.json();
@@ -184,7 +190,7 @@ Deno.serve(async (req) => {
     console.error('Error fetching bill detail:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch bill detail' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

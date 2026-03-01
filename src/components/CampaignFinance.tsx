@@ -33,6 +33,7 @@ interface CampaignFinanceProps {
   fecData?: FECResponse | null;
   isLoading?: boolean;
   level: string;
+  error?: string | null;
 }
 
 const SPENDING_COLORS = [
@@ -70,7 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const CampaignFinance = ({ fecData, isLoading, level }: CampaignFinanceProps) => {
+const CampaignFinance = ({ fecData, isLoading, level, error }: CampaignFinanceProps) => {
   const totals = fecData?.totals?.[0];
 
   // No FEC data available
@@ -94,15 +95,43 @@ const CampaignFinance = ({ fecData, isLoading, level }: CampaignFinanceProps) =>
         </div>
       );
     }
+
+    // Distinguish API error from genuinely empty data
+    if (error) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <h2 className="font-display text-xl font-bold text-headline">Campaign Finance</h2>
+          </div>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-8 text-center">
+            <DollarSign className="mx-auto h-8 w-8 text-destructive/40" />
+            <p className="mt-3 font-body text-sm text-foreground">
+              Unable to load campaign finance data.
+            </p>
+            <p className="mt-1 font-body text-xs text-muted-foreground">
+              Data sourced from the Federal Election Commission (FEC).
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <DollarSign className="h-5 w-5 text-primary" />
           <h2 className="font-display text-xl font-bold text-headline">Campaign Finance</h2>
         </div>
-        <p className="py-8 text-center font-body text-sm text-muted-foreground">
-          No FEC campaign finance data found for this candidate.
-        </p>
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <DollarSign className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">
+            No FEC campaign finance data found for this candidate.
+          </p>
+          <p className="mt-1 font-body text-xs text-muted-foreground/60">
+            Data sourced from the Federal Election Commission (FEC).
+          </p>
+        </div>
       </div>
     );
   }

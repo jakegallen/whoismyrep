@@ -1,4 +1,12 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Globe, Mail } from "lucide-react";
+
+const WebsiteIcon = ({ className }: { className?: string }) => (
+  <Globe className={className} />
+);
+
+const EmailIcon = ({ className }: { className?: string }) => (
+  <Mail className={className} />
+);
 
 // Inline SVG brand icons — no external dependencies
 const XIcon = ({ className }: { className?: string }) => (
@@ -33,17 +41,24 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 
 type IconComponent = ({ className }: { className?: string }) => JSX.Element;
 
+/** Ordered array so display order is guaranteed: website, email, X, Instagram, Facebook, YouTube, TikTok */
+const PLATFORM_ORDER = ["website", "email", "x", "instagram", "facebook", "youtube", "tiktok"] as const;
+
 const SOCIAL_PLATFORMS: Record<string, { Icon: IconComponent; urlPrefix: string; color: string; label: string }> = {
+  website:   { Icon: WebsiteIcon,   urlPrefix: "",                         color: "hsl(210,60%,50%)",   label: "Website" },
+  email:     { Icon: EmailIcon,     urlPrefix: "mailto:",                  color: "hsl(142,60%,42%)",   label: "Email" },
   x:         { Icon: XIcon,         urlPrefix: "https://x.com/",           color: "hsl(0,0%,85%)",      label: "X" },
-  facebook:  { Icon: FacebookIcon,  urlPrefix: "https://facebook.com/",    color: "hsl(214,89%,52%)",   label: "Facebook" },
   instagram: { Icon: InstagramIcon, urlPrefix: "https://instagram.com/",   color: "hsl(330,70%,55%)",   label: "Instagram" },
+  facebook:  { Icon: FacebookIcon,  urlPrefix: "https://facebook.com/",    color: "hsl(214,89%,52%)",   label: "Facebook" },
   youtube:   { Icon: YouTubeIcon,   urlPrefix: "https://youtube.com/@",    color: "hsl(0,72%,51%)",     label: "YouTube" },
   tiktok:    { Icon: TikTokIcon,    urlPrefix: "https://tiktok.com/@",     color: "hsl(180,100%,40%)",  label: "TikTok" },
 };
 
-/** If value is already a full URL, return it; otherwise prefix it */
+/** If value is already a full URL or mailto:, return it; otherwise prefix it */
 function buildUrl(urlPrefix: string, value: string): string {
-  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("mailto:")) return value;
+  if (urlPrefix === "mailto:") return `mailto:${value}`;
+  if (!urlPrefix) return value; // website: value is already a full URL
   return `${urlPrefix}${value}`;
 }
 
@@ -69,9 +84,9 @@ interface SocialIconsProps {
 export function SocialIcons({ socialHandles, size = "md", className = "" }: SocialIconsProps) {
   if (!socialHandles || Object.keys(socialHandles).length === 0) return null;
 
-  const platforms = Object.entries(socialHandles)
-    .filter(([key, value]) => value && SOCIAL_PLATFORMS[key])
-    .map(([key, value]) => ({ key, value, ...SOCIAL_PLATFORMS[key] }));
+  const platforms = PLATFORM_ORDER
+    .filter((key) => socialHandles[key] && SOCIAL_PLATFORMS[key])
+    .map((key) => ({ key, value: socialHandles[key], ...SOCIAL_PLATFORMS[key] }));
 
   if (platforms.length === 0) return null;
 
@@ -87,7 +102,7 @@ export function SocialIcons({ socialHandles, size = "md", className = "" }: Soci
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              title={`${p.label}: @${extractHandle(p.value)}`}
+              title={p.key === "website" ? "Website" : p.key === "email" ? p.value : `${p.label}: @${extractHandle(p.value)}`}
               className="flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-surface-elevated"
               style={{ color: p.color }}
             >
@@ -114,7 +129,7 @@ export function SocialIcons({ socialHandles, size = "md", className = "" }: Soci
             className="flex items-center gap-1.5 rounded-md bg-surface-elevated px-2.5 py-1.5 font-body text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
           >
             <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: p.color } as React.CSSProperties} />
-            <span>{p.key === "x" ? `@${handle}` : p.label}</span>
+            <span>{p.key === "x" ? `@${handle}` : p.key === "email" ? handle : p.label}</span>
             <ExternalLink className="h-3 w-3 opacity-50" />
           </a>
         );

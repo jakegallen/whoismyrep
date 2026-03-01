@@ -36,9 +36,11 @@ const BillDetail = () => {
   const fullId = rest ? `${id}/${rest}` : id;
   const location = useLocation();
   const navigate = useNavigate();
-  const bill = (location.state as { bill?: Bill })?.bill || null;
+  const locState = location.state as { bill?: Bill; jurisdiction?: string } | null;
+  const bill = locState?.bill || null;
+  const jurisdiction = locState?.jurisdiction;
   const { summary, sponsors, status, isLoading, error } = useBillDetail(bill);
-  const { data: detail, isLoading: detailLoading, error: detailError } = useBillOpenStatesDetail(bill);
+  const { data: detail, isLoading: detailLoading, error: detailError } = useBillOpenStatesDetail(bill, jurisdiction);
 
   if (!bill) {
     return (

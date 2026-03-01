@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { MapPin, ExternalLink, ChevronRight } from "lucide-react";
 import type { Politician } from "@/lib/politicians";
+import { SocialIcons } from "@/components/SocialIcons";
 
 const partyColors: Record<string, string> = {
   Democrat: "bg-[hsl(210_80%_55%/0.15)] text-[hsl(210,80%,55%)]",
@@ -74,6 +75,15 @@ const PoliticianCard = ({ politician, mentionCount, onClick }: PoliticianCardPro
               </span>
             ))}
           </div>
+
+          <SocialIcons
+            socialHandles={{
+              ...(politician.website ? { website: politician.website } : {}),
+              ...(politician.socialHandles || {}),
+            }}
+            size="sm"
+            className="mt-2"
+          />
         </div>
 
         <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-tertiary transition-colors group-hover:text-primary" />

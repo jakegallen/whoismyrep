@@ -179,7 +179,7 @@ const RepResults = () => {
 
                       return (
                         <motion.div
-                          key={`${rep.name}-${ri}`}
+                          key={rep.id || `${rep.name}-${rep.office}`}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: gi * 0.1 + ri * 0.05 }}
@@ -204,7 +204,11 @@ const RepResults = () => {
                                   {repLevel.charAt(0).toUpperCase() + repLevel.slice(1)}
                                 </span>
                               </div>
-                              <SocialIcons socialHandles={rep.socialHandles} size="sm" className="mt-1.5" />
+                              <SocialIcons socialHandles={{
+                                ...(rep.website ? { website: rep.website } : {}),
+                                ...(rep.email ? { email: rep.email } : {}),
+                                ...(rep.socialHandles || {}),
+                              }} size="sm" className="mt-1.5" />
                             </div>
                             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                           </div>

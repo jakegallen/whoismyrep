@@ -196,8 +196,8 @@ const Politicians = () => {
             </div>
             <p className="mt-2 max-w-xl font-body text-sm text-tertiary">
               {isUSWide
-                ? "Showing all current U.S. Senators and Representatives. Select a state to browse state-level legislators."
-                : `Browse state and federal legislators for ${stateName}. Select a level to see current officeholders.`}
+                ? "Browse current U.S. Senators and Representatives. Select a state to view state legislators, or search by address on the home page."
+                : `Browse state and federal legislators for ${stateName}.`}
             </p>
 
             {/* State selector + Level toggle */}
@@ -423,7 +423,7 @@ const Politicians = () => {
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedFederal.map((member) => (
-                <FederalMemberRow key={member.bioguideId} member={member} onClick={() => {
+                <FederalMemberRow key={member.bioguideId} member={member} socialHandles={(socialLookup && member.bioguideId) ? (socialLookup[member.bioguideId] ?? {}) : {}} websiteUrl={member.url} onClick={() => {
                   const repId = member.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                   navigate(`/politicians/${repId}`, {
                     state: {
@@ -543,16 +543,18 @@ function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClic
         </div>
         <p className="font-body text-xs text-muted-foreground truncate">{legislator.title}</p>
         <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{legislator.party} · {legislator.chamber}</p>
-        {legislator.socialHandles && Object.keys(legislator.socialHandles).length > 0 && (
-          <SocialIcons socialHandles={legislator.socialHandles} size="sm" className="mt-1" />
-        )}
+        <SocialIcons socialHandles={{
+          ...(legislator.website ? { website: legislator.website } : {}),
+          ...(legislator.email ? { email: legislator.email } : {}),
+          ...(legislator.socialHandles || {}),
+        }} size="sm" className="mt-1" />
       </div>
     </motion.button>
   );
 }
 
 /* ── Federal member card ── */
-function FederalMemberRow({ member, onClick }: { member: CongressMember; onClick: () => void }) {
+function FederalMemberRow({ member, socialHandles, websiteUrl, onClick }: { member: CongressMember; socialHandles?: Record<string, string>; websiteUrl?: string; onClick: () => void }) {
   const isSenate = member.chamber === "Senate";
   const partyDot =
     member.party === "Democrat" || member.party === "Democratic"
@@ -565,6 +567,11 @@ function FederalMemberRow({ member, onClick }: { member: CongressMember; onClick
   const title = isSenate
     ? "U.S. Senator"
     : `U.S. Representative${member.district ? `, District ${member.district}` : ""}`;
+
+  const allHandles: Record<string, string> = {
+    ...(websiteUrl ? { website: websiteUrl } : {}),
+    ...(socialHandles || {}),
+  };
 
   return (
     <motion.button
@@ -587,6 +594,7 @@ function FederalMemberRow({ member, onClick }: { member: CongressMember; onClick
         </div>
         <p className="font-body text-xs text-muted-foreground truncate">{title}</p>
         <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{member.party} · {chamberLabel}</p>
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
       </div>
     </motion.button>
   );

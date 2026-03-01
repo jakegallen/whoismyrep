@@ -44,11 +44,11 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { legislatorName, chamber, page = 1, jurisdiction = 'Nevada', bioguideId, level } = await req.json().catch(() => ({}));
+    const { legislatorName, chamber, page = 1, jurisdiction, bioguideId, level } = await req.json().catch(() => ({}));
 
     if (!legislatorName) {
       return new Response(
@@ -77,9 +77,12 @@ Deno.serve(async (req) => {
         // Fall back to name search if bioguideId lookup returned nothing
         if (persons.length === 0) {
           // Convert "Last, First Middle" → "First Last" for GovTrack's name search
+          // Strip suffixes (Jr., Sr., III, etc.) that break comma splitting
           let searchName = legislatorName;
           if (legislatorName.includes(',')) {
-            const [last, firstPart] = legislatorName.split(',');
+            const suffixes = /\b(jr\.?|sr\.?|ii|iii|iv|v|vi|vii|viii)\b/gi;
+            const cleaned = legislatorName.replace(suffixes, '').replace(/,\s*,/g, ',').replace(/,\s*$/, '');
+            const [last, firstPart] = cleaned.split(',');
             const first = (firstPart || '').trim().split(' ')[0];
             searchName = `${first} ${last.trim()}`;
           }
@@ -210,16 +213,19 @@ Deno.serve(async (req) => {
         console.error('GovTrack federal voting error:', e);
         return new Response(
           JSON.stringify({ success: false, error: String(e) }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }
 
     // Step 1: Find the legislator in OpenStates to get their ID
     // Normalise "Last, First" → "First Last" so OpenStates name search works
+    // Strip suffixes (Jr., Sr., III, etc.) that break comma splitting
     let searchName = legislatorName;
     if (legislatorName.includes(',')) {
-      const [last, firstPart] = legislatorName.split(',');
+      const suffixes = /\b(jr\.?|sr\.?|ii|iii|iv|v|vi|vii|viii)\b/gi;
+      const cleaned = legislatorName.replace(suffixes, '').replace(/,\s*,/g, ',').replace(/,\s*$/, '');
+      const [last, firstPart] = cleaned.split(',');
       const first = (firstPart || '').trim().split(' ')[0];
       searchName = `${first} ${last.trim()}`;
     }
@@ -237,9 +243,12 @@ Deno.serve(async (req) => {
     if (!peopleResp.ok) {
       const errText = await peopleResp.text();
       console.error(`People API error: ${peopleResp.status} ${errText}`);
+      const error = peopleResp.status === 429
+        ? 'API rate limit reached. Please try again later.'
+        : `OpenStates people error: ${peopleResp.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: `OpenStates people error: ${peopleResp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -277,12 +286,12 @@ Deno.serve(async (req) => {
           .slice(0, 3);
         console.log('Available sessions:', sessionIds);
       } else {
-        console.log('Could not fetch sessions, using defaults');
-        sessionIds = ['2025', '83rd2025', '82nd2023'];
+        console.log('Could not fetch sessions, using generic defaults');
+        sessionIds = ['2025', '2024', '2023'];
       }
     } catch (e) {
       console.log('Session fetch error:', e);
-      sessionIds = ['2025', '83rd2025', '82nd2023'];
+      sessionIds = ['2025', '2024', '2023'];
     }
 
     let bills: any[] = [];
@@ -465,7 +474,7 @@ Deno.serve(async (req) => {
     console.error('Error fetching voting records:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch voting records' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

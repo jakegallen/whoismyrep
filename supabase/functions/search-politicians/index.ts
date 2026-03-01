@@ -31,35 +31,52 @@ Deno.serve(async (req) => {
     const suggestions: PoliticianSuggestion[] = [];
 
     // ── 1. Congress.gov members ──────────────────────────────────────────────
+    // The Congress.gov q={"name":...} filter doesn't actually filter by name.
+    // Instead, fetch all current members (two pages of 250) and filter locally.
     const congressKey = Deno.env.get('CONGRESS_API_KEY');
     if (congressKey) {
       try {
-        const params = new URLSearchParams({
-          'q': JSON.stringify({ name: q }),
-          'currentMember': 'true',
-          'limit': '8',
-          'format': 'json',
-          'api_key': congressKey,
-        });
-        const resp = await fetch(
-          `https://api.congress.gov/v3/member?${params}`,
-          { headers: { Accept: 'application/json' } }
-        );
-        if (resp.ok) {
+        const fetchPage = async (offset: number): Promise<any[]> => {
+          const params = new URLSearchParams({
+            'currentMember': 'true',
+            'limit': '250',
+            'offset': String(offset),
+            'format': 'json',
+            'api_key': congressKey,
+          });
+          const resp = await fetch(
+            `https://api.congress.gov/v3/member?${params}`,
+            { headers: { Accept: 'application/json' } }
+          );
+          if (!resp.ok) return [];
           const data = await resp.json();
-          for (const m of (data.members || [])) {
-            const lastTerm = (m.terms?.item || []).at(-1);
-            const chamber = lastTerm?.chamber || '';
-            const title = chamber.toLowerCase().includes('senate') ? 'Senator' : 'Representative';
-            suggestions.push({
-              id: `congress-${m.bioguideId}`,
-              name: formatName(m.name || ''),
-              title,
-              party: normalizeParty(m.partyName || ''),
-              state: m.state || '',
-              level: 'federal',
-            });
-          }
+          return data.members || [];
+        };
+
+        // Fetch two pages in parallel — covers all ~535 current members
+        const [page0, page1] = await Promise.all([fetchPage(0), fetchPage(250)]);
+        const allMembers = [...page0, ...page1];
+
+        // Filter by name (Congress.gov stores as "LastName, FirstName")
+        const qLower = q.toLowerCase();
+        const matches = allMembers.filter((m) => {
+          const raw = (m.name || '').toLowerCase();
+          const formatted = formatName(m.name || '').toLowerCase();
+          return raw.includes(qLower) || formatted.includes(qLower);
+        });
+
+        for (const m of matches.slice(0, 8)) {
+          const lastTerm = (m.terms?.item || []).at(-1);
+          const chamber = lastTerm?.chamber || '';
+          const title = chamber.toLowerCase().includes('senate') ? 'Senator' : 'Representative';
+          suggestions.push({
+            id: `congress-${m.bioguideId}`,
+            name: formatName(m.name || ''),
+            title,
+            party: normalizeParty(m.partyName || ''),
+            state: m.state || '',
+            level: 'federal',
+          });
         }
       } catch (e) {
         console.warn('Congress.gov search error:', e);

@@ -81,6 +81,13 @@ export function AddressAutocomplete({
     };
   }, [value, fetchSuggestions]);
 
+  // Close dropdown when disabled (e.g. search in progress)
+  useEffect(() => {
+    if (disabled) {
+      setIsOpen(false);
+    }
+  }, [disabled]);
+
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {

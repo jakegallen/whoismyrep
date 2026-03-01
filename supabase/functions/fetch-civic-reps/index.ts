@@ -198,7 +198,7 @@ async function fetchFederalSocialMedia(): Promise<Record<string, Record<string, 
   }
 
   try {
-    const url = "https://theunitedstates.io/congress-legislators/legislators-social-media.json";
+    const url = "https://unitedstates.github.io/congress-legislators/legislators-social-media.json";
     console.log("Fetching federal social media data");
     const resp = await fetchWithTimeout(url);
     if (!resp.ok) return {};
@@ -239,8 +239,8 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
   }
 
   try {
-    const url = "https://theunitedstates.io/congress-legislators/legislators-current.json";
-    console.log("Fetching federal legislators from theunitedstates.io");
+    const url = "https://raw.githubusercontent.com/unitedstates/congress-legislators/main/legislators-current.json";
+    console.log("Fetching federal legislators from GitHub (unitedstates)");
     const resp = await fetchWithTimeout(url);
     if (!resp.ok) {
       console.error("Federal data fetch error:", resp.status);
@@ -278,7 +278,7 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
         email: undefined,
         website: term.url || undefined,
         photoUrl: bioguide
-          ? `https://theunitedstates.io/images/congress/225x275/${bioguide}.jpg`
+          ? `https://unitedstates.github.io/images/congress/225x275/${bioguide}.jpg`
           : undefined,
         socialHandles: Object.keys(socials).length > 0 ? socials : undefined,
         divisionId: isSenator

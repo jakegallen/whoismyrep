@@ -35,6 +35,12 @@ export function useLegislators(chamber?: string, jurisdiction?: string): UseLegi
   const [error, setError] = useState<string | null>(null);
 
   const fetchLegislators = useCallback(async () => {
+    if (!jurisdiction) {
+      setLegislators([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 

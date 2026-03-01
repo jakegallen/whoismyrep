@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import SiteNav from "@/components/SiteNav";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, Building2, Landmark, MapPin, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,16 +23,17 @@ const Politicians = () => {
   useEffect(() => { document.title = "Politicians | WhoIsMyRep.us"; }, []);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
+  const [selectedState, setSelectedState] = useState("US");
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
-  const [level, setLevel] = useState<Level>(() => (searchParams.get("level") === "federal" ? "federal" : "state"));
+  const [level, setLevel] = useState<Level>(() => (searchParams.get("level") === "state" ? "state" : "federal"));
   const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
   const [federalChamberFilter, setFederalChamberFilter] = useState<"all" | "Senate" | "House">("all");
   const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
-  const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada";
+  const isUSWide = selectedState === "US";
+  const jurisdiction = isUSWide ? "" : (US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada");
+  const stateName = isUSWide ? "United States" : (US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada");
 
   // State legislators
   const { legislators, isLoading: stateLoading, error: stateError, refetch: stateRefetch } = useLegislators(
@@ -38,15 +41,71 @@ const Politicians = () => {
     jurisdiction
   );
 
-  // Federal members
+  // Federal members — curated US-wide (all senators + 3 house/state) or state-scoped
   const { data: congressData, isLoading: federalLoading, error: federalError, refetch: federalRefetch } = useCongress("members", {
-    limit: 50,
-    state: selectedState,
+    usWide: isUSWide,
+    limit: isUSWide ? undefined : 50,
+    state: isUSWide ? undefined : selectedState,
   });
 
   const federalMembers: CongressMember[] = useMemo(() => congressData?.items || [], [congressData]);
 
-  const isLoading = level === "state" ? stateLoading : federalLoading;
+  // Name search across all federal members (used when q param is set)
+  const nameSearchActive = search.trim().length >= 2 && level === "federal";
+  const { data: nameSearchData, isLoading: nameSearchLoading } = useQuery({
+    queryKey: ["search-politicians", search.trim()],
+    queryFn: async () => {
+      const { data } = await supabase.functions.invoke("search-politicians", {
+        body: { query: search.trim() },
+      });
+      return (data?.suggestions || []) as Array<{ id: string; name: string; title: string; party: string; state: string; level: string }>;
+    },
+    enabled: nameSearchActive,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Social media handles for federal members keyed by bioguideId
+  const { data: socialLookup } = useQuery({
+    queryKey: ["legislators-social-media"],
+    queryFn: async (): Promise<Record<string, Record<string, string>>> => {
+      const resp = await fetch("https://unitedstates.github.io/congress-legislators/legislators-social-media.json");
+      if (!resp.ok) return {};
+      const data = await resp.json();
+      const lookup: Record<string, Record<string, string>> = {};
+      for (const entry of data) {
+        const bioguide = entry.id?.bioguide;
+        if (!bioguide) continue;
+        const social: Record<string, string> = {};
+        if (entry.social?.twitter) social.x = entry.social.twitter;
+        if (entry.social?.facebook) social.facebook = entry.social.facebook;
+        if (entry.social?.instagram) social.instagram = entry.social.instagram;
+        if (entry.social?.youtube) social.youtube = entry.social.youtube;
+        else if (entry.social?.youtube_id) social.youtube = entry.social.youtube_id;
+        if (Object.keys(social).length > 0) lookup[bioguide] = social;
+      }
+      return lookup;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  // Map search-politicians results to CongressMember shape for display
+  const nameSearchMembers: CongressMember[] = useMemo(() => {
+    if (!nameSearchData) return [];
+    return nameSearchData
+      .filter((s) => s.level === "federal")
+      .map((s) => ({
+        bioguideId: s.id.replace("congress-", ""),
+        name: s.name,
+        party: s.party,
+        state: s.state,
+        district: null,
+        chamber: s.title === "Senator" ? "Senate" : "House of Representatives",
+        url: "",
+        depiction: {},
+      }));
+  }, [nameSearchData]);
+
+  const isLoading = level === "state" ? stateLoading : nameSearchActive ? nameSearchLoading : federalLoading;
   const error = level === "state" ? stateError : federalError ? (federalError as Error).message : null;
   const refetch = level === "state" ? stateRefetch : federalRefetch;
 
@@ -70,11 +129,14 @@ const Politicians = () => {
 
   // Filtered federal members
   const filteredFederal = useMemo(() => {
-    let list = [...federalMembers];
+    // When a name search is active, use results from search-politicians (cross-state)
+    const source = nameSearchActive ? nameSearchMembers : federalMembers;
+    let list = [...source];
     if (federalChamberFilter !== "all") {
       list = list.filter((m) => m.chamber === federalChamberFilter || m.chamber === `${federalChamberFilter} of Representatives`);
     }
-    if (search.trim()) {
+    // When nameSearchActive the results are already filtered by name server-side; only apply local filter for state browsing
+    if (!nameSearchActive && search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (m) =>
@@ -86,7 +148,10 @@ const Politicians = () => {
     if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortBy === "party") list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
     return list;
-  }, [federalMembers, federalChamberFilter, search, sortBy]);
+  }, [federalMembers, nameSearchMembers, nameSearchActive, federalChamberFilter, search, sortBy]);
+
+  // Force federal when US-wide selected
+  useEffect(() => { if (isUSWide) setLevel("federal"); }, [isUSWide]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [search, level, chamberFilter, federalChamberFilter, sortBy, selectedState]);
@@ -130,7 +195,9 @@ const Politicians = () => {
               </h1>
             </div>
             <p className="mt-2 max-w-xl font-body text-sm text-tertiary">
-              Browse state and federal legislators across all 50 states. Select a state and level to see current officeholders.
+              {isUSWide
+                ? "Showing all current U.S. Senators and Representatives. Select a state to browse state-level legislators."
+                : `Browse state and federal legislators for ${stateName}. Select a level to see current officeholders.`}
             </p>
 
             {/* State selector + Level toggle */}
@@ -139,9 +206,15 @@ const Politicians = () => {
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <Select value={selectedState} onValueChange={setSelectedState}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select state" />
+                    <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
+                    <SelectItem value="US">
+                      <span className="flex items-center gap-2">
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        United States
+                      </span>
+                    </SelectItem>
                     {US_STATES.map((s) => (
                       <SelectItem key={s.abbr} value={s.abbr}>
                         {s.name}
@@ -154,10 +227,14 @@ const Politicians = () => {
               {/* Level toggle */}
               <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
                 <button
-                  onClick={() => setLevel("state")}
+                  onClick={() => !isUSWide && setLevel("state")}
+                  disabled={isUSWide}
+                  title={isUSWide ? "Select a state to view state legislators" : undefined}
                   className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-body text-sm font-medium transition-colors ${
                     level === "state"
                       ? "bg-primary text-primary-foreground"
+                      : isUSWide
+                      ? "cursor-not-allowed opacity-40 text-muted-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -341,7 +418,8 @@ const Politicians = () => {
         {!isLoading && !error && level === "federal" && (
           <>
             <p className="mb-4 font-body text-xs text-muted-foreground">
-              Showing {Math.min(safePage * PAGE_SIZE, filteredFederal.length)} of {filteredFederal.length} {stateName} federal officials
+              Showing {Math.min(safePage * PAGE_SIZE, filteredFederal.length)} of {filteredFederal.length}{" "}
+              {nameSearchActive ? "matching" : isUSWide ? "U.S." : stateName} federal officials
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedFederal.map((member) => (
@@ -358,7 +436,10 @@ const Politicians = () => {
                         phone: undefined,
                         email: undefined,
                         website: member.url,
-                        socialHandles: {},
+                        socialHandles: (socialLookup && member.bioguideId)
+                          ? (socialLookup[member.bioguideId] ?? {})
+                          : {},
+                        bioguideId: member.bioguideId,
                         channels: [],
                         jurisdiction: member.state,
                       },

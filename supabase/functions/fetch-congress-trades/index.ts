@@ -49,55 +49,56 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching congress trades from FMP: chamber=${chamber}, politician=${politician}, ticker=${ticker}`);
 
-    // FMP paginates in pages of ~100. Fetch pages 0-4 (up to ~500 recent trades).
-    const MAX_PAGES = 5;
-
     const fetchSenate = !chamber || chamber === 'senate';
     const fetchHouse  = !chamber || chamber === 'house';
 
-    // Build page fetch promises for each chamber
-    const senatePromises: Promise<CongressTrade[]>[] = [];
-    const housePromises:  Promise<CongressTrade[]>[] = [];
+    // FMP stable/senate-latest and stable/house-latest each return ~100 most recent
+    // disclosures. The free/starter plan is limited to page=0 only.
+    const fetches: Promise<CongressTrade[]>[] = [];
 
-    for (let page = 0; page < MAX_PAGES; page++) {
-      if (fetchSenate) {
-        senatePromises.push(
-          fetch(`https://financialmodelingprep.com/api/v4/senate-trading-rss-feed?page=${page}&apikey=${fmpKey}`)
-            .then(r => {
-              if (!r.ok) throw new Error(`Senate page ${page}: ${r.status}`);
-              return r.json();
-            })
-            .then((data: any[]) => {
-              if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-              return data.map(t => normalizeFmpTrade(t, 'Senate'));
-            })
-            .catch(err => {
-              if (!String(err).includes('empty')) console.warn('Senate FMP error:', err);
-              return [];
-            })
-        );
-      }
-
-      if (fetchHouse) {
-        housePromises.push(
-          fetch(`https://financialmodelingprep.com/api/v4/house-disclosure-rss-feed?page=${page}&apikey=${fmpKey}`)
-            .then(r => {
-              if (!r.ok) throw new Error(`House page ${page}: ${r.status}`);
-              return r.json();
-            })
-            .then((data: any[]) => {
-              if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
-              return data.map(t => normalizeFmpTrade(t, 'House'));
-            })
-            .catch(err => {
-              if (!String(err).includes('empty')) console.warn('House FMP error:', err);
-              return [];
-            })
-        );
-      }
+    if (fetchSenate) {
+      fetches.push(
+        fetch(`https://financialmodelingprep.com/stable/senate-latest?apikey=${fmpKey}`)
+          .then(async r => {
+            if (!r.ok) {
+              const body = await r.text().catch(() => '');
+              throw new Error(`Senate: HTTP ${r.status} — ${body.slice(0, 200)}`);
+            }
+            return r.json();
+          })
+          .then((data: any[]) => {
+            if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+            return data.map(t => normalizeFmpTrade(t, 'Senate'));
+          })
+          .catch(err => {
+            if (!String(err).includes('empty')) console.warn('Senate FMP error:', err);
+            return [];
+          })
+      );
     }
 
-    const allResults = await Promise.all([...senatePromises, ...housePromises]);
+    if (fetchHouse) {
+      fetches.push(
+        fetch(`https://financialmodelingprep.com/stable/house-latest?apikey=${fmpKey}`)
+          .then(async r => {
+            if (!r.ok) {
+              const body = await r.text().catch(() => '');
+              throw new Error(`House: HTTP ${r.status} — ${body.slice(0, 200)}`);
+            }
+            return r.json();
+          })
+          .then((data: any[]) => {
+            if (!Array.isArray(data) || data.length === 0) throw new Error('empty');
+            return data.map(t => normalizeFmpTrade(t, 'House'));
+          })
+          .catch(err => {
+            if (!String(err).includes('empty')) console.warn('House FMP error:', err);
+            return [];
+          })
+      );
+    }
+
+    const allResults = await Promise.all(fetches);
     let trades: CongressTrade[] = allResults.flat();
 
     console.log(`FMP returned ${trades.length} raw trades`);
@@ -168,34 +169,37 @@ Deno.serve(async (req) => {
 });
 
 // ── Normalizer ─────────────────────────────────────────────────────────────────
-// FMP senate-trading-rss-feed and house-disclosure-rss-feed field names:
-//   firstName, lastName, office, dateRecieved, transactionDate, owner,
-//   assetDescription, assetType, type, amount, comment, symbol
-//   (party and state are not always present; office describes role)
+// FMP stable/senate-latest and stable/house-latest field names:
+//   symbol, disclosureDate, transactionDate, firstName, lastName, office,
+//   district, owner, assetDescription, assetType, type, amount, comment, link
+//   (party and state not present; office is the full name for these endpoints)
 
 function normalizeFmpTrade(t: any, defaultChamber: 'House' | 'Senate'): CongressTrade {
   const firstName = t.firstName || t.first_name || '';
   const lastName  = t.lastName  || t.last_name  || '';
   const name = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Unknown';
 
-  // "office" can be "Senator", "Representative", chamber name, etc.
-  const office = String(t.office || '').toLowerCase();
-  let chamber: 'House' | 'Senate' = defaultChamber;
-  if (office.includes('senate') || office.includes('senator')) chamber = 'Senate';
-  if (office.includes('house') || office.includes('representative')) chamber = 'House';
+  // FMP stable endpoints set office = full name, not chamber.
+  // Use defaultChamber from the endpoint being called.
+  const chamber: 'House' | 'Senate' = defaultChamber;
+
+  // district: Senate = "TN" (state only), House = "NJ05" (state + district number)
+  const districtRaw = t.district || t.state || '';
+  const state    = districtRaw.length >= 2 ? districtRaw.slice(0, 2) : (districtRaw || null);
+  const district = districtRaw.length > 2  ? districtRaw.slice(2)    : null;
 
   return {
     politician: name,
     party: normalizeParty(t.party || ''),
-    state: t.state || null,
-    district: t.district || null,
+    state: state || null,
+    district,
     chamber,
     ticker: t.symbol || t.ticker || null,
     assetDescription: t.assetDescription || t.asset_description || t.symbol || t.ticker || 'Unknown',
     type: t.type || t.transactionType || 'Unknown',
     amount: t.amount || 'Unknown',
     transactionDate: t.transactionDate || t.transaction_date || null,
-    disclosureDate: t.dateRecieved || t.date_recieved || t.disclosureDate || t.disclosure_date || null,
+    disclosureDate: t.disclosureDate || t.disclosure_date || t.dateRecieved || t.date_recieved || null,
     owner: t.owner || null,
     source: 'fmp',
   };

@@ -27,6 +27,7 @@ import StatePage from "./pages/StatePage";
 import CongressionalStockTracker from "./pages/CongressionalStockTracker";
 import CongressExplorer from "./pages/CongressExplorer";
 import UnifiedSearch from "./pages/UnifiedSearch";
+import RepResults from "./pages/RepResults";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/congress" element={<CongressExplorer />} />
             <Route path="/search" element={<UnifiedSearch />} />
             <Route path="/state/:abbr" element={<StatePage />} />
+            <Route path="/reps" element={<RepResults />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

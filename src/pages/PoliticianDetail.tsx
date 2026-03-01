@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -68,6 +69,7 @@ interface RepProfile {
   email?: string;
   contactForm?: string;
   socialHandles?: Record<string, string>;
+  bioguideId?: string;
   /** State abbreviation for scoping API calls (e.g. "NY", "CA") */
   stateAbbr?: string;
   /** OpenStates jurisdiction name (e.g. "New York", "California") */
@@ -106,7 +108,7 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     title: rep.office,
     party: rep.party,
     office: rep.office,
-    region: stateInfo?.jurisdiction || rep.divisionId || "",
+    region: stateInfo?.jurisdiction || rep.jurisdiction || rep.divisionId || "",
     level: rep.level,
     imageUrl: rep.photoUrl,
     bio: "",
@@ -115,8 +117,9 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     phone: rep.phone,
     email: rep.email,
     socialHandles: rep.socialHandles,
+    bioguideId: rep.bioguideId,
     stateAbbr: stateInfo?.stateAbbr,
-    jurisdiction: stateInfo?.jurisdiction,
+    jurisdiction: stateInfo?.jurisdiction || rep.jurisdiction,
   };
 }
 
@@ -158,6 +161,39 @@ const PoliticianDetail = () => {
 
     return undefined;
   })();
+
+  // Fallback: if social handles weren't available at navigate time (race condition),
+  // use the shared React Query cache from legislators-social-media.json
+  const { data: socialLookup } = useQuery({
+    queryKey: ["legislators-social-media"],
+    queryFn: async (): Promise<Record<string, Record<string, string>>> => {
+      const resp = await fetch("https://unitedstates.github.io/congress-legislators/legislators-social-media.json");
+      if (!resp.ok) return {};
+      const data = await resp.json();
+      const lookup: Record<string, Record<string, string>> = {};
+      for (const entry of data) {
+        const bioguide = entry.id?.bioguide;
+        if (!bioguide) continue;
+        const social: Record<string, string> = {};
+        if (entry.social?.twitter) social.x = entry.social.twitter;
+        if (entry.social?.facebook) social.facebook = entry.social.facebook;
+        if (entry.social?.instagram) social.instagram = entry.social.instagram;
+        if (entry.social?.youtube) social.youtube = entry.social.youtube;
+        else if (entry.social?.youtube_id) social.youtube = entry.social.youtube_id;
+        if (Object.keys(social).length > 0) lookup[bioguide] = social;
+      }
+      return lookup;
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: !!(politician?.bioguideId),
+  });
+
+  const effectiveSocialHandles = useMemo(() => {
+    const existing = politician?.socialHandles;
+    if (existing && Object.keys(existing).length > 0) return existing;
+    if (politician?.bioguideId && socialLookup) return socialLookup[politician.bioguideId];
+    return existing;
+  }, [politician, socialLookup]);
 
   useEffect(() => {
     if (!politician) {
@@ -264,7 +300,7 @@ const PoliticianDetail = () => {
               </div>
 
               {/* Social links */}
-              <SocialIcons socialHandles={politician.socialHandles} size="md" className="mt-3" />
+              <SocialIcons socialHandles={effectiveSocialHandles} size="md" className="mt-3" />
             </div>
 
             {/* Right: Polymarket widget */}
@@ -323,8 +359,12 @@ const PoliticianDetail = () => {
             {activeTab === "money" && (
               <div className="space-y-10">
                 <CampaignFinance politicianId={politician.id} party={politician.party} level={politician.level} />
-                <div className="h-px bg-border" />
-                <StockTradesSection politicianName={politician.name} />
+                {politician.level === "federal" && (
+                  <>
+                    <div className="h-px bg-border" />
+                    <StockTradesSection politicianName={politician.name} />
+                  </>
+                )}
                 <div className="h-px bg-border" />
                 <PredictionMarketsTab politicianName={politician.name} state={politician.jurisdiction} />
               </div>
@@ -1083,11 +1123,20 @@ function ErrorBox({ message }: { message: string }) {
 /*  Stock Trades Section (STOCK Act)           */
 /* ═══════════════════════════════════════════ */
 function StockTradesSection({ politicianName }: { politicianName: string }) {
-  const nameParts = politicianName.trim().split(/\s+/);
-  const lastName = nameParts[nameParts.length - 1];
+  // Handle both "First Last" and "Last, First" name formats from different data sources
+  const searchName = (() => {
+    const name = politicianName.trim();
+    if (name.includes(',')) {
+      // "Last, First [Middle]" format — use the last name before the comma
+      return name.split(',')[0].trim();
+    }
+    // "First [Middle] Last" format — use the last word
+    const parts = name.split(/\s+/);
+    return parts[parts.length - 1];
+  })();
 
   const { data, isLoading, error } = useCongressTrades({
-    politician: lastName,
+    politician: searchName,
     limit: 200,
   });
 
@@ -1129,9 +1178,17 @@ function StockTradesSection({ politicianName }: { politicianName: string }) {
       {data && !isLoading && (
         <>
           {data.trades.length === 0 ? (
-            <p className="py-8 text-center font-body text-sm text-muted-foreground">
-              No STOCK Act disclosures found for {politicianName}.
-            </p>
+            <div className="py-8 text-center space-y-2">
+              <p className="font-body text-sm text-muted-foreground">
+                No recent STOCK Act disclosures found for {politicianName}.
+              </p>
+              <p className="font-body text-xs text-muted-foreground">
+                Only the most recent ~200 congressional filings are shown.{" "}
+                <a href="/congress-trades" className="text-primary hover:underline">
+                  Search all disclosures →
+                </a>
+              </p>
+            </div>
           ) : (
             <>
               <div className="mb-4 flex flex-wrap gap-3">

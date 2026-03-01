@@ -12,6 +12,8 @@ export interface CivicRep {
   photoUrl?: string;
   socialHandles?: Record<string, string>;
   divisionId: string;
+  jurisdiction?: string;
+  bioguideId?: string;
 }
 
 export interface CivicGroup {
@@ -57,6 +59,13 @@ export interface VoterInfo {
   localElectionInfoUrl: string;
 }
 
+export interface LookupResult {
+  groups: CivicGroup[];
+  normalizedAddress: string;
+  elections: ElectionInfo[];
+  voterInfo: VoterInfo | null;
+}
+
 interface UseCivicRepsResult {
   groups: CivicGroup[] | null;
   normalizedAddress: string;
@@ -65,7 +74,7 @@ interface UseCivicRepsResult {
   error: string | null;
   elections: ElectionInfo[];
   voterInfo: VoterInfo | null;
-  lookup: (address: string) => Promise<void>;
+  lookup: (address: string) => Promise<LookupResult | null>;
   reset: () => void;
 }
 
@@ -88,14 +97,22 @@ export function useCivicReps(): UseCivicRepsResult {
       if (fnError) throw new Error(fnError.message);
       if (!data?.success) throw new Error(data?.error || "Lookup failed");
 
-      setGroups(data.groups);
-      setNormalizedAddress(data.normalizedAddress || address);
+      const result: LookupResult = {
+        groups: data.groups,
+        normalizedAddress: data.normalizedAddress || address,
+        elections: data.elections || [],
+        voterInfo: data.voterInfo || null,
+      };
+      setGroups(result.groups);
+      setNormalizedAddress(result.normalizedAddress);
       setTotalReps(data.totalReps || 0);
-      setElections(data.elections || []);
-      setVoterInfo(data.voterInfo || null);
+      setElections(result.elections);
+      setVoterInfo(result.voterInfo);
+      return result;
     } catch (e) {
       console.error("Civic reps lookup failed:", e);
       setError(e instanceof Error ? e.message : "Lookup failed");
+      return null;
     } finally {
       setIsLoading(false);
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Users, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,9 +15,13 @@ interface PoliticianSuggestion {
 interface NameAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
-  onSelect: (name: string) => void;
+  onSelect: (suggestion: PoliticianSuggestion) => void;
   placeholder?: string;
   inputClassName?: string;
+}
+
+export interface NameAutocompleteRef {
+  closeDropdown: () => void;
 }
 
 const PARTY_DOT: Record<string, string> = {
@@ -26,13 +30,13 @@ const PARTY_DOT: Record<string, string> = {
   Independent: "bg-amber-500",
 };
 
-export function NameAutocomplete({
+export const NameAutocomplete = forwardRef<NameAutocompleteRef, NameAutocompleteProps>(function NameAutocomplete({
   value,
   onChange,
   onSelect,
   placeholder = "Search by representative name…",
   inputClassName,
-}: NameAutocompleteProps) {
+}, ref) {
   const [suggestions, setSuggestions] = useState<PoliticianSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -40,6 +44,13 @@ export function NameAutocomplete({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const justSelectedRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    closeDropdown: () => {
+      setIsOpen(false);
+      setSuggestions([]);
+    },
+  }));
 
   const fetchSuggestions = useCallback(async (query: string) => {
     if (query.trim().length < 2) {
@@ -89,7 +100,7 @@ export function NameAutocomplete({
     onChange(suggestion.name);
     setIsOpen(false);
     setSuggestions([]);
-    onSelect(suggestion.name);
+    onSelect(suggestion);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -167,4 +178,4 @@ export function NameAutocomplete({
       )}
     </div>
   );
-}
+});

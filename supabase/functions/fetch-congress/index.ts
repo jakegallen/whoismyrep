@@ -19,10 +19,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { endpoint = 'bills', search, congress, chamber, state, limit = 20, offset = 0, billType, billNumber } = await req.json().catch(() => ({}));
+    const { endpoint = 'bills', search, congress, chamber, state, limit = 20, offset = 0, billType, billNumber, usWide } = await req.json().catch(() => ({}));
 
     let url: string;
     const params = new URLSearchParams({ api_key: apiKey, format: 'json' });
+
+    // US-wide members: parallel-fetch all ~535 current members, curate to
+    // all 100 senators + up to 3 house reps per state (≈250 total).
+    if (endpoint === 'members' && usWide) {
+      const mp = new URLSearchParams({ api_key: apiKey, format: 'json', currentMember: 'true' });
+      const [r1, r2] = await Promise.all([
+        fetch(`${BASE_URL}/member?${mp}&limit=250&offset=0`, { headers: { 'Accept': 'application/json' } }),
+        fetch(`${BASE_URL}/member?${mp}&limit=250&offset=250`, { headers: { 'Accept': 'application/json' } }),
+      ]);
+      if (!r1.ok || !r2.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Congress.gov API error: ${!r1.ok ? r1.status : r2.status}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+      const all: any[] = [...(d1.members || []), ...(d2.members || [])];
+
+      // All senators
+      const senators = all.filter(
+        (m) => (m.terms?.item?.[0]?.chamber || '').toLowerCase().includes('senat')
+      );
+
+      // Up to 3 house reps per state
+      const houseByState: Record<string, any[]> = {};
+      for (const m of all) {
+        const ch = (m.terms?.item?.[0]?.chamber || '').toLowerCase();
+        if (!ch.includes('senat') && ch) {
+          const st = m.state || 'ZZ';
+          if (!houseByState[st]) houseByState[st] = [];
+          if (houseByState[st].length < 3) houseByState[st].push(m);
+        }
+      }
+      const house = Object.values(houseByState).flat();
+
+      const curated = [...senators, ...house];
+      const toItem = (m: any) => ({
+        bioguideId: m.bioguideId || '',
+        name: m.name || '',
+        party: m.partyName || '',
+        state: m.state || '',
+        district: m.district || null,
+        chamber: m.terms?.item?.[0]?.chamber || '',
+        url: m.url || '',
+        depiction: m.depiction || {},
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, items: curated.map(toItem), pagination: { count: curated.length } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (endpoint === 'bill_detail' && congress && billType && billNumber) {
       // Single bill detail
@@ -41,8 +93,11 @@ Deno.serve(async (req) => {
       params.set('limit', String(limit));
       params.set('offset', String(offset));
       params.set('currentMember', 'true');
-      const stateAbbr = state || 'NV';
-      url = `${BASE_URL}/member/${stateAbbr}?${params}`;
+      if (state) {
+        url = `${BASE_URL}/member/${state}?${params}`;
+      } else {
+        url = `${BASE_URL}/member?${params}`;
+      }
     } else if (endpoint === 'member_bills' && search) {
       // Bills sponsored by a specific member (search = bioguideId)
       params.set('limit', String(limit));

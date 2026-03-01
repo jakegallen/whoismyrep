@@ -25,6 +25,8 @@ import LobbyingExplorer from "./pages/LobbyingExplorer";
 import NotFound from "./pages/NotFound";
 import StatePage from "./pages/StatePage";
 import CongressionalStockTracker from "./pages/CongressionalStockTracker";
+import CongressExplorer from "./pages/CongressExplorer";
+import UnifiedSearch from "./pages/UnifiedSearch";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +57,8 @@ const App = () => (
             <Route path="/court-cases" element={<CourtCases />} />
             <Route path="/lobbying" element={<LobbyingExplorer />} />
             <Route path="/congress-trades" element={<CongressionalStockTracker />} />
+            <Route path="/congress" element={<CongressExplorer />} />
+            <Route path="/search" element={<UnifiedSearch />} />
             <Route path="/state/:abbr" element={<StatePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

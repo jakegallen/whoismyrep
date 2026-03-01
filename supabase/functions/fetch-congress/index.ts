@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const apiKey = Deno.env.get('CONGRESS_GOV_API_KEY');
+    const apiKey = Deno.env.get('CONGRESS_API_KEY');
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'Congress.gov API key not configured' }),

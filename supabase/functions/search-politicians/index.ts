@@ -10,6 +10,7 @@ export interface PoliticianSuggestion {
   party: string;
   state: string;
   level: 'federal' | 'state';
+  bioguideId?: string;
 }
 
 Deno.serve(async (req) => {
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
             party: normalizeParty(m.partyName || ''),
             state: m.state || '',
             level: 'federal',
+            bioguideId: m.bioguideId || undefined,
           });
         }
       } catch (e) {

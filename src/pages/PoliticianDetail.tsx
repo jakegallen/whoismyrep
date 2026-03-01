@@ -101,6 +101,13 @@ function extractStateFromDivisionId(divisionId?: string): { stateAbbr: string; j
   return { stateAbbr: abbr, jurisdiction: stateNames[abbr] || abbr };
 }
 
+/** Extract bioguideId from a bioguide.congress.gov photo URL */
+function bioguideIdFromPhotoUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(/bioguide\.congress\.gov\/(?:bioguide\/photo\/[A-Z]\/|photo\/)([A-Z]\d+)\.jpg/i);
+  return m?.[1];
+}
+
 /** Convert a CivicRep (from API) into a RepProfile */
 function civicRepToProfile(rep: CivicRep): RepProfile {
   const stateInfo = extractStateFromDivisionId(rep.divisionId);
@@ -119,7 +126,7 @@ function civicRepToProfile(rep: CivicRep): RepProfile {
     phone: rep.phone,
     email: rep.email,
     socialHandles: rep.socialHandles,
-    bioguideId: rep.bioguideId,
+    bioguideId: rep.bioguideId || bioguideIdFromPhotoUrl(rep.photoUrl),
     stateAbbr: stateInfo?.stateAbbr,
     jurisdiction: stateInfo?.jurisdiction || rep.jurisdiction,
   };
@@ -199,7 +206,10 @@ const PoliticianDetail = () => {
 
   // Hero stat data — React Query deduplicates; bills lifted to avoid double-fetch with BillsTab
   const heroChamberId = politician?.office.includes("Senate") ? "Senate" : politician?.office.includes("Assembly") ? "Assembly" : undefined;
-  const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction, politician?.bioguideId, politician?.level);
+  // Derive bioguideId from the id field (congress-{bioguideId}) when not explicitly set
+  const derivedBioguideId = politician?.bioguideId ||
+    (politician?.id?.startsWith("congress-") ? politician.id.slice("congress-".length) : undefined);
+  const { data: votingData, isLoading: votingLoading } = useVotingRecords(politician?.name, heroChamberId, politician?.jurisdiction, derivedBioguideId, politician?.level);
   const { data: fecData, isLoading: fecLoading } = useFECFinance(
     politician?.level === "federal" ? politician?.name : undefined,
     undefined,

@@ -5,11 +5,8 @@ import {
   PiggyBank,
   Wallet,
   Building2,
-  Users,
-  Landmark,
-  User,
-  Loader2,
 } from "lucide-react";
+import { CampaignFinanceSkeleton } from "@/components/TabSkeletons";
 import {
   BarChart,
   Bar,
@@ -23,9 +20,6 @@ import {
 } from "recharts";
 import type {
   FECResponse,
-  TopEmployer,
-  DisbursementByPurpose,
-  DonorBySize,
 } from "@/hooks/useFECFinance";
 import { formatUSD, getSizeLabel } from "@/hooks/useFECFinance";
 
@@ -83,14 +77,33 @@ const CampaignFinance = ({ fecData, isLoading, level, error }: CampaignFinancePr
             <DollarSign className="h-5 w-5 text-primary" />
             <h2 className="font-display text-xl font-bold text-headline">Campaign Finance</h2>
           </div>
-          <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <div className="rounded-lg border border-border bg-card p-8 text-center space-y-3">
             <DollarSign className="mx-auto h-8 w-8 text-muted-foreground/40" />
-            <p className="mt-3 font-body text-sm text-muted-foreground">
-              FEC campaign finance data is only available for federal candidates.
+            <p className="font-body text-sm text-muted-foreground">
+              FEC campaign finance data covers federal candidates only.
             </p>
-            <p className="mt-1 font-body text-xs text-muted-foreground/60">
-              State and local campaign finance data varies by jurisdiction.
+            <p className="font-body text-xs text-muted-foreground/60">
+              State-level campaign finance records are maintained by each state.
+              Try these resources:
             </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <a
+                href="https://www.followthemoney.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 font-body text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+              >
+                FollowTheMoney.org ↗
+              </a>
+              <a
+                href="https://www.opensecrets.org/states"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 font-body text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+              >
+                OpenSecrets States ↗
+              </a>
+            </div>
           </div>
         </div>
       );
@@ -144,9 +157,7 @@ const CampaignFinance = ({ fecData, isLoading, level, error }: CampaignFinancePr
           <DollarSign className="h-5 w-5 text-primary" />
           <h2 className="font-display text-xl font-bold text-headline">Campaign Finance</h2>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
+        <CampaignFinanceSkeleton />
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -6,37 +6,17 @@ import {
   Calendar,
   Flag,
   Users,
-  TrendingUp,
-  Award,
-  ChevronDown,
-  ChevronUp,
-  DollarSign,
-  Star,
-  BarChart3,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
+import SEO from "@/components/SEO";
 
 /* ──────────────────────────────────────────────────────────── */
 /*  Types                                                       */
 /* ──────────────────────────────────────────────────────────── */
-
-interface MidtermRace {
-  id: string;
-  office: string;
-  level: "Federal" | "State";
-  type: "Senate" | "House" | "Governor" | "State Legislature";
-  district?: string;
-  description: string;
-  status: "Open Seat" | "Incumbent Running" | "Contested Primary";
-  incumbent?: string;
-  incumbentParty?: string;
-  candidates: { name: string; party: string; isIncumbent?: boolean; bio: string }[];
-}
 
 interface ElectionDate {
   date: string;
@@ -62,13 +42,6 @@ const electionCalendar: ElectionDate[] = [
 /* ──────────────────────────────────────────────────────────── */
 /*  Helpers                                                     */
 /* ──────────────────────────────────────────────────────────── */
-
-const partyColor = (p: string) =>
-  p === "Democrat" || p === "Democratic"
-    ? "hsl(210,80%,55%)"
-    : p === "Republican"
-      ? "hsl(var(--primary))"
-      : "hsl(var(--gold))";
 
 const partyBg = (p: string) =>
   p === "Democrat" || p === "Democratic"
@@ -137,7 +110,7 @@ function LegislatorCard({ legislator, index }: { legislator: Legislator; index: 
       className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
     >
       {legislator.imageUrl ? (
-        <img src={legislator.imageUrl} alt={legislator.name} className="h-10 w-10 rounded-full object-cover bg-surface-elevated" loading="lazy" />
+        <img src={legislator.imageUrl} alt={legislator.name} className="h-10 w-10 rounded-full object-cover bg-surface-elevated" loading="lazy" decoding="async" />
       ) : (
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
           {legislator.name.split(" ").map((n) => n[0]).join("")}
@@ -169,6 +142,7 @@ const Midterms = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="2026 Midterm Elections" path="/midterms" description="Track 2026 midterm election races, candidates, polls, and campaign information." />
       {/* Header */}
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8 md:py-10">
@@ -200,7 +174,7 @@ const Midterms = () => {
       </header>
 
       {/* Content */}
-      <main className="container mx-auto max-w-4xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-4xl px-4 py-8">
         {/* State Selector */}
         <div className="mb-6">
           <label className="font-body text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">

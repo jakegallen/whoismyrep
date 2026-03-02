@@ -10,7 +10,6 @@ import PodcastCard from "@/components/PodcastCard";
 import YouTubeCard from "@/components/YouTubeCard";
 import TrendingSidebar from "@/components/TrendingSidebar";
 import VoterRegistration from "@/components/VoterRegistration";
-import NewsCharts from "@/components/NewsCharts";
 import { useStateNews } from "@/hooks/useStateNews";
 import { usePodcasts } from "@/hooks/usePodcasts";
 import { useYouTube } from "@/hooks/useYouTube";
@@ -18,7 +17,7 @@ import { US_STATES } from "@/lib/usStates";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import type { NewsCategory } from "@/lib/mockNews";
+import SEO from "@/components/SEO";
 
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<TabKey>("all");
@@ -40,10 +39,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Political News" path="/news" description="Stay updated on political news, trending topics, and state legislation across the U.S." />
       <SiteNav />
       <DashboardHeader />
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Select value={selectedState} onValueChange={setSelectedState}>

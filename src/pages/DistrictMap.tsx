@@ -17,6 +17,7 @@ import {
   type DistrictLayer,
 } from "@/lib/stateDistricts";
 import { US_STATES } from "@/lib/usStates";
+import SEO from "@/components/SEO";
 
 import "leaflet/dist/leaflet.css";
 
@@ -167,6 +168,7 @@ const DistrictMap = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="District Map" path="/district-map" description="Explore congressional, state senate, and state house district boundaries on an interactive map." />
       <header className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto flex items-center gap-4 px-4 py-3">
           <button
@@ -200,7 +202,7 @@ const DistrictMap = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main id="main-content" className="container mx-auto px-4 py-6">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

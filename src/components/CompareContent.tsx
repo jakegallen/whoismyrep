@@ -5,7 +5,6 @@ import {
   ChevronDown,
   DollarSign,
   BarChart3,
-  Tag,
   Search,
   Loader2,
 } from "lucide-react";

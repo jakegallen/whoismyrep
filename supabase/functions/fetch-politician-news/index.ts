@@ -29,74 +29,44 @@ Deno.serve(async (req) => {
 
     console.log(`Fetching news for: ${politicianName}`);
 
-    // Use Google News RSS feed filtered by politician name
-    const query = encodeURIComponent(`"${politicianName}" politics`);
-    const rssUrl = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
+    // Try multiple query strategies from most specific to broadest
+    const nameParts = politicianName.trim().split(/\s+/);
+    const lastName = nameParts[nameParts.length - 1] || politicianName;
+    const firstName = nameParts[0] || '';
 
-    const resp = await fetch(rssUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WhoIsMyRep/1.0)' },
-    });
+    const queries = [
+      `"${politicianName}" politics`,                         // exact phrase + politics
+      `"${politicianName}"`,                                  // exact phrase only
+      `${firstName} ${lastName} politician OR congress OR legislature OR senator OR representative`,  // broad name + role keywords
+    ];
 
-    if (!resp.ok) {
-      console.error(`Google News RSS error: ${resp.status}`);
-      return new Response(
-        JSON.stringify({ success: true, articles: [], total: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    let articles: NewsArticle[] = [];
 
-    const xml = await resp.text();
+    for (const q of queries) {
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
 
-    // Parse RSS XML manually (no DOM parser in Deno edge functions)
-    const articles: NewsArticle[] = [];
-    const items = xml.split('<item>').slice(1); // Skip header
+      try {
+        const resp = await fetch(rssUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WhoIsMyRep/1.0)' },
+        });
 
-    for (let i = 0; i < Math.min(items.length, 20); i++) {
-      const item = items[i];
-
-      const title = extractTag(item, 'title');
-      const link = extractTag(item, 'link');
-      const pubDate = extractTag(item, 'pubDate');
-      const source = extractTag(item, 'source');
-      const description = extractTag(item, 'description');
-
-      if (title && link) {
-        // Decode all HTML entities, then strip any remaining tags
-        const decodeEntities = (s: string | undefined) =>
-          s?.replace(/&amp;/g, '&')
-           ?.replace(/&lt;/g, '<')
-           ?.replace(/&gt;/g, '>')
-           ?.replace(/&quot;/g, '"')
-           ?.replace(/&#39;/g, "'")
-           ?.replace(/&nbsp;/g, ' ')
-           ?.replace(/&#160;/g, ' ')
-           || '';
-
-        const cleanTitle = decodeEntities(title).replace(/<[^>]*>/g, '').trim();
-        const cleanSource = decodeEntities(source).replace(/<[^>]*>/g, '').trim();
-
-        // Clean description: decode entities, strip tags, remove duplicate title text
-        let cleanDesc = decodeEntities(description).replace(/<[^>]*>/g, '').trim();
-        // Google News descriptions often just repeat the headline + source name.
-        // Strip the title prefix from the description, or clear it if it's mostly a duplicate.
-        if (cleanDesc && cleanTitle) {
-          // Title often has " - Source" suffix; get the core headline
-          const coreTitle = cleanTitle.replace(/\s*[-–—]\s*[^-–—]+$/, '').trim();
-          if (cleanDesc.startsWith(coreTitle)) {
-            cleanDesc = cleanDesc.slice(coreTitle.length).replace(/^\s*[-–—]\s*/, '').trim();
-          }
-          // If what remains is just the source name or very short, discard it
-          if (cleanDesc.length < 30) cleanDesc = '';
+        if (!resp.ok) {
+          console.log(`Google News RSS query "${q}" returned ${resp.status}`);
+          continue;
         }
 
-        articles.push({
-          id: `gnews-${i}-${Date.now()}`,
-          title: cleanTitle,
-          url: link,
-          source: cleanSource || 'Google News',
-          date: pubDate ? new Date(pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          summary: cleanDesc.slice(0, 300),
-        });
+        const xml = await resp.text();
+        const parsed = parseRssItems(xml, politicianName);
+
+        if (parsed.length > 0) {
+          articles = parsed;
+          console.log(`Query "${q}" returned ${parsed.length} articles`);
+          break;
+        }
+        console.log(`Query "${q}" returned 0 articles, trying next...`);
+      } catch (e) {
+        console.log(`Query "${q}" failed:`, e);
+        continue;
       }
     }
 
@@ -114,6 +84,67 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function parseRssItems(xml: string, politicianName: string): NewsArticle[] {
+  const articles: NewsArticle[] = [];
+  const items = xml.split('<item>').slice(1); // Skip header
+  const nameWords = politicianName.toLowerCase().split(/\s+/);
+  const lastName = nameWords[nameWords.length - 1] || '';
+
+  for (let i = 0; i < Math.min(items.length, 25); i++) {
+    const item = items[i];
+
+    const title = extractTag(item, 'title');
+    const link = extractTag(item, 'link');
+    const pubDate = extractTag(item, 'pubDate');
+    const source = extractTag(item, 'source');
+    const description = extractTag(item, 'description');
+
+    if (title && link) {
+      const decodeEntities = (s: string | undefined) =>
+        s?.replace(/&amp;/g, '&')
+         ?.replace(/&lt;/g, '<')
+         ?.replace(/&gt;/g, '>')
+         ?.replace(/&quot;/g, '"')
+         ?.replace(/&#39;/g, "'")
+         ?.replace(/&nbsp;/g, ' ')
+         ?.replace(/&#160;/g, ' ')
+         || '';
+
+      const cleanTitle = decodeEntities(title).replace(/<[^>]*>/g, '').trim();
+      const cleanSource = decodeEntities(source).replace(/<[^>]*>/g, '').trim();
+
+      // Clean description
+      let cleanDesc = decodeEntities(description).replace(/<[^>]*>/g, '').trim();
+      if (cleanDesc && cleanTitle) {
+        const coreTitle = cleanTitle.replace(/\s*[-–—]\s*[^-–—]+$/, '').trim();
+        if (cleanDesc.startsWith(coreTitle)) {
+          cleanDesc = cleanDesc.slice(coreTitle.length).replace(/^\s*[-–—]\s*/, '').trim();
+        }
+        if (cleanDesc.length < 30) cleanDesc = '';
+      }
+
+      // Relevance check: for broad queries, ensure the article actually mentions the politician
+      const lowerTitle = cleanTitle.toLowerCase();
+      const lowerDesc = (cleanDesc || '').toLowerCase();
+      const combinedText = `${lowerTitle} ${lowerDesc}`;
+      const isRelevant = lastName.length > 2 && combinedText.includes(lastName);
+
+      if (!isRelevant && i > 5) continue; // Be lenient on first few results
+
+      articles.push({
+        id: `gnews-${i}-${Date.now()}`,
+        title: cleanTitle,
+        url: link,
+        source: cleanSource || 'Google News',
+        date: pubDate ? new Date(pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        summary: cleanDesc.slice(0, 300),
+      });
+    }
+  }
+
+  return articles.slice(0, 20);
+}
 
 function extractTag(xml: string, tag: string): string {
   // Handle CDATA sections

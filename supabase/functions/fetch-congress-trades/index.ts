@@ -103,8 +103,26 @@ Deno.serve(async (req) => {
       trades = trades.filter(t => t.chamber.toLowerCase() === c);
     }
     if (politician) {
-      const q = politician.toLowerCase();
-      trades = trades.filter(t => t.politician.toLowerCase().includes(q));
+      const q = politician.toLowerCase().trim();
+      trades = trades.filter(t => {
+        const name = t.politician.toLowerCase();
+        // Exact substring match
+        if (name.includes(q)) return true;
+        // Also try matching last name + first initial for cases like "Pelosi" matching "Nancy Pelosi"
+        const qParts = q.split(/\s+/);
+        const nParts = name.split(/\s+/);
+        // If query is a single word (last name), match it against any part of the politician name
+        if (qParts.length === 1 && qParts[0].length > 2) {
+          return nParts.some(p => p.includes(qParts[0]));
+        }
+        // Multi-word: check if last name of query matches last name of record
+        if (qParts.length >= 2 && nParts.length >= 2) {
+          const qLast = qParts[qParts.length - 1];
+          const nLast = nParts[nParts.length - 1];
+          return qLast === nLast || nLast.includes(qLast) || qLast.includes(nLast);
+        }
+        return false;
+      });
     }
     if (ticker) {
       const q = ticker.toUpperCase();

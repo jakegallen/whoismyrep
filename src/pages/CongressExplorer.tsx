@@ -1,16 +1,16 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building, ExternalLink, Search, Loader2, FileText, Users, ScrollText, Award } from "lucide-react";
+import { Building, Loader2, FileText, Users, ScrollText, Award } from "lucide-react";
 import DashboardHeader from "@/components/DashboardHeader";
 import SiteNav from "@/components/SiteNav";
 import { useCongress, type CongressEndpoint } from "@/hooks/useCongress";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useUrlState, useUrlNumber } from "@/hooks/useUrlState";
+import SEO from "@/components/SEO";
 
 const tabs: { value: CongressEndpoint; label: string; icon: React.ElementType }[] = [
   { value: "bills", label: "Federal Bills", icon: FileText },
-  { value: "members", label: "NV Delegation", icon: Users },
+  { value: "members", label: "Members", icon: Users },
   { value: "committee_reports", label: "Committee Reports", icon: ScrollText },
   { value: "nominations", label: "Nominations", icon: Award },
 ];
@@ -21,19 +21,18 @@ const chamberColors: Record<string, string> = {
 };
 
 const CongressExplorer = () => {
-  const [activeTab, setActiveTab] = useState<CongressEndpoint>("bills");
-  const [searchInput, setSearchInput] = useState("");
-  const [page, setPage] = useState(0);
+  const [activeTab, setActiveTab] = useUrlState("tab", "bills") as [CongressEndpoint, (v: string) => void];
+  const [page, setPage] = useUrlNumber("page", 1);
 
   const { data, isLoading, error } = useCongress(activeTab, {
     congress: 119,
     limit: 20,
-    offset: page * 20,
+    offset: (page - 1) * 20,
   });
 
   const handleTabChange = (tab: CongressEndpoint) => {
     setActiveTab(tab);
-    setPage(0);
+    setPage(1);
   };
 
   const items = data?.items || [];
@@ -41,17 +40,18 @@ const CongressExplorer = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Congress Explorer" path="/congress" description="Explore federal bills, members, committee reports, and nominations from Congress.gov." />
       <SiteNav />
       <DashboardHeader />
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Building className="h-8 w-8 text-primary" />
             <h2 className="font-display text-3xl font-bold text-headline">Congress Explorer</h2>
           </div>
           <p className="font-body text-sm text-tertiary">
-            Federal bills, Nevada's congressional delegation, committee reports, and nominations — powered by Congress.gov
+            Federal bills, congressional members, committee reports, and nominations — powered by Congress.gov
           </p>
         </motion.div>
 
@@ -237,11 +237,11 @@ const CongressExplorer = () => {
 
         {/* Pagination */}
         <div className="mt-8 flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 0} onClick={() => setPage((p) => p - 1)}>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             Previous
           </Button>
-          <span className="font-body text-sm text-muted-foreground">Page {page + 1}</span>
-          <Button variant="outline" size="sm" disabled={!hasMore && items.length < 20} onClick={() => setPage((p) => p + 1)}>
+          <span className="font-body text-sm text-muted-foreground">Page {page}</span>
+          <Button variant="outline" size="sm" disabled={!hasMore && items.length < 20} onClick={() => setPage(page + 1)}>
             Next
           </Button>
         </div>

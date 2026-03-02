@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MapPin, ExternalLink, ChevronRight } from "lucide-react";
+import { MapPin, ChevronRight } from "lucide-react";
 import type { Politician } from "@/lib/politicians";
 import { SocialIcons } from "@/components/SocialIcons";
 
@@ -33,6 +33,7 @@ const PoliticianCard = ({ politician, mentionCount, onClick }: PoliticianCardPro
             alt={politician.name}
             className="h-14 w-14 shrink-0 rounded-full object-cover bg-surface-elevated"
             loading="lazy"
+            decoding="async"
             onError={(e) => {
               // Fallback to initials on image load failure
               const target = e.currentTarget;

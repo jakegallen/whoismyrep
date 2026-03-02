@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Bill {
@@ -17,109 +17,71 @@ export interface Bill {
   latestActionDate?: string;
 }
 
-interface UseBillsResult {
-  bills: Bill[];
-  total: number;
-  isLoading: boolean;
-  error: string | null;
-  refetch: () => void;
+// ── useBills ──
+
+async function fetchBills(params: {
+  search?: string;
+  jurisdiction?: string;
+  level?: string;
+  bioguideId?: string;
+}) {
+  const { data, error } = await supabase.functions.invoke("fetch-bills", {
+    body: params,
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to fetch bills");
+  return { bills: (data.bills || []) as Bill[], total: (data.total || 0) as number };
 }
 
-export function useBills(search?: string, jurisdiction?: string, level?: string, bioguideId?: string): UseBillsResult {
-  const [bills, setBills] = useState<Bill[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function useBills(search?: string, jurisdiction?: string, level?: string, bioguideId?: string) {
+  const query = useQuery({
+    queryKey: ["bills", search, jurisdiction, level, bioguideId],
+    queryFn: () => fetchBills({ search, jurisdiction, level, bioguideId }),
+  });
 
-  const fetchBills = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-bills", {
-        body: { search, jurisdiction, level, bioguideId },
-      });
-
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error || "Failed to fetch bills");
-
-      setBills(data.bills || []);
-      setTotal(data.total || 0);
-    } catch (e) {
-      console.error("Failed to fetch bills:", e);
-      setError(e instanceof Error ? e.message : "Failed to fetch bills");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [search, jurisdiction, level, bioguideId]);
-
-  useEffect(() => {
-    fetchBills();
-  }, [fetchBills]);
-
-  return { bills, total, isLoading, error, refetch: fetchBills };
+  return {
+    bills: query.data?.bills ?? [],
+    total: query.data?.total ?? 0,
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+    refetch: query.refetch,
+  };
 }
 
-interface UseBillDetailResult {
-  summary: string | null;
-  sponsors: string[];
-  status: string;
-  rawContent: string | null;
-  isLoading: boolean;
-  error: string | null;
+// ── useBillDetail (summarize) ──
+
+async function fetchBillSummary(bill: Bill) {
+  const { data, error } = await supabase.functions.invoke("summarize-bill", {
+    body: { billUrl: bill.url, billNumber: bill.billNumber, billTitle: bill.title },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to summarize bill");
+  return {
+    summary: (data.summary as string) || null,
+    sponsors: (data.sponsors as string[]) || [],
+    status: (data.status as string) || "Introduced",
+    rawContent: (data.rawContent as string) || null,
+  };
 }
 
-export function useBillDetail(bill: Bill | null): UseBillDetailResult {
-  const [summary, setSummary] = useState<string | null>(null);
-  const [sponsors, setSponsors] = useState<string[]>([]);
-  const [status, setStatus] = useState("Introduced");
-  const [rawContent, setRawContent] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useBillDetail(bill: Bill | null) {
+  const query = useQuery({
+    queryKey: ["billDetail", bill?.id],
+    queryFn: () => fetchBillSummary(bill!),
+    enabled: !!bill,
+  });
 
-  useEffect(() => {
-    if (!bill) return;
-
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke("summarize-bill", {
-          body: {
-            billUrl: bill.url,
-            billNumber: bill.billNumber,
-            billTitle: bill.title,
-          },
-        });
-
-        if (cancelled) return;
-        if (fnError) throw new Error(fnError.message);
-        if (!data?.success) throw new Error(data?.error || "Failed to summarize bill");
-
-        setSummary(data.summary);
-        if (data.sponsors?.length) setSponsors(data.sponsors);
-        if (data.status) setStatus(data.status);
-        if (data.rawContent) setRawContent(data.rawContent);
-      } catch (e) {
-        if (cancelled) return;
-        console.error("Failed to summarize bill:", e);
-        setError(e instanceof Error ? e.message : "Failed to summarize bill");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [bill]);
-
-  return { summary, sponsors, status, rawContent, isLoading, error };
+  return {
+    summary: query.data?.summary ?? null,
+    sponsors: query.data?.sponsors ?? [],
+    status: query.data?.status ?? "Introduced",
+    rawContent: query.data?.rawContent ?? null,
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+  };
 }
 
-// --- Detailed bill data (roll calls, amendments, versions) from OpenStates ---
+// ── Detailed bill data (roll calls, amendments, versions) from OpenStates ──
 
 export interface RollCallVote {
   id: string;
@@ -175,53 +137,39 @@ export interface BillDetailData {
   abstracts: string[];
 }
 
+async function fetchBillOpenStatesDetail(bill: Bill, jurisdiction?: string): Promise<BillDetailData> {
+  const { data, error } = await supabase.functions.invoke("fetch-bill-detail", {
+    body: {
+      billId: bill.id.startsWith("ocd-bill") ? bill.id : undefined,
+      jurisdiction,
+      session: bill.session,
+      identifier: bill.billNumber,
+    },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to fetch bill detail");
+  return {
+    rollCalls: data.rollCalls || [],
+    actions: data.actions || [],
+    amendments: data.amendments || [],
+    versions: data.versions || [],
+    documents: data.documents || [],
+    sponsors: data.sponsors || [],
+    subject: data.subject || [],
+    abstracts: data.abstracts || [],
+  };
+}
+
 export function useBillOpenStatesDetail(bill: Bill | null, jurisdiction?: string) {
-  const [data, setData] = useState<BillDetailData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["billOpenStatesDetail", bill?.id, jurisdiction],
+    queryFn: () => fetchBillOpenStatesDetail(bill!, jurisdiction),
+    enabled: !!bill,
+  });
 
-  useEffect(() => {
-    if (!bill) return;
-    let cancelled = false;
-    setIsLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        const { data: resp, error: fnError } = await supabase.functions.invoke("fetch-bill-detail", {
-          body: {
-            billId: bill.id.startsWith("ocd-bill") ? bill.id : undefined,
-            jurisdiction,
-            session: bill.session,
-            identifier: bill.billNumber,
-          },
-        });
-
-        if (cancelled) return;
-        if (fnError) throw new Error(fnError.message);
-        if (!resp?.success) throw new Error(resp?.error || "Failed to fetch bill detail");
-
-        setData({
-          rollCalls: resp.rollCalls || [],
-          actions: resp.actions || [],
-          amendments: resp.amendments || [],
-          versions: resp.versions || [],
-          documents: resp.documents || [],
-          sponsors: resp.sponsors || [],
-          subject: resp.subject || [],
-          abstracts: resp.abstracts || [],
-        });
-      } catch (e) {
-        if (cancelled) return;
-        console.error("Failed to fetch bill detail:", e);
-        setError(e instanceof Error ? e.message : "Failed to fetch bill detail");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [bill]);
-
-  return { data, isLoading, error };
+  return {
+    data: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+  };
 }

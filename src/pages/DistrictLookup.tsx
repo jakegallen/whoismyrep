@@ -21,12 +21,12 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SocialIcons } from "@/components/SocialIcons";
-import { useCivicReps, type CivicRep, type CivicGroup, type PollingLocation, type Contest, type VoterInfo, type ElectionInfo } from "@/hooks/useCivicReps";
+import { useCivicReps, type CivicRep, type PollingLocation, type Contest } from "@/hooks/useCivicReps";
+import SEO from "@/components/SEO";
 
 const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
@@ -83,6 +83,7 @@ const DistrictLookup = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Find Your District" path="/district-lookup" description="Enter your address to find your congressional, state, and local representatives." />
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto flex items-center gap-4 px-4 py-3">
@@ -100,7 +101,7 @@ const DistrictLookup = () => {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-3xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-3xl px-4 py-8">
         {/* Hero */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}

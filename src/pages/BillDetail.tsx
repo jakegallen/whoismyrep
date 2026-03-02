@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -30,6 +30,8 @@ import {
   type BillAction,
 } from "@/hooks/useBills";
 import ReactMarkdown from "react-markdown";
+import { trackEvent } from "@/lib/analytics";
+import SEO from "@/components/SEO";
 
 const BillDetail = () => {
   const { id, "*": rest } = useParams();
@@ -56,10 +58,31 @@ const BillDetail = () => {
     );
   }
 
+  // Plausible analytics: track bill detail view
+  useEffect(() => {
+    if (bill) {
+      trackEvent("View Bill", { id: bill.billNumber || fullId || "unknown" });
+    }
+  }, [bill, fullId]);
+
   const ChamberIcon = bill.chamber === "Senate" ? Landmark : Building2;
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={bill ? `${bill.billNumber || fullId} — ${bill.title?.slice(0, 60) || "Bill Details"}` : "Bill Details"}
+        description={bill ? `Track ${bill.billNumber || fullId}: ${bill.title?.slice(0, 120) || "Legislative bill details, sponsors, and voting history."}` : "View bill details, sponsors, votes, and legislative history."}
+        path={`/bills/${fullId}`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Legislation",
+          name: bill.title || fullId,
+          legislationIdentifier: bill.billNumber || fullId,
+          ...(bill.chamber && { legislationPassedBy: { "@type": "Organization", name: bill.chamber } }),
+          ...(bill.status && { legislationStatus: bill.status }),
+          ...(bill.abstract && { description: bill.abstract }),
+        }}
+      />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
           <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -103,7 +126,7 @@ const BillDetail = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Main content area */}
           <div className="lg:col-span-2">
@@ -228,7 +251,6 @@ const BillDetail = () => {
             <SponsorsSection
               detailSponsors={detail?.sponsors || []}
               fallbackSponsors={sponsors.length > 0 ? sponsors : bill.sponsors}
-              isLoading={detailLoading}
             />
           </div>
         </div>
@@ -566,10 +588,9 @@ function BillTextSection({ versions, documents, isLoading, error }: {
 }
 
 // --- Sponsors Section ---
-function SponsorsSection({ detailSponsors, fallbackSponsors, isLoading }: {
+function SponsorsSection({ detailSponsors, fallbackSponsors }: {
   detailSponsors: { name: string; classification: string; primary: boolean }[];
   fallbackSponsors: string[];
-  isLoading: boolean;
 }) {
   const hasDetail = detailSponsors.length > 0;
   const primarySponsors = detailSponsors.filter((s) => s.primary);

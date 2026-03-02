@@ -1,73 +1,128 @@
+import { lazy, Suspense, type ReactNode } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import HomePage from "./pages/HomePage";
-import Index from "./pages/Index";
-import ArticleDetail from "./pages/ArticleDetail";
-import Politicians from "./pages/Politicians";
-import PoliticianDetail from "./pages/PoliticianDetail";
-import Bills from "./pages/Bills";
-import BillDetail from "./pages/BillDetail";
-import DistrictLookup from "./pages/DistrictLookup";
-import Midterms from "./pages/Midterms";
-import Auth from "./pages/Auth";
-import Alerts from "./pages/Alerts";
-import Committees from "./pages/Committees";
-import CampaignFinanceExplorer from "./pages/CampaignFinanceExplorer";
-import LegislativeCalendar from "./pages/LegislativeCalendar";
-import DistrictMap from "./pages/DistrictMap";
-import FederalRegister from "./pages/FederalRegister";
-import CourtCases from "./pages/CourtCases";
-import LobbyingExplorer from "./pages/LobbyingExplorer";
-import NotFound from "./pages/NotFound";
-import StatePage from "./pages/StatePage";
-import CongressionalStockTracker from "./pages/CongressionalStockTracker";
-import CongressExplorer from "./pages/CongressExplorer";
-import UnifiedSearch from "./pages/UnifiedSearch";
-import RepResults from "./pages/RepResults";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { usePageView } from "@/hooks/usePageView";
+import { useFocusOnNavigate } from "@/hooks/useFocusOnNavigate";
+import SkipToContent from "@/components/SkipToContent";
+import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+/* ── Eagerly loaded (above the fold) ── */
+import HomePage from "./pages/HomePage";
+import NotFound from "./pages/NotFound";
+
+/* ── Lazily loaded (secondary pages) ── */
+const Index = lazy(() => import("./pages/Index"));
+const ArticleDetail = lazy(() => import("./pages/ArticleDetail"));
+const Politicians = lazy(() => import("./pages/Politicians"));
+const PoliticianDetail = lazy(() => import("./pages/PoliticianDetail"));
+const Bills = lazy(() => import("./pages/Bills"));
+const BillDetail = lazy(() => import("./pages/BillDetail"));
+const DistrictLookup = lazy(() => import("./pages/DistrictLookup"));
+const Midterms = lazy(() => import("./pages/Midterms"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const Committees = lazy(() => import("./pages/Committees"));
+const CampaignFinanceExplorer = lazy(() => import("./pages/CampaignFinanceExplorer"));
+const LegislativeCalendar = lazy(() => import("./pages/LegislativeCalendar"));
+const DistrictMap = lazy(() => import("./pages/DistrictMap"));
+const FederalRegister = lazy(() => import("./pages/FederalRegister"));
+const CourtCases = lazy(() => import("./pages/CourtCases"));
+const LobbyingExplorer = lazy(() => import("./pages/LobbyingExplorer"));
+const StatePage = lazy(() => import("./pages/StatePage"));
+const CongressionalStockTracker = lazy(() => import("./pages/CongressionalStockTracker"));
+const CongressExplorer = lazy(() => import("./pages/CongressExplorer"));
+const UnifiedSearch = lazy(() => import("./pages/UnifiedSearch"));
+const RepResults = lazy(() => import("./pages/RepResults"));
+const SavedReps = lazy(() => import("./pages/SavedReps"));
+
+/* ── Full-page loading spinner for Suspense ── */
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
+/** Fires Plausible page-views and manages focus on SPA route changes (must be inside Router). */
+function RouteEffects() {
+  usePageView();
+  useFocusOnNavigate();
+  return null;
+}
+
+/** Wrap a page element with a route-level error boundary. */
+function withBoundary(element: ReactNode, pageName: string) {
+  return <RouteErrorBoundary pageName={pageName}>{element}</RouteErrorBoundary>;
+}
+
+/* ── React Query defaults: stale 5 min, retry once ── */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/news" element={<Index />} />
-            <Route path="/article/:id" element={<ArticleDetail />} />
-            <Route path="/politicians" element={<Politicians />} />
-            <Route path="/politicians/:id" element={<PoliticianDetail />} />
-            <Route path="/bills" element={<Bills />} />
-            <Route path="/bills/:id/*" element={<BillDetail />} />
-            <Route path="/district-lookup" element={<DistrictLookup />} />
-            <Route path="/midterms" element={<Midterms />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/committees" element={<Committees />} />
-            <Route path="/campaign-finance" element={<CampaignFinanceExplorer />} />
-            <Route path="/calendar" element={<LegislativeCalendar />} />
-            <Route path="/district-map" element={<DistrictMap />} />
-            <Route path="/federal-register" element={<FederalRegister />} />
-            <Route path="/court-cases" element={<CourtCases />} />
-            <Route path="/lobbying" element={<LobbyingExplorer />} />
-            <Route path="/congress-trades" element={<CongressionalStockTracker />} />
-            <Route path="/congress" element={<CongressExplorer />} />
-            <Route path="/search" element={<UnifiedSearch />} />
-            <Route path="/state/:abbr" element={<StatePage />} />
-            <Route path="/reps" element={<RepResults />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
+  <HelmetProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <ErrorBoundary fallbackTitle="Application Error">
+            <AuthProvider>
+              <BrowserRouter>
+                <SkipToContent />
+                <RouteEffects />
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                  <Route path="/" element={withBoundary(<HomePage />, "Home")} />
+                  <Route path="/news" element={withBoundary(<Index />, "News")} />
+                  <Route path="/article/:id" element={withBoundary(<ArticleDetail />, "Article")} />
+                  <Route path="/politicians" element={withBoundary(<Politicians />, "Politicians")} />
+                  <Route path="/politicians/:id" element={withBoundary(<PoliticianDetail />, "Politician Detail")} />
+                  <Route path="/bills" element={withBoundary(<Bills />, "Bills")} />
+                  <Route path="/bills/:id/*" element={withBoundary(<BillDetail />, "Bill Detail")} />
+                  <Route path="/district-lookup" element={withBoundary(<DistrictLookup />, "District Lookup")} />
+                  <Route path="/midterms" element={withBoundary(<Midterms />, "Elections")} />
+                  <Route path="/auth" element={withBoundary(<Auth />, "Authentication")} />
+                  <Route path="/alerts" element={withBoundary(<Alerts />, "Alerts")} />
+                  <Route path="/committees" element={withBoundary(<Committees />, "Committees")} />
+                  <Route path="/campaign-finance" element={withBoundary(<CampaignFinanceExplorer />, "Campaign Finance")} />
+                  <Route path="/calendar" element={withBoundary(<LegislativeCalendar />, "Calendar")} />
+                  <Route path="/district-map" element={withBoundary(<DistrictMap />, "District Map")} />
+                  <Route path="/federal-register" element={withBoundary(<FederalRegister />, "Federal Register")} />
+                  <Route path="/court-cases" element={withBoundary(<CourtCases />, "Court Cases")} />
+                  <Route path="/lobbying" element={withBoundary(<LobbyingExplorer />, "Lobbying")} />
+                  <Route path="/congress-trades" element={withBoundary(<CongressionalStockTracker />, "Stock Tracker")} />
+                  <Route path="/congress" element={withBoundary(<CongressExplorer />, "Congress")} />
+                  <Route path="/search" element={withBoundary(<UnifiedSearch />, "Search")} />
+                  <Route path="/state/:abbr" element={withBoundary(<StatePage />, "State")} />
+                  <Route path="/reps" element={withBoundary(<RepResults />, "Representatives")} />
+                  <Route path="/saved" element={withBoundary(<SavedReps />, "Saved Reps")} />
+                  <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </AuthProvider>
+          </ErrorBoundary>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  </HelmetProvider>
 );
 
 export default App;

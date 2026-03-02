@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 // --- Types ---
 
@@ -343,6 +338,7 @@ async function fetchFederalDelegation(stateAbbr: string): Promise<RepResult[]> {
           ? `https://unitedstates.github.io/images/congress/225x275/${bioguide}.jpg`
           : undefined,
         socialHandles: Object.keys(socials).length > 0 ? socials : undefined,
+        bioguideId: bioguide || undefined,
         divisionId: isSenator
           ? `ocd-division/country:us/state:${st.toLowerCase()}`
           : `ocd-division/country:us/state:${st.toLowerCase()}/cd:${term.district}`,
@@ -558,9 +554,8 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
 // --- Main handler ---
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const { address, stateAbbr: rawStateAbbr } = await req.json();
@@ -573,14 +568,14 @@ serve(async (req) => {
       const clean = federalReps.map(({ _district, _state, ...rest }: any) => rest);
       return new Response(
         JSON.stringify({ success: true, representatives: clean }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: withCache({ ...getCorsHeaders(req), "Content-Type": "application/json" }) }
       );
     }
 
     if (!address || typeof address !== "string") {
       return new Response(
         JSON.stringify({ success: false, error: "Address or stateAbbr is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -589,7 +584,7 @@ serve(async (req) => {
     if (!geo) {
       return new Response(
         JSON.stringify({ success: false, error: "Could not find that address. Please enter a valid U.S. address." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
       );
     }
     console.log(`Geocoded to ${geo.lat}, ${geo.lng}, state: ${geo.stateAbbr}`);
@@ -657,13 +652,13 @@ serve(async (req) => {
         elections,
         voterInfo,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: withCache({ ...getCorsHeaders(req), "Content-Type": "application/json" }) }
     );
   } catch (e) {
     console.error("fetch-civic-reps error:", e);
     return new Response(
       JSON.stringify({ success: false, error: e.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

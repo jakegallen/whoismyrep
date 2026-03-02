@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { motion } from "framer-motion";
 import {
   TrendingUp,
@@ -9,13 +10,13 @@ import {
   DollarSign,
   BarChart3,
   Users,
-  Filter,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import { Input } from "@/components/ui/input";
 import { useCongressTrades, type CongressTrade } from "@/hooks/useCongressTrades";
+import SEO from "@/components/SEO";
 
 type Chamber = "" | "house" | "senate";
 type TradeType = "" | "purchase" | "sale";
@@ -42,9 +43,10 @@ export default function CongressionalStockTracker() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Congressional Stock Trades" path="/congress-trades" description="Monitor stock trades and financial disclosures by members of Congress." />
       <SiteNav />
 
-      <main className="container mx-auto max-w-6xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-6xl px-4 py-8">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           {/* Header */}
           <div className="mb-8">
@@ -292,7 +294,10 @@ function TradeCard({ trade }: { trade: CongressTrade }) {
         : "text-muted-foreground";
 
   return (
-    <div className="group rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-hover">
+    <div
+      className="group rounded-xl border border-border bg-card p-4 transition-colors hover:bg-surface-hover cursor-pointer"
+      onClick={() => trackEvent("Click Trade", { politician: trade.politician, ticker: trade.ticker || "N/A", type: trade.type || "Unknown" })}
+    >
       <div className="flex items-start gap-4">
         {/* Trade type indicator */}
         <div

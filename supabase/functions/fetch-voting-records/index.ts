@@ -155,10 +155,11 @@ Deno.serve(async (req) => {
           const yesCount = v.total_plus || 0;
           const noCount = v.total_minus || 0;
 
-          // Party-line heuristic: voted with the overall majority
+          // Majority-alignment heuristic: did this member vote with the chamber majority?
           if (vote === 'Yes' || vote === 'No') {
             totalPartyVotes++;
-            if ((vote === 'Yes' && yesCount >= noCount) || (vote === 'No' && noCount > yesCount)) {
+            const majorityVoted = yesCount > noCount ? 'Yes' : (noCount > yesCount ? 'No' : null);
+            if (majorityVoted && vote === majorityVoted) {
               partyLineVotes++;
             }
           }
@@ -347,6 +348,38 @@ Deno.serve(async (req) => {
       console.log(`Session ${session}: ${sessionBills.length} bills, ${billsWithVotes.length} with votes`);
     }
 
+    // If no votes found in general bill search, try bills sponsored by this legislator
+    if (bills.length === 0 || bills.every((b: any) => (b.votes || []).length === 0)) {
+      console.log('No votes in general bills — trying legislator-sponsored bills');
+      for (const session of sessionIds) {
+        const sponsorUrl = new URL('https://v3.openstates.org/bills');
+        sponsorUrl.searchParams.set('jurisdiction', ocdJurisdictionId);
+        sponsorUrl.searchParams.set('session', session);
+        sponsorUrl.searchParams.set('sponsor', legislatorId);
+        sponsorUrl.searchParams.set('include', 'votes');
+        sponsorUrl.searchParams.set('per_page', '50');
+        sponsorUrl.searchParams.set('sort', 'updated_desc');
+
+        try {
+          const sResp = await fetch(sponsorUrl.toString(), { headers: { 'X-API-KEY': apiKey } });
+          if (sResp.ok) {
+            const sData = await sResp.json();
+            const sBills = sData.results || [];
+            const withVotes = sBills.filter((b: any) => (b.votes || []).length > 0);
+            if (withVotes.length > 0) {
+              bills = sBills;
+              usedSession = session;
+              totalItems = sData.pagination?.total_items || sBills.length;
+              console.log(`Sponsor search: found ${withVotes.length} bills with votes in session ${session}`);
+              break;
+            }
+          }
+        } catch (e) {
+          console.log(`Sponsor search error for session ${session}:`, e);
+        }
+      }
+    }
+
     console.log(`Using session: ${usedSession || 'none'}, got ${bills.length} bills`);
 
     // Step 3: Process votes to find this legislator's votes
@@ -374,12 +407,31 @@ Deno.serve(async (req) => {
         // Check individual votes for this legislator
         const personVotes = voteEvent.votes || [];
         const legislatorVote = personVotes.find((v: any) => {
-          // Match by voter name (OpenStates returns voter_name)
-          const voterName = (v.voter_name || '').toLowerCase();
-          const searchName = legislatorName.toLowerCase();
-          // Try matching last name
-          const lastName = searchName.split(' ').pop() || '';
-          return voterName.includes(lastName) || voterName === searchName;
+          // 1. Match by OpenStates voter ID (most reliable)
+          if (v.voter_id && legislatorId && v.voter_id === legislatorId) return true;
+          // Also match partial ID (OpenStates sometimes uses short IDs in votes)
+          if (v.voter_id && legislatorId) {
+            const shortId = legislatorId.split('/').pop() || '';
+            if (shortId && v.voter_id.includes(shortId)) return true;
+          }
+          // 2. Match by full name
+          const voterName = (v.voter_name || '').toLowerCase().trim();
+          const fullName = legislatorName.toLowerCase().trim();
+          if (voterName === fullName) return true;
+          // Also match "First Last" against "Last, First" format
+          const legislatorDisplayName = (legislator.name || '').toLowerCase().trim();
+          if (voterName === legislatorDisplayName) return true;
+          // 3. Match by last name + first initial (avoid false positives on common names)
+          const nameParts = fullName.split(/\s+/);
+          const lastName = nameParts[nameParts.length - 1] || '';
+          const firstName = nameParts[0] || '';
+          if (lastName.length > 2 && voterName.includes(lastName)) {
+            // Verify with first letter of first name to reduce false positives
+            if (firstName && voterName.includes(firstName.charAt(0))) return true;
+            // If last name is uncommon (>5 chars), accept last-name-only match
+            if (lastName.length > 5) return true;
+          }
+          return false;
         });
 
         if (legislatorVote) {
@@ -408,11 +460,11 @@ Deno.serve(async (req) => {
           // If Democrats mostly voted yes, a Democrat voting yes is party-line
           const yesVoters = personVotes.filter((v: any) => v.option === 'yes');
           const noVoters = personVotes.filter((v: any) => v.option === 'no');
-          // Simple heuristic: if majority voted the same as this legislator
+          // Majority-alignment heuristic: did this member vote with the chamber majority?
           if (vote === 'Yes' || vote === 'No') {
             totalPartyVotes++;
-            const majorityVoted = yesCount > noCount ? 'Yes' : 'No';
-            if (vote === majorityVoted) {
+            const majorityVoted = yesCount > noCount ? 'Yes' : (noCount > yesCount ? 'No' : null);
+            if (majorityVoted && vote === majorityVoted) {
               partyLineVotes++;
             }
           }

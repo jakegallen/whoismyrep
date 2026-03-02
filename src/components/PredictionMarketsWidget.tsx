@@ -1,6 +1,6 @@
 import { ExternalLink, TrendingUp, Loader2 } from "lucide-react";
-import { usePolymarket, type PolymarketMarket } from "@/hooks/usePolymarket";
-import { useKalshi, type KalshiMarket } from "@/hooks/useKalshi";
+import { usePolymarket } from "@/hooks/usePolymarket";
+import { useKalshi } from "@/hooks/useKalshi";
 
 interface UnifiedMarket {
   id: string;

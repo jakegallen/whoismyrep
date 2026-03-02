@@ -4,6 +4,13 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    css: false,
+  },
   server: {
     host: "::",
     port: 8080,
@@ -15,6 +22,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-ui": ["framer-motion", "recharts", "lucide-react"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+        },
+      },
     },
   },
 });

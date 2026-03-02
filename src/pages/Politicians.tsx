@@ -1,19 +1,21 @@
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import SiteNav from "@/components/SiteNav";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, Building2, Landmark, MapPin, Search, X, ArrowUpDown, Loader2, AlertCircle, RefreshCw, Globe } from "lucide-react";
+import { ArrowLeft, Users, Building2, Landmark, MapPin, Search, X, ArrowUpDown, AlertCircle, RefreshCw, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SocialIcons } from "@/components/SocialIcons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
+import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useCongress, type CongressMember } from "@/hooks/useCongress";
+import { useUrlState, useUrlNumber } from "@/hooks/useUrlState";
+import SEO from "@/components/SEO";
 
 const PAGE_SIZE = 12;
 
@@ -22,14 +24,15 @@ type Level = "state" | "federal";
 const Politicians = () => {
   useEffect(() => { document.title = "Politicians | WhoIsMyRep.us"; }, []);
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [selectedState, setSelectedState] = useState("US");
-  const [search, setSearch] = useState(() => searchParams.get("q") || "");
-  const [level, setLevel] = useState<Level>(() => (searchParams.get("level") === "state" ? "state" : "federal"));
-  const [chamberFilter, setChamberFilter] = useState<"all" | "Senate" | "Assembly">("all");
-  const [federalChamberFilter, setFederalChamberFilter] = useState<"all" | "Senate" | "House">("all");
-  const [sortBy, setSortBy] = useState<"default" | "name" | "party">("default");
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // All filter state lives in the URL
+  const [search, setSearch] = useUrlState("q");
+  const [level, setLevel] = useUrlState("level", "federal") as [Level, (v: string) => void];
+  const [selectedState, setSelectedState] = useUrlState("state", "US");
+  const [chamberFilter, setChamberFilter] = useUrlState("chamber", "all") as ["all" | "Senate" | "Assembly", (v: string) => void];
+  const [federalChamberFilter, setFederalChamberFilter] = useUrlState("fchamber", "all") as ["all" | "Senate" | "House", (v: string) => void];
+  const [sortBy, setSortBy] = useUrlState("sort", "default") as ["default" | "name" | "party", (v: string) => void];
+  const [currentPage, setCurrentPage] = useUrlNumber("page", 1);
 
   const isUSWide = selectedState === "US";
   const jurisdiction = isUSWide ? "" : (US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada");
@@ -154,7 +157,7 @@ const Politicians = () => {
   useEffect(() => { if (isUSWide) setLevel("federal"); }, [isUSWide]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [search, level, chamberFilter, federalChamberFilter, sortBy, selectedState]);
+  useEffect(() => { setCurrentPage(1); }, [search, level, chamberFilter, federalChamberFilter, sortBy, selectedState, setCurrentPage]);
 
   const activeList = level === "state" ? filteredState : filteredFederal;
   const totalPages = Math.max(1, Math.ceil(activeList.length / PAGE_SIZE));
@@ -169,6 +172,7 @@ const Politicians = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Officials Directory" path="/politicians" description="Browse federal and state elected officials. Search by name, party, state, and chamber." />
       <SiteNav />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
@@ -258,7 +262,7 @@ const Politicians = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         {/* Chamber filter tabs */}
         <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
           {level === "state" ? (

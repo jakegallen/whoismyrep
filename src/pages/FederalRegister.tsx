@@ -7,6 +7,8 @@ import { useFederalRegister, type FederalDocType } from "@/hooks/useFederalRegis
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useUrlState, useUrlNumber } from "@/hooks/useUrlState";
+import SEO from "@/components/SEO";
 
 const docTypes: { value: FederalDocType; label: string; icon: React.ElementType }[] = [
   { value: "all", label: "All", icon: FileText },
@@ -24,10 +26,10 @@ const typeColors: Record<string, string> = {
 };
 
 const FederalRegister = () => {
-  const [activeType, setActiveType] = useState<FederalDocType>("all");
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [activeType, setActiveType] = useUrlState("type", "all") as [FederalDocType, (v: string) => void];
+  const [search, setSearch] = useUrlState("q");
+  const [searchInput, setSearchInput] = useState(search);
+  const [page, setPage] = useUrlNumber("page", 1);
 
   const { data, isLoading, error } = useFederalRegister(activeType, search || undefined, page);
 
@@ -44,14 +46,15 @@ const FederalRegister = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Federal Register" path="/federal-register" description="Search executive orders, final rules, proposed rules, and federal notices." />
       <SiteNav />
       <DashboardHeader />
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h2 className="font-display text-3xl font-bold text-headline mb-2">Federal Register</h2>
           <p className="font-body text-sm text-tertiary">
-            Executive orders, regulations, and federal notices affecting Nevada
+            Executive orders, regulations, and federal notices
           </p>
         </motion.div>
 
@@ -82,7 +85,7 @@ const FederalRegister = () => {
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search Nevada regulations..."
+            placeholder="Search regulations..."
             className="font-body text-sm"
           />
           <Button type="submit" size="sm" className="gap-1.5">
@@ -186,18 +189,18 @@ const FederalRegister = () => {
               variant="outline"
               size="sm"
               disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
+              onClick={() => setPage(page - 1)}
             >
               Previous
             </Button>
             <span className="font-body text-sm text-muted-foreground">
-              Page {data.page} of {data.totalPages}
+              Page {page} of {data.totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               disabled={page >= data.totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => setPage(page + 1)}
             >
               Next
             </Button>

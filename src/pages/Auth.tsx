@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import SEO from "@/components/SEO";
 import { useEffect } from "react";
 
 const Auth = () => {
@@ -58,6 +59,8 @@ const Auth = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <SEO title="Sign In" path="/auth" description="Create an account or sign in to save alerts and track congressional activity." />
+      <main id="main-content">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -134,6 +137,7 @@ const Auth = () => {
           </button>
         </p>
       </motion.div>
+      </main>
     </div>
   );
 };

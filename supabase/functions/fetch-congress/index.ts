@@ -1,21 +1,17 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 const BASE_URL = 'https://api.congress.gov/v3';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const apiKey = Deno.env.get('CONGRESS_API_KEY');
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'Congress.gov API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -35,7 +31,7 @@ Deno.serve(async (req) => {
       if (!r1.ok || !r2.ok) {
         return new Response(
           JSON.stringify({ success: false, error: `Congress.gov API error: ${!r1.ok ? r1.status : r2.status}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
@@ -72,7 +68,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, items: curated.map(toItem), pagination: { count: curated.length } }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
       );
     }
 
@@ -139,7 +135,7 @@ Deno.serve(async (req) => {
       console.error(`Congress.gov API error: ${resp.status} ${errText}`);
       return new Response(
         JSON.stringify({ success: false, error: `Congress.gov API error: ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -251,13 +247,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
     );
   } catch (error) {
     console.error('Error fetching Congress.gov:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch data' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

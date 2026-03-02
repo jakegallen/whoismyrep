@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ExternalLink, Zap, ChevronRight } from "lucide-react";
+import { Zap, ChevronRight } from "lucide-react";
 import type { NewsItem } from "@/lib/mockNews";
 import CategoryBadge from "./CategoryBadge";
 

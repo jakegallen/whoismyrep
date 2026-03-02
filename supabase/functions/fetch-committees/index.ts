@@ -24,12 +24,116 @@ function parseCommittees(results: any[], chamberLabel: string) {
   });
 }
 
+// Cache for @unitedstates committee data (refreshed every 24h)
+let federalCommitteeCache: { data: any; membership: any; fetchedAt: number } | null = null;
+const FEDERAL_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+async function fetchFederalCommittees(bioguideId: string, legislatorName: string) {
+  const now = Date.now();
+  if (!federalCommitteeCache || now - federalCommitteeCache.fetchedAt > FEDERAL_CACHE_TTL) {
+    const [committeesResp, membershipResp] = await Promise.all([
+      fetch('https://unitedstates.github.io/congress-legislators/committees-current.json'),
+      fetch('https://unitedstates.github.io/congress-legislators/committee-membership-current.json'),
+    ]);
+    if (!committeesResp.ok || !membershipResp.ok) {
+      throw new Error('Failed to fetch federal committee data');
+    }
+    federalCommitteeCache = {
+      data: await committeesResp.json(),
+      membership: await membershipResp.json(),
+      fetchedAt: now,
+    };
+  }
+
+  const { data: allCommittees, membership } = federalCommitteeCache;
+
+  // Build a lookup: committee thomas_id → committee info
+  const committeeLookup: Record<string, any> = {};
+  for (const c of allCommittees) {
+    committeeLookup[c.thomas_id] = c;
+    // Subcommittees
+    for (const sub of c.subcommittees || []) {
+      committeeLookup[`${c.thomas_id}${sub.thomas_id}`] = {
+        ...sub,
+        name: `${sub.name} (Subcommittee of ${c.name})`,
+        type: c.type,
+        parentName: c.name,
+      };
+    }
+  }
+
+  // Find all committees this member serves on
+  const legislatorCommittees: string[] = [];
+  const committees: any[] = [];
+
+  for (const [committeeCode, members] of Object.entries(membership)) {
+    const memberList = members as any[];
+    const isMember = memberList.some(
+      (m: any) => m.bioguide === bioguideId
+    );
+    if (!isMember) continue;
+
+    const info = committeeLookup[committeeCode];
+    if (!info) continue;
+
+    const memberEntry = memberList.find((m: any) => m.bioguide === bioguideId);
+    const chamberLabel = info.type === 'senate' ? 'Senate' : info.type === 'house' ? 'House' : 'Joint';
+
+    const parsedMembers = memberList.map((m: any) => ({
+      name: m.name || '',
+      role: m.title || (m.rank === 1 ? 'Chair' : 'Member'),
+    }));
+
+    committees.push({
+      id: committeeCode,
+      name: info.name,
+      chamber: chamberLabel,
+      memberCount: memberList.length,
+      members: parsedMembers,
+    });
+
+    legislatorCommittees.push(info.name);
+  }
+
+  committees.sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+  console.log(`Federal committees: ${legislatorCommittees.length} for ${legislatorName} (bioguide=${bioguideId})`);
+  return { committees, legislatorCommittees };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const { chamber, legislatorName, jurisdiction = 'Nevada', stateAbbr = 'nv', level, bioguideId } = await req.json().catch(() => ({}));
+    console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}, jurisdiction=${jurisdiction}, level=${level}, bioguideId=${bioguideId}`);
+
+    // Federal path: use @unitedstates data
+    if (level === 'federal' && bioguideId) {
+      try {
+        const { committees, legislatorCommittees } = await fetchFederalCommittees(bioguideId, legislatorName || '');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            committees,
+            legislatorCommittees,
+            recentBills: [],
+            session: '119th Congress',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (e) {
+        console.error('Federal committee fetch error:', e);
+        return new Response(
+          JSON.stringify({ success: false, error: e instanceof Error ? e.message : 'Failed to fetch federal committees' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // State path: use OpenStates
     const apiKey = Deno.env.get('OPENSTATES_API_KEY');
     if (!apiKey) {
       return new Response(
@@ -37,9 +141,6 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const { chamber, legislatorName, jurisdiction = 'Nevada', stateAbbr = 'nv' } = await req.json().catch(() => ({}));
-    console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}, jurisdiction=${jurisdiction}`);
 
     const headers = { 'X-API-KEY': apiKey };
     const ocdJurisdiction = stateAbbr === 'dc'

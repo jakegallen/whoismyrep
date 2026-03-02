@@ -15,6 +15,7 @@ export interface FederalRep {
     facebook?: string;
     instagram?: string;
   };
+  bioguideId?: string;
   divisionId?: string;
 }
 

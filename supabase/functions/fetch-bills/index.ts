@@ -1,7 +1,4 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 /** Map state name → 2-letter abbreviation for building OCD jurisdiction IDs */
 function jurisdictionToAbbr(jurisdiction: string): string {
@@ -22,9 +19,8 @@ function jurisdictionToAbbr(jurisdiction: string): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const { session, search, page = 1, per_page = 50, jurisdiction, level, bioguideId } = await req.json().catch(() => ({}));
@@ -35,7 +31,7 @@ Deno.serve(async (req) => {
       if (!congressApiKey) {
         return new Response(
           JSON.stringify({ success: false, error: 'Congress API key not configured' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
 
@@ -55,7 +51,7 @@ Deno.serve(async (req) => {
           : `Congress.gov API error: ${resp.status}`;
         return new Response(
           JSON.stringify({ success: false, error }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
 
@@ -105,7 +101,7 @@ Deno.serve(async (req) => {
       console.log(`Congress.gov: ${bills.length} sponsored bills for ${bioguideId} (total=${total})`);
       return new Response(
         JSON.stringify({ success: true, bills, total, page, maxPage: Math.ceil(total / per_page) || 1, session: '' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
       );
     }
 
@@ -113,7 +109,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -190,7 +186,7 @@ Deno.serve(async (req) => {
         : `OpenStates API error: ${resp.status}`;
       return new Response(
         JSON.stringify({ success: false, error }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -244,13 +240,13 @@ Deno.serve(async (req) => {
         maxPage: data.pagination?.max_page || 1,
         session: session || '',
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
     );
   } catch (error) {
     console.error('Error fetching bills:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch bills' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

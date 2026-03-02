@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { trackEvent } from "@/lib/analytics";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import SiteNav from "@/components/SiteNav";
 import { useCivicReps } from "@/hooks/useCivicReps";
 import { US_STATES } from "@/lib/usStates";
+import SEO from "@/components/SEO";
 
 const EXAMPLE_ADDRESSES = [
   "3799 S Las Vegas Blvd, Las Vegas, NV",
@@ -71,20 +73,19 @@ const HomePage = () => {
 
   const handleSearch = async () => {
     if (!address.trim()) return;
+    trackEvent("Search", { method: "address" });
     const result = await lookup(address.trim());
     if (result) {
       navigate("/reps", { state: result });
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSearch();
-  };
-
   return (
     <div className="min-h-screen bg-background">
+      <SEO path="/" raw title="WhoIsMyRep.us — Find Your U.S. Representatives" description="Find your representatives instantly — federal, state, and local. Search any U.S. address to see voting records, campaign finance, legislation, and more." />
       <SiteNav />
 
+      <main id="main-content">
       {/* ═══════ HERO ═══════ */}
       <section className="relative overflow-hidden">
         {/* Background glow effects */}
@@ -217,6 +218,7 @@ const HomePage = () => {
                       value={nameQuery}
                       onChange={setNameQuery}
                       onSelect={(suggestion) => {
+                        trackEvent("Search", { method: "name", politician: suggestion.name });
                         const repId = suggestion.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                         const bioguideId = suggestion.id.replace("congress-", "");
                         const socialHandles = (socialLookup && bioguideId)
@@ -282,6 +284,7 @@ const HomePage = () => {
                         setSelectedStateAbbr(null);
                       }}
                       onSelect={(state) => {
+                        trackEvent("Search", { method: "state", state: state.abbr });
                         setSelectedStateAbbr(state.abbr);
                         navigate(`/state/${state.abbr.toLowerCase()}`);
                       }}
@@ -345,6 +348,8 @@ const HomePage = () => {
           </div>
         </div>
       )}
+
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-border py-6">

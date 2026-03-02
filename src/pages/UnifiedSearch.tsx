@@ -25,6 +25,7 @@ import {
   type SearchSource,
   type SearchResult,
 } from "@/hooks/useUnifiedSearch";
+import SEO from "@/components/SEO";
 
 const sourceConfig: Record<SearchSource, { icon: typeof FileText; color: string }> = {
   bills: { icon: FileText, color: "bg-blue-500/20 text-blue-400" },
@@ -87,6 +88,7 @@ const UnifiedSearch = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Search" path="/search" description="Search bills, news, court cases, lobbying, federal regulations, and more in one place." />
       <SiteNav />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
@@ -145,7 +147,7 @@ const UnifiedSearch = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         {/* Source filter chips */}
         {data && (
           <div className="mb-6 flex flex-wrap items-center gap-2">

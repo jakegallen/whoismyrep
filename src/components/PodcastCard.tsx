@@ -31,6 +31,7 @@ const PodcastCard = ({ episode, index }: { episode: PodcastEpisode; index: numbe
             alt={episode.podcastName}
             className="h-16 w-16 flex-shrink-0 rounded-lg object-cover"
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">

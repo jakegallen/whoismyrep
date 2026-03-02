@@ -1,12 +1,8 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const { type = 'all', search, page = 1, per_page = 20 } = await req.json().catch(() => ({}));
@@ -29,8 +25,8 @@ Deno.serve(async (req) => {
       params.append('conditions[type][]', 'NOTICE');
     }
 
-    // Always filter for Nevada-related content
-    const searchTerms = ['Nevada', search].filter(Boolean).join(' ');
+    // Use user-provided search terms (no state-specific default)
+    const searchTerms = search || '';
     if (searchTerms) {
       params.set('conditions[term]', searchTerms);
     }
@@ -47,7 +43,7 @@ Deno.serve(async (req) => {
       console.error(`Federal Register API error: ${resp.status} ${errText}`);
       return new Response(
         JSON.stringify({ success: false, error: `Federal Register API error: ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -90,13 +86,13 @@ Deno.serve(async (req) => {
         page: page,
         totalPages: Math.ceil((data.count || 1) / per_page),
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
     );
   } catch (error) {
     console.error('Error fetching Federal Register:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch documents' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

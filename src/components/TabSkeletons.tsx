@@ -75,6 +75,116 @@ export function AnalysisSkeleton() {
   );
 }
 
+/** Campaign finance skeleton — stat cards + chart area */
+export function CampaignFinanceSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-5 w-5 rounded" />
+        <Skeleton className="h-6 w-48 rounded" />
+      </div>
+      {/* Stat cards row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2">
+            <Skeleton className="h-3 w-16 rounded" />
+            <Skeleton className="h-7 w-20 rounded" />
+          </div>
+        ))}
+      </div>
+      {/* Chart area */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <Skeleton className="h-5 w-40 rounded" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+      </div>
+      {/* Contributor rows */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <Skeleton className="h-5 w-36 rounded" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <Skeleton className="h-4 w-2/5 rounded" />
+            <Skeleton className="h-4 w-20 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Stock trades skeleton — trade list cards */
+export function StockTradesSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="space-y-3">
+      {/* Summary stat pills */}
+      <div className="flex flex-wrap gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex-1 min-w-[100px] rounded-xl border border-border bg-card p-3 space-y-1.5">
+            <Skeleton className="h-3 w-14 rounded" />
+            <Skeleton className="h-6 w-10 rounded" />
+          </div>
+        ))}
+      </div>
+      {/* Trade cards */}
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-14 rounded" />
+              <Skeleton className="h-5 w-24 rounded" />
+            </div>
+            <Skeleton className="h-4 w-20 rounded" />
+          </div>
+          <Skeleton className="h-4 w-3/4 rounded" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-3 w-28 rounded" />
+            <Skeleton className="h-3 w-20 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Prediction markets skeleton — market cards with probability ring */
+export function PredictionMarketsSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="space-y-6">
+      {/* Stat bar */}
+      <div className="flex flex-wrap gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex-1 min-w-[120px] rounded-xl border border-border bg-card p-4 space-y-2">
+            <Skeleton className="h-3 w-16 rounded" />
+            <Skeleton className="h-7 w-8 rounded" />
+          </div>
+        ))}
+      </div>
+      {/* Filter row */}
+      <div className="flex gap-3">
+        <Skeleton className="h-9 flex-1 rounded-lg" />
+        <Skeleton className="h-9 w-20 rounded-lg" />
+        <Skeleton className="h-9 w-20 rounded-lg" />
+      </div>
+      {/* Market cards */}
+      <div className="space-y-3">
+        {Array.from({ length: count }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-border bg-card p-4 flex items-start gap-4">
+            <Skeleton className="h-14 w-14 rounded-full shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4 rounded" />
+              <Skeleton className="h-3 w-1/2 rounded" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-1.5 w-20 rounded-full" />
+                <Skeleton className="h-3 w-16 rounded" />
+                <Skeleton className="h-3 w-12 rounded" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Midterm race skeleton */
 export function MidtermSkeleton() {
   return (

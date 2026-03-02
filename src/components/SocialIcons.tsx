@@ -1,3 +1,4 @@
+import React from "react";
 import { ExternalLink, Globe, Mail } from "lucide-react";
 
 const WebsiteIcon = ({ className }: { className?: string }) => (
@@ -39,7 +40,7 @@ const TikTokIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-type IconComponent = ({ className }: { className?: string }) => JSX.Element;
+type IconComponent = ({ className, style }: { className?: string; style?: React.CSSProperties }) => JSX.Element;
 
 /** Ordered array so display order is guaranteed: website, email, X, Instagram, Facebook, YouTube, TikTok */
 const PLATFORM_ORDER = ["website", "email", "x", "instagram", "facebook", "youtube", "tiktok"] as const;
@@ -58,7 +59,8 @@ const SOCIAL_PLATFORMS: Record<string, { Icon: IconComponent; urlPrefix: string;
 function buildUrl(urlPrefix: string, value: string): string {
   if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("mailto:")) return value;
   if (urlPrefix === "mailto:") return `mailto:${value}`;
-  if (!urlPrefix) return value; // website: value is already a full URL
+  // website: ensure bare domains get a protocol so the link works as an absolute URL
+  if (!urlPrefix) return value.includes("://") ? value : `https://${value}`;
   return `${urlPrefix}${value}`;
 }
 

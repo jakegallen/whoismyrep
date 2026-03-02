@@ -5,7 +5,6 @@ import {
   FileText,
   MessageSquare,
   DollarSign,
-  Loader2,
   AlertCircle,
   ChevronDown,
   ChevronUp,

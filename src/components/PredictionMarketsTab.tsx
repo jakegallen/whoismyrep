@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { ExternalLink, TrendingUp, TrendingDown, Filter, ArrowUpDown, Loader2, Search } from "lucide-react";
-import { usePolymarket, type PolymarketMarket } from "@/hooks/usePolymarket";
-import { useKalshi, type KalshiMarket } from "@/hooks/useKalshi";
+import { ExternalLink, TrendingUp, ArrowUpDown, Search } from "lucide-react";
+import { PredictionMarketsSkeleton } from "@/components/TabSkeletons";
+import { usePolymarket } from "@/hooks/usePolymarket";
+import { useKalshi } from "@/hooks/useKalshi";
 import { Input } from "@/components/ui/input";
 
 interface UnifiedMarket {
@@ -104,12 +105,7 @@ export default function PredictionMarketsTab({ politicianName, state }: Props) {
   const kalshiCount = allMarkets.filter((m) => m.source === "kalshi").length;
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        <p className="font-body text-sm text-muted-foreground">Loading prediction markets…</p>
-      </div>
-    );
+    return <PredictionMarketsSkeleton />;
   }
 
   if (allMarkets.length === 0) {

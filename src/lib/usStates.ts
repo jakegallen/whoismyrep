@@ -63,7 +63,7 @@ export const US_STATES: USState[] = [
 
 /** Convert state abbreviation to OpenStates jurisdiction name */
 export function abbrToJurisdiction(abbr: string): string {
-  return US_STATES.find((s) => s.abbr === abbr.toUpperCase())?.jurisdiction || "Nevada";
+  return US_STATES.find((s) => s.abbr === abbr.toUpperCase())?.jurisdiction || abbr;
 }
 
 /** Convert abbreviation to OCD jurisdiction slug for OpenStates v3 */

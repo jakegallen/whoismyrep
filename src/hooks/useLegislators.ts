@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Legislator {
@@ -22,48 +22,33 @@ export interface Legislator {
   openstatesUrl?: string;
 }
 
-interface UseLegislatorsResult {
-  legislators: Legislator[];
-  isLoading: boolean;
-  error: string | null;
-  refetch: () => void;
+// ── Fetcher ──
+
+async function fetchLegislators(params: {
+  chamber?: string;
+  jurisdiction?: string;
+}): Promise<Legislator[]> {
+  const { data, error } = await supabase.functions.invoke("fetch-legislators", {
+    body: { chamber: params.chamber, per_page: 50, jurisdiction: params.jurisdiction },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to fetch legislators");
+  return (data.legislators || []) as Legislator[];
 }
 
-export function useLegislators(chamber?: string, jurisdiction?: string): UseLegislatorsResult {
-  const [legislators, setLegislators] = useState<Legislator[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// ── Hook ──
 
-  const fetchLegislators = useCallback(async () => {
-    if (!jurisdiction) {
-      setLegislators([]);
-      setIsLoading(false);
-      return;
-    }
+export function useLegislators(chamber?: string, jurisdiction?: string) {
+  const query = useQuery({
+    queryKey: ["legislators", chamber, jurisdiction],
+    queryFn: () => fetchLegislators({ chamber, jurisdiction }),
+    enabled: !!jurisdiction,
+  });
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-legislators", {
-        body: { chamber, per_page: 50, jurisdiction },
-      });
-
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error || "Failed to fetch legislators");
-
-      setLegislators(data.legislators || []);
-    } catch (e) {
-      console.error("Failed to fetch legislators:", e);
-      setError(e instanceof Error ? e.message : "Failed to fetch legislators");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [chamber, jurisdiction]);
-
-  useEffect(() => {
-    fetchLegislators();
-  }, [fetchLegislators]);
-
-  return { legislators, isLoading, error, refetch: fetchLegislators };
+  return {
+    legislators: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+    refetch: query.refetch,
+  };
 }

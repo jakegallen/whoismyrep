@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { trackEvent } from "@/lib/analytics";
 import { motion } from "framer-motion";
 import {
   MapPin,
@@ -11,7 +12,9 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
+import SEO from "@/components/SEO";
 import { SocialIcons } from "@/components/SocialIcons";
+import { SaveRepButton } from "@/components/SaveRepButton";
 import DistrictDashboard from "@/components/DistrictDashboard";
 import { Button } from "@/components/ui/button";
 import { type CivicGroup, type ElectionInfo, type VoterInfo } from "@/hooks/useCivicReps";
@@ -30,14 +33,6 @@ const levelStyles: Record<string, { bg: string; text: string; border: string }> 
   local: { bg: "bg-[hsl(43,90%,48%/0.12)]", text: "text-[hsl(43,90%,48%)]", border: "border-[hsl(43,90%,48%/0.25)]" },
 };
 
-const partyDot: Record<string, string> = {
-  Democrat: "bg-[hsl(217,72%,48%)]",
-  Democratic: "bg-[hsl(217,72%,48%)]",
-  Republican: "bg-[hsl(0,68%,48%)]",
-  Independent: "bg-[hsl(43,90%,48%)]",
-  Nonpartisan: "bg-muted-foreground",
-};
-
 const partyPillColors: Record<string, { bg: string; text: string }> = {
   Democrat: { bg: "bg-[hsl(217,72%,48%/0.12)]", text: "text-[hsl(217,72%,48%)]" },
   Democratic: { bg: "bg-[hsl(217,72%,48%/0.12)]", text: "text-[hsl(217,72%,48%)]" },
@@ -47,11 +42,10 @@ const partyPillColors: Record<string, { bg: string; text: string }> = {
 };
 
 /** Individual rep card image with error fallback to initials */
-function RepCardImage({ photoUrl, name, style: levelStyle, Icon }: {
+function RepCardImage({ photoUrl, name, style: levelStyle }: {
   photoUrl?: string;
   name: string;
   style: { bg: string; text: string; border: string };
-  Icon: typeof Landmark;
 }) {
   const [failed, setFailed] = useState(false);
   const handleError = useCallback(() => setFailed(true), []);
@@ -76,6 +70,8 @@ function RepCardImage({ photoUrl, name, style: levelStyle, Icon }: {
       src={photoUrl}
       alt={name}
       className="h-12 w-12 shrink-0 rounded-lg object-cover"
+      loading="lazy"
+      decoding="async"
       onError={handleError}
       onLoad={handleLoad}
     />
@@ -106,15 +102,29 @@ const RepResults = () => {
     }
   }, [normalizedAddress]);
 
+  // Plausible analytics: track results view (fire once)
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (normalizedAddress && !trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent("View Results", { address: normalizedAddress });
+    }
+  }, [normalizedAddress]);
+
   if (!groups) return null;
 
   const totalReps = groups.reduce((a, g) => a + g.representatives.length, 0);
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Your Representatives"
+        description="View your elected officials based on your address — federal, state, and local representatives."
+        path="/reps"
+      />
       <SiteNav />
 
-      <div className="container mx-auto px-4 py-8 pb-20">
+      <main id="main-content" className="container mx-auto px-4 py-8 pb-20">
         <div className="mx-auto max-w-4xl">
 
           {/* Back button */}
@@ -179,7 +189,7 @@ const RepResults = () => {
 
                       return (
                         <motion.div
-                          key={rep.id || `${rep.name}-${rep.office}`}
+                          key={`${rep.name}-${rep.office}`}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: gi * 0.1 + ri * 0.05 }}
@@ -190,7 +200,7 @@ const RepResults = () => {
                           }}
                         >
                           <div className="flex items-start gap-3">
-                            <RepCardImage photoUrl={rep.photoUrl} name={rep.name} style={style} Icon={Icon} />
+                            <RepCardImage photoUrl={rep.photoUrl} name={rep.name} style={style} />
                             <div className="min-w-0 flex-1">
                               <h4 className="font-display text-sm font-bold text-headline">
                                 {rep.name}
@@ -210,7 +220,10 @@ const RepResults = () => {
                                 ...(rep.socialHandles || {}),
                               }} size="sm" className="mt-1.5" />
                             </div>
-                            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            <div className="flex shrink-0 flex-col items-center gap-1">
+                              <SaveRepButton rep={rep} size="sm" />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            </div>
                           </div>
                         </motion.div>
                       );
@@ -224,7 +237,7 @@ const RepResults = () => {
           {/* District Dashboard */}
           <DistrictDashboard address={normalizedAddress} voterInfo={voterInfo ?? null} />
         </div>
-      </div>
+      </main>
     </div>
   );
 };

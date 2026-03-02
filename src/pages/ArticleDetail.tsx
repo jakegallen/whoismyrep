@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { ArrowLeft, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import CategoryBadge from "@/components/CategoryBadge";
+import SEO from "@/components/SEO";
 import type { NewsItem } from "@/lib/mockNews";
 
 const ArticleDetail = () => {
@@ -55,6 +56,20 @@ const ArticleDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={article?.title || "Article"}
+        description={article?.summary?.slice(0, 155) || "In-depth analysis of political news and legislative updates."}
+        type="article"
+        jsonLd={article ? {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          headline: article.title,
+          ...(article.summary && { description: article.summary }),
+          ...(article.source && { publisher: { "@type": "Organization", name: article.source } }),
+          ...(article.url && { url: article.url }),
+          ...(article.imageUrl && { image: article.imageUrl }),
+        } : undefined}
+      />
       {/* Header bar */}
       <header className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur-md">
         <div className="container mx-auto flex items-center gap-4 px-4 py-3">
@@ -67,12 +82,12 @@ const ArticleDetail = () => {
           </button>
           <div className="h-5 w-px bg-border" />
           <span className="font-display text-sm font-semibold text-headline">
-            Nevada Political Pulse
+            Political Pulse
           </span>
         </div>
       </header>
 
-      <main className="container mx-auto max-w-3xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-3xl px-4 py-8">
         {/* Article header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}

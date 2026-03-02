@@ -9,6 +9,8 @@ import { useLobbying, type LobbyingEndpoint, type LobbyingFiling } from "@/hooks
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useUrlState, useUrlNumber } from "@/hooks/useUrlState";
+import SEO from "@/components/SEO";
 
 const tabs: { value: LobbyingEndpoint; label: string; icon: React.ElementType }[] = [
   { value: "filings", label: "Lobbying Filings", icon: FileText },
@@ -26,11 +28,13 @@ function formatAmount(amount: number | null) {
 }
 
 const LobbyingExplorer = () => {
-  const [activeTab, setActiveTab] = useState<LobbyingEndpoint>("filings");
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [selectedYear, setSelectedYear] = useState<number | undefined>();
+  const [activeTab, setActiveTab] = useUrlState("tab", "filings") as [LobbyingEndpoint, (v: string) => void];
+  const [search, setSearch] = useUrlState("q");
+  const [searchInput, setSearchInput] = useState(search);
+  const [page, setPage] = useUrlNumber("page", 1);
+  const [yearParam, setYearParam] = useUrlState("year");
+  const selectedYear = yearParam ? Number(yearParam) : undefined;
+  const setSelectedYear = (yr: number | undefined) => setYearParam(yr ? String(yr) : "");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useLobbying(activeTab, {
@@ -57,10 +61,11 @@ const LobbyingExplorer = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Lobbying Explorer" path="/lobbying" description="Track lobbying activities, filings, clients, and lobbyist registrations." />
       <SiteNav />
       <DashboardHeader />
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Briefcase className="h-8 w-8 text-primary" />
@@ -342,13 +347,13 @@ const LobbyingExplorer = () => {
         {/* Pagination */}
         {data && data.totalPages > 1 && (
           <div className="mt-8 flex items-center justify-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
               Previous
             </Button>
             <span className="font-body text-sm text-muted-foreground">
-              Page {data.page} of {data.totalPages} ({data.total.toLocaleString()} results)
+              Page {page} of {data.totalPages} ({data.total.toLocaleString()} results)
             </span>
-            <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>
+            <Button variant="outline" size="sm" disabled={page >= data.totalPages} onClick={() => setPage(page + 1)}>
               Next
             </Button>
           </div>

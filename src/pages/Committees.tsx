@@ -1,12 +1,12 @@
 import { useState } from "react";
 import SiteNav from "@/components/SiteNav";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, FileText, Calendar, Users, Loader2, AlertCircle, ChevronDown, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import DashboardHeader from "@/components/DashboardHeader";
+import { Building2, FileText, Calendar, Users, AlertCircle, ChevronDown, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useCommittees } from "@/hooks/useCommittees";
 import type { Committee, CommitteeBill } from "@/hooks/useCommittees";
 import { Skeleton } from "@/components/ui/skeleton";
+import SEO from "@/components/SEO";
 
 type ChamberFilter = "All" | "Senate" | "Assembly" | "Joint";
 
@@ -20,9 +20,10 @@ const Committees = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Congressional Committees" path="/committees" description="Browse House, Senate, and state legislative committees and their members." />
       <SiteNav />
 
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-5xl px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -44,7 +45,7 @@ const Committees = () => {
             </h1>
           </div>
           <p className="font-body text-sm text-tertiary mb-6">
-            Track Nevada legislative committees, their members, and bills under consideration.
+            Track legislative committees, their members, and bills under consideration.
             {data?.session && (
               <span className="ml-1 text-muted-foreground">Session: {data.session}</span>
             )}

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { trackEvent } from "@/lib/analytics";
+import SEO from "@/components/SEO";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
   TrendingUp,
   MapPin,
   ExternalLink,
-  Loader2,
   AlertCircle,
   Globe,
   Phone,
@@ -18,7 +19,6 @@ import {
   FileText,
   Scale,
   Briefcase,
-  Clock,
   User,
   Building2,
   ScrollText,
@@ -33,7 +33,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { supabase } from "@/integrations/supabase/client";
 import SiteNav from "@/components/SiteNav";
 import { SocialIcons } from "@/components/SocialIcons";
-import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
+import { SaveRepButton } from "@/components/SaveRepButton";
+import { AnalysisSkeleton, CardListSkeleton, CommitteeSkeleton, NewsSkeleton, StockTradesSkeleton } from "@/components/TabSkeletons";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import VotingScorecard from "@/components/VotingScorecard";
 import CampaignFinance from "@/components/CampaignFinance";
 import AccountabilityTimeline from "@/components/AccountabilityTimeline";
@@ -111,11 +113,15 @@ function extractStateFromDivisionId(divisionId?: string): { stateAbbr: string; j
   return { stateAbbr: abbr, jurisdiction: stateNames[abbr] || abbr };
 }
 
-/** Extract bioguideId from a bioguide.congress.gov photo URL */
+/** Extract bioguideId from a bioguide.congress.gov or unitedstates.github.io photo URL */
 function bioguideIdFromPhotoUrl(url?: string): string | undefined {
   if (!url) return undefined;
-  const m = url.match(/bioguide\.congress\.gov\/(?:bioguide\/photo\/[A-Z]\/|photo\/)([A-Z]\d+)\.jpg/i);
-  return m?.[1];
+  // bioguide.congress.gov/bioguide/photo/R/R000608.jpg
+  const m1 = url.match(/bioguide\.congress\.gov\/(?:bioguide\/photo\/[A-Z]\/|photo\/)([A-Z]\d+)\.jpg/i);
+  if (m1) return m1[1];
+  // unitedstates.github.io/images/congress/225x275/R000608.jpg
+  const m2 = url.match(/unitedstates\.github\.io\/images\/congress\/\d+x\d+\/([A-Z]\d+)\.jpg/i);
+  return m2?.[1];
 }
 
 /** Derive a bioguide.congress.gov photo URL from a bioguide ID */
@@ -198,9 +204,6 @@ const PoliticianDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const [analysis, setAnalysis] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
 
   // Build profile from either: router state Politician, router state CivicRep, or URL param lookup
@@ -324,7 +327,11 @@ const PoliticianDetail = () => {
 
   const electionYear = useMemo((): number | null => {
     if (!politician || politician.level !== "federal") return null;
-    if (isRepresentative) return 2026;
+    const now = new Date().getFullYear();
+    if (isRepresentative) {
+      // House: every 2 years on even years
+      return now % 2 === 0 ? now : now + 1;
+    }
     if (isSenator) {
       // Primary: use authoritative Senate class from legislators-current.json
       // Class 1 → 2030 cycle, Class 2 → 2026 cycle, Class 3 → 2028 cycle
@@ -333,28 +340,28 @@ const PoliticianDetail = () => {
         const BASE: Record<number, number> = { 1: 2030, 2: 2026, 3: 2028 };
         const base = BASE[cls];
         if (base) {
-          const now = new Date().getFullYear();
           let year = base;
           while (year < now) year += 6;
           return year;
         }
       }
-      // Fallback: heuristic from Congress.gov terms (counts Senate terms mod 3)
+      // Fallback: use the most recent Senate term start year + 6
       const terms: CongressTerm[] = memberDetailData?.terms || [];
-      const senateTerms = terms.filter((t) => t.chamber.toLowerCase().includes("senate"));
-      const N = senateTerms.length;
-      if (N === 0) return null;
-      const position = N % 3;
-      const offset = position === 0 ? 3 : position;
-      const termStartIndex = N - offset;
-      const currentTermStartYear = senateTerms[termStartIndex]?.startYear;
-      if (!currentTermStartYear) return null;
-      return currentTermStartYear + 5;
+      const senateTerms = terms
+        .filter((t) => t.chamber.toLowerCase().includes("senate"))
+        .sort((a, b) => b.startYear - a.startYear);
+      if (senateTerms.length === 0) return null;
+      const latestStart = senateTerms[0].startYear;
+      // Senate terms are 6 years; election in the year the term ends
+      let electionYr = latestStart + 6;
+      while (electionYr < now) electionYr += 6;
+      return electionYr;
     }
     return null;
   }, [politician, isSenator, isRepresentative, memberDetailData, legislatorContactLookup, derivedBioguideId]);
 
-  const isMidterms = electionYear !== null && electionYear <= 2026;
+  // Dynamic: election is "upcoming" if it's this year or next
+  const isMidterms = electionYear !== null && electionYear <= new Date().getFullYear() + 1;
 
   // Derive the year they first took their current chamber seat from terms data
   const inOfficeSince = useMemo((): number | null => {
@@ -368,44 +375,26 @@ const PoliticianDetail = () => {
   useEffect(() => {
     if (!politician) {
       navigate("/");
-      return;
     }
+  }, [politician, navigate]);
 
-    const fetchProfile = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const searchQuery = `https://www.google.com/search?q=${encodeURIComponent(politician.name + " politics")}`;
-        const { data, error: fnError } = await supabase.functions.invoke("analyze-article", {
-          body: {
-            url: searchQuery,
-            title: `${politician.name} — ${politician.title}`,
-            summary: politician.bio || `${politician.name} is a ${politician.party} serving as ${politician.title}.`,
-            category: "politician",
-          },
-        });
-        if (fnError) throw new Error(fnError.message);
-        if (!data?.success) throw new Error(data?.error || "Failed to generate profile");
-        setAnalysis(data.analysis);
-      } catch (e) {
-        console.error("Profile error:", e);
-        setError(e instanceof Error ? e.message : "Failed to load profile");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Dynamic page title for SEO and browser tabs
+  useEffect(() => {
+    if (politician) {
+      const displayName = toDisplayName(politician.name);
+      document.title = `${displayName} — ${politician.office} | WhoIsMyRep.us`;
+    }
+    return () => { document.title = "WhoIsMyRep.us — Find Your U.S. Representatives"; };
+  }, [politician]);
 
-    fetchProfile();
-  }, [politician?.name, navigate]);
+  // Plausible analytics: track politician page view
+  useEffect(() => {
+    if (politician) {
+      trackEvent("View Politician", { name: politician.name, party: politician.party || "Unknown" });
+    }
+  }, [politician]);
 
   if (!politician) return null;
-
-  const partyColor =
-    politician.party === "Democrat"
-      ? "text-[hsl(210,80%,55%)]"
-      : politician.party === "Republican"
-        ? "text-primary"
-        : "text-[hsl(43,90%,55%)]";
 
   // Hex colors so `${partyHex}50` produces a valid 8-digit hex with ~31% alpha
   const partyHex =
@@ -417,9 +406,28 @@ const PoliticianDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${toDisplayName(politician.name)} — ${politician.office || "Official"}`}
+        description={`View ${toDisplayName(politician.name)}'s voting record, campaign finance, committee assignments, and legislative activity.`}
+        path={`/politicians/${id}`}
+        type="profile"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Person",
+          name: toDisplayName(politician.name),
+          jobTitle: politician.office,
+          affiliation: { "@type": "Organization", name: politician.party },
+          ...(politician.imageUrl && { image: politician.imageUrl }),
+          ...(politician.website && { url: politician.website }),
+          ...(politician.region && { workLocation: { "@type": "Place", name: politician.region } }),
+        }}
+      />
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
+        Skip to main content
+      </a>
       <SiteNav />
 
-      <main className="container mx-auto max-w-4xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-4xl px-4 py-8" aria-label={`Details for ${toDisplayName(politician.name)}`}>
         {/* Back button */}
         <button
           onClick={() => navigate(-1)}
@@ -450,6 +458,7 @@ const PoliticianDetail = () => {
                         alt={toDisplayName(politician.name)}
                         className="h-28 w-28 rounded-full object-cover bg-surface-elevated"
                         loading="lazy"
+                        decoding="async"
                         onError={() => setImgError(true)}
                         onLoad={(e) => {
                           // Detect ORB-blocked images: browser reports load but image has 0 natural dimensions
@@ -460,7 +469,10 @@ const PoliticianDetail = () => {
                         }}
                       />
                     ) : (
-                      <div className="flex h-28 w-28 items-center justify-center rounded-full bg-surface-elevated font-display text-3xl font-bold text-muted-foreground">
+                      <div
+                        className="flex h-28 w-28 items-center justify-center rounded-full font-display text-3xl font-bold text-white"
+                        style={{ background: `linear-gradient(135deg, ${partyHex}cc, ${partyHex}88)` }}
+                      >
                         {toDisplayName(politician.name).split(" ").map((n) => n[0]).join("")}
                       </div>
                     )}
@@ -489,7 +501,7 @@ const PoliticianDetail = () => {
                             style={{ background: "rgba(245,158,11,0.15)", animationDuration: "2s" }}
                           />
                           <Zap className="relative h-3 w-3 shrink-0" fill="currentColor" />
-                          <span className="relative">Midterms {electionYear}</span>
+                          <span className="relative">Election {electionYear}</span>
                         </div>
                       ) : (
                         <div
@@ -518,6 +530,24 @@ const PoliticianDetail = () => {
                     >
                       {politician.level.charAt(0).toUpperCase() + politician.level.slice(1)}
                     </span>
+                    <SaveRepButton
+                      rep={{
+                        name: politician.name,
+                        office: politician.office,
+                        level: politician.level,
+                        party: politician.party,
+                        phone: politician.phone,
+                        email: politician.email,
+                        website: politician.website,
+                        photoUrl: politician.imageUrl,
+                        socialHandles: politician.socialHandles,
+                        divisionId: "",
+                        jurisdiction: politician.jurisdiction,
+                        bioguideId: politician.bioguideId,
+                      }}
+                      size="md"
+                      className="mt-1"
+                    />
                   </div>
                   <p className="mt-1 font-body text-base font-semibold" style={{ color: partyHex }}>
                     {politician.title} · {politician.party}
@@ -534,20 +564,26 @@ const PoliticianDetail = () => {
                       <span className="font-body text-sm text-tertiary">In office since {inOfficeSince}</span>
                     </div>
                   )}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {effectiveWebsite && (
-                      <ContactLink href={effectiveWebsite} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
-                    )}
-                    {effectivePhone && (
-                      <ContactLink href={`tel:${effectivePhone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={effectivePhone} />
-                    )}
-                    {politician.email && (
-                      <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
-                    )}
-                    {politician.contactForm && (
-                      <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
-                    )}
-                  </div>
+                  {(effectiveWebsite || effectivePhone || politician.email || politician.contactForm) ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {effectiveWebsite && (
+                        <ContactLink href={effectiveWebsite} icon={<Globe className="h-4 w-4 text-primary" />} label="Website" external />
+                      )}
+                      {effectivePhone && (
+                        <ContactLink href={`tel:${effectivePhone}`} icon={<Phone className="h-4 w-4 text-[hsl(142,71%,45%)]" />} label={effectivePhone} />
+                      )}
+                      {politician.email && (
+                        <ContactLink href={`mailto:${politician.email}`} icon={<Mail className="h-4 w-4 text-[hsl(210,80%,55%)]" />} label="Email" />
+                      )}
+                      {politician.contactForm && (
+                        <ContactLink href={politician.contactForm} icon={<MessageSquare className="h-4 w-4 text-[hsl(280,60%,55%)]" />} label="Contact Form" external />
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-4 font-body text-xs text-muted-foreground/60 italic">
+                      No direct contact information available for this official.
+                    </p>
+                  )}
                   <SocialIcons socialHandles={effectiveSocialHandles} size="md" className="mt-3" />
                 </div>
               </div>
@@ -579,7 +615,7 @@ const PoliticianDetail = () => {
                 <div className="flex flex-col rounded-xl border border-border bg-background p-4">
                   <div className="flex items-center gap-1.5">
                     <Flag className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="font-body text-xs text-muted-foreground">Party Alignment</span>
+                    <span className="font-body text-xs text-muted-foreground">Majority Alignment</span>
                   </div>
                   <div className="mt-2">
                     {votingLoading ? (
@@ -658,13 +694,21 @@ const PoliticianDetail = () => {
 
           {/* ═══════ TABS ═══════ */}
           <div className="mt-8 border-b border-border">
-            <nav className="-mb-px flex gap-1 flex-wrap">
+            <nav
+              className="-mb-px flex gap-1 overflow-x-auto scrollbar-hide"
+              role="tablist"
+              aria-label="Politician detail sections"
+            >
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls={`tabpanel-${tab.id}`}
+                    id={`tab-${tab.id}`}
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-3 font-body text-sm font-medium transition-colors ${
                       isActive
@@ -672,7 +716,7 @@ const PoliticianDetail = () => {
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                     {tab.label}
                   </button>
                 );
@@ -681,9 +725,20 @@ const PoliticianDetail = () => {
           </div>
 
           {/* ═══════ TAB CONTENT ═══════ */}
-          <div className="mt-8">
+          <div
+            className="mt-8"
+            role="tabpanel"
+            id={`tabpanel-${activeTab}`}
+            aria-labelledby={`tab-${activeTab}`}
+          >
+            <ErrorBoundary fallbackTitle="This section encountered an error" key={activeTab}>
             {activeTab === "overview" && (
-              <OverviewTab politician={politician} analysis={analysis} isLoading={isLoading} error={error} />
+              <OverviewTab
+                politician={politician}
+                votingSummary={votingData?.summary}
+                recentBills={bills.slice(0, 5)}
+                inOfficeSince={inOfficeSince}
+              />
             )}
 
             {activeTab === "legislation" && (
@@ -701,7 +756,7 @@ const PoliticianDetail = () => {
                 <div className="h-px bg-border" />
                 <BillsTab politicianName={politician.name} jurisdiction={politician.jurisdiction} level={politician.level} bills={bills} isLoading={billsLoading} error={billsError} />
                 <div className="h-px bg-border" />
-                <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} />
+                <CommitteesTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} jurisdiction={politician.jurisdiction} stateAbbr={politician.stateAbbr} level={politician.level} bioguideId={derivedBioguideId} />
                 <div className="h-px bg-border" />
                 <CalendarTab politicianName={politician.name} chamber={politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined} stateAbbr={politician.stateAbbr} jurisdiction={politician.jurisdiction} />
               </div>
@@ -744,6 +799,7 @@ const PoliticianDetail = () => {
                 <MidtermsTab politician={politician} />
               </div>
             )}
+            </ErrorBoundary>
           </div>
         </motion.div>
       </main>
@@ -757,18 +813,67 @@ const PoliticianDetail = () => {
 /* ═══════════════════════════════════════════ */
 function OverviewTab({
   politician,
-  analysis,
-  isLoading,
-  error,
+  votingSummary,
+  recentBills,
+  inOfficeSince,
 }: {
   politician: RepProfile;
-  analysis: string;
-  isLoading: boolean;
-  error: string | null;
+  votingSummary?: { totalVotes: number; yesVotes: number; noVotes: number; abstainVotes: number; notVoting: number; attendance: number; partyLineRate: number; session: string };
+  recentBills?: { identifier?: string; id?: string; title?: string }[];
+  inOfficeSince?: number | null;
 }) {
   const chamber = politician.office.includes("Senate") ? "Senate" : politician.office.includes("Assembly") ? "Assembly" : undefined;
-  const { data: committeesData, isLoading: commLoading } = useCommittees(chamber, politician.name, politician.jurisdiction, politician.stateAbbr);
+  const overviewBioguideId = politician.bioguideId || (politician.id?.startsWith("congress-") ? politician.id.slice("congress-".length) : undefined);
+  const { data: committeesData, isLoading: commLoading } = useCommittees(chamber, politician.name, politician.jurisdiction, politician.stateAbbr, politician.level, overviewBioguideId);
   const legislatorCommittees = committeesData?.legislatorCommittees || [];
+
+  // Internal AI analysis state — fetches once committee data arrives
+  const [analysis, setAnalysis] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Wait until committee data is loaded (or errored out)
+    if (commLoading) return;
+
+    let cancelled = false;
+    const fetchAnalysis = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("analyze-article", {
+          body: {
+            politicianName: politician.name,
+            party: politician.party,
+            office: politician.office,
+            state: politician.jurisdiction || politician.stateAbbr,
+            level: politician.level,
+            chamber: chamber,
+            inOfficeSince: inOfficeSince ?? undefined,
+            summary: politician.bio,
+            committees: legislatorCommittees,
+            recentBills: recentBills ?? [],
+            votingSummary: votingSummary ?? undefined,
+          },
+        });
+        if (cancelled) return;
+        if (fnError) throw fnError;
+        if (data?.analysis) {
+          setAnalysis(data.analysis);
+        } else {
+          setError(data?.error || "No analysis returned");
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Failed to generate analysis");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    fetchAnalysis();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commLoading, politician.name]);
 
   return (
     <div className="space-y-8">
@@ -933,8 +1038,8 @@ function BillsTab({ politicianName, level, bills, isLoading, error }: { politici
 /* ═══════════════════════════════════════════ */
 /*  Committees Tab                             */
 /* ═══════════════════════════════════════════ */
-function CommitteesTab({ politicianName, chamber, jurisdiction, stateAbbr }: { politicianName: string; chamber?: string; jurisdiction?: string; stateAbbr?: string }) {
-  const { data: committeesData, isLoading: commLoading, error: commError } = useCommittees(chamber, politicianName, jurisdiction, stateAbbr);
+function CommitteesTab({ politicianName, chamber, jurisdiction, stateAbbr, level, bioguideId }: { politicianName: string; chamber?: string; jurisdiction?: string; stateAbbr?: string; level?: string; bioguideId?: string }) {
+  const { data: committeesData, isLoading: commLoading, error: commError } = useCommittees(chamber, politicianName, jurisdiction, stateAbbr, level, bioguideId);
   const { data: reportsData, isLoading: reportsLoading } = useCongress("committee_reports", { congress: 119, limit: 10 });
 
   const committees = committeesData?.committees || [];
@@ -1504,35 +1609,26 @@ function ContactLink({ href, icon, label, external }: { href: string; icon: Reac
   );
 }
 
-function SocialLink({ href, icon, label, color }: { href: string; icon: string; label: string; color?: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 font-body text-xs font-medium text-secondary-custom transition-colors hover:bg-surface-elevated"
-    >
-      <span className="flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold" style={{ color: color || "hsl(var(--foreground))" }}>
-        {icon}
-      </span>
-      {label}
-      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-    </a>
-  );
-}
-
-function ErrorBox({ message }: { message: string }) {
+function ErrorBox({ message, onRetry }: { message: string; onRetry?: () => void }) {
   const isRateLimit = /rate.?limit/i.test(message);
   return (
     <div className={`flex items-start gap-3 rounded-xl border p-5 ${isRateLimit ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}>
       <AlertCircle className={`mt-0.5 h-5 w-5 shrink-0 ${isRateLimit ? 'text-amber-500' : 'text-primary'}`} />
-      <div>
+      <div className="flex-1">
         <p className="font-body text-sm font-medium text-foreground">
           {isRateLimit ? 'API limit reached' : 'Couldn\'t load data'}
         </p>
         <p className="mt-1 font-body text-xs text-muted-foreground">
           {isRateLimit ? 'The daily API request limit has been reached. Please try again tomorrow.' : message}
         </p>
+        {onRetry && !isRateLimit && (
+          <button
+            onClick={onRetry}
+            className="mt-2 rounded-md bg-primary/10 px-3 py-1 font-body text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+          >
+            Retry
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1587,12 +1683,7 @@ function StockTradesSection({ politicianName, chamber }: { politicianName: strin
         Financial disclosures filed under the STOCK Act. Trades by {politicianName} or their spouse.
       </p>
 
-      {isLoading && (
-        <div className="flex items-center gap-2 py-8 justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <span className="font-body text-sm text-muted-foreground">Loading disclosures…</span>
-        </div>
-      )}
+      {isLoading && <StockTradesSkeleton />}
 
       {error && <ErrorBox message={error instanceof Error ? error.message : "Failed to load trades"} />}
 
@@ -1604,9 +1695,30 @@ function StockTradesSection({ politicianName, chamber }: { politicianName: strin
                 No recent STOCK Act disclosures found for {politicianName}.
               </p>
               <p className="font-body text-xs text-muted-foreground">
-                Only the most recent ~200 congressional filings are shown.{" "}
+                This does not necessarily mean no trades were made — only the most recent
+                ~100 disclosures per chamber are displayed. Many members have no reportable trades.
+              </p>
+              <p className="font-body text-xs text-muted-foreground">
                 <a href="/congress-trades" className="text-primary hover:underline">
-                  Search all disclosures →
+                  Browse all recent disclosures →
+                </a>
+                {" · "}
+                <a
+                  href={`https://efdsearch.senate.gov/search/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Senate EFD Search ↗
+                </a>
+                {" · "}
+                <a
+                  href={`https://disclosures-clerk.house.gov/FinancialDisclosure`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  House Disclosures ↗
                 </a>
               </p>
             </div>

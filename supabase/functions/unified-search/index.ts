@@ -1,7 +1,4 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -21,9 +18,8 @@ async function invokeFunction(name: string, body: Record<string, unknown>): Prom
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const { query, sources } = await req.json().catch(() => ({ query: '', sources: [] }));
@@ -31,7 +27,7 @@ Deno.serve(async (req) => {
     if (!query || query.trim().length < 2) {
       return new Response(
         JSON.stringify({ success: false, error: 'Search query must be at least 2 characters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -58,7 +54,7 @@ Deno.serve(async (req) => {
       promises.federal_register = invokeFunction('fetch-federal-register', { search: q, per_page: 8 });
     }
     if (enabledSources.includes('news')) {
-      promises.news = invokeFunction('fetch-nevada-news', { search: q });
+      promises.news = invokeFunction('fetch-state-news', { search: q });
     }
 
     const keys = Object.keys(promises);
@@ -142,13 +138,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, query: q, results, counts, totalResults }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
     );
   } catch (error) {
     console.error('Unified search error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Search failed' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

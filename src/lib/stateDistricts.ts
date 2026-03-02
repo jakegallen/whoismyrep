@@ -11,8 +11,6 @@ export interface DistrictLayerConfig {
   fillColor: string;
 }
 
-const TOSSUP_COLOR = "hsl(43, 90%, 55%)";
-
 export const districtLayerConfigs: Record<DistrictLayer, DistrictLayerConfig> = {
   congressional: { id: "congressional", label: "Congressional Districts", fillColor: "hsl(250, 70%, 55%)" },
   "state-senate": { id: "state-senate", label: "State Senate Districts", fillColor: "hsl(210, 80%, 55%)" },

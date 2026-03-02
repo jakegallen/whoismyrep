@@ -1,5 +1,8 @@
-import { useState, useCallback } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+
+// ── Types ──
 
 export interface CivicRep {
   name: string;
@@ -62,9 +65,29 @@ export interface VoterInfo {
 export interface LookupResult {
   groups: CivicGroup[];
   normalizedAddress: string;
+  totalReps: number;
   elections: ElectionInfo[];
   voterInfo: VoterInfo | null;
 }
+
+// ── Fetcher ──
+
+async function fetchCivicReps(address: string): Promise<LookupResult> {
+  const { data, error } = await supabase.functions.invoke("fetch-civic-reps", {
+    body: { address },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Lookup failed");
+  return {
+    groups: data.groups,
+    normalizedAddress: data.normalizedAddress || address,
+    totalReps: data.totalReps || 0,
+    elections: data.elections || [],
+    voterInfo: data.voterInfo || null,
+  };
+}
+
+// ── Hook ──
 
 interface UseCivicRepsResult {
   groups: CivicGroup[] | null;
@@ -79,53 +102,37 @@ interface UseCivicRepsResult {
 }
 
 export function useCivicReps(): UseCivicRepsResult {
-  const [groups, setGroups] = useState<CivicGroup[] | null>(null);
-  const [normalizedAddress, setNormalizedAddress] = useState("");
-  const [totalReps, setTotalReps] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [elections, setElections] = useState<ElectionInfo[]>([]);
-  const [voterInfo, setVoterInfo] = useState<VoterInfo | null>(null);
+  const mutation = useMutation({
+    mutationFn: fetchCivicReps,
+  });
 
-  const lookup = useCallback(async (address: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-civic-reps", {
-        body: { address },
-      });
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error || "Lookup failed");
-
-      const result: LookupResult = {
-        groups: data.groups,
-        normalizedAddress: data.normalizedAddress || address,
-        elections: data.elections || [],
-        voterInfo: data.voterInfo || null,
-      };
-      setGroups(result.groups);
-      setNormalizedAddress(result.normalizedAddress);
-      setTotalReps(data.totalReps || 0);
-      setElections(result.elections);
-      setVoterInfo(result.voterInfo);
-      return result;
-    } catch (e) {
-      console.error("Civic reps lookup failed:", e);
-      setError(e instanceof Error ? e.message : "Lookup failed");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const lookup = useCallback(
+    async (address: string): Promise<LookupResult | null> => {
+      try {
+        return await mutation.mutateAsync(address);
+      } catch {
+        // Error is captured in mutation.error — return null to match legacy API
+        return null;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mutation.mutateAsync],
+  );
 
   const reset = useCallback(() => {
-    setGroups(null);
-    setNormalizedAddress("");
-    setTotalReps(0);
-    setError(null);
-    setElections([]);
-    setVoterInfo(null);
-  }, []);
+    mutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutation.reset]);
 
-  return { groups, normalizedAddress, totalReps, isLoading, error, elections, voterInfo, lookup, reset };
+  return {
+    groups: mutation.data?.groups ?? null,
+    normalizedAddress: mutation.data?.normalizedAddress ?? "",
+    totalReps: mutation.data?.totalReps ?? 0,
+    isLoading: mutation.isPending,
+    error: mutation.error?.message ?? null,
+    elections: mutation.data?.elections ?? [],
+    voterInfo: mutation.data?.voterInfo ?? null,
+    lookup,
+    reset,
+  };
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import SiteNav from "@/components/SiteNav";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -9,7 +9,6 @@ import {
   X,
   Landmark,
   Building2,
-  Loader2,
   ExternalLink,
   RefreshCw,
   AlertCircle,
@@ -20,9 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { trackEvent } from "@/lib/analytics";
 import { useBills, type Bill } from "@/hooks/useBills";
 import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
 import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
+import SEO from "@/components/SEO";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 const chamberConfig = {
   Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
@@ -68,6 +70,7 @@ const Bills = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Legislation Tracker" path="/bills" description="Track congressional and state bills through the legislative pipeline — from introduction to law." />
       <SiteNav />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8">
@@ -117,7 +120,7 @@ const Bills = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8">
         {/* Chamber filter tabs */}
         <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
           {(["all", "Assembly", "Senate"] as const).map((tab) => {
@@ -149,7 +152,7 @@ const Bills = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={refetch}
+              onClick={() => refetch()}
               disabled={isLoading}
               className="gap-1.5 text-muted-foreground"
             >
@@ -204,7 +207,7 @@ const Bills = () => {
                   {isRateLimit ? 'The daily API request limit has been reached. Please try again tomorrow.' : error}
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="ml-auto" onClick={refetch}>
+              <Button variant="outline" size="sm" className="ml-auto" onClick={() => refetch()}>
                 Retry
               </Button>
             </div>
@@ -230,37 +233,124 @@ const Bills = () => {
           </div>
         )}
 
-        {/* Bills list */}
+        {/* Bills list — virtualized for large result sets */}
         {!isLoading && !error && (
-          <>
-            <p className="mb-4 font-body text-xs text-muted-foreground">
-              Showing {filtered.length} of {total} bills
-            </p>
-            <div className="grid gap-3">
-              {filtered.map((bill) => (
-                <BillRow
-                  key={bill.id}
-                  bill={bill}
-                  onClick={() =>
-                    navigate(`/bills/${bill.id}`, { state: { bill, jurisdiction } })
-                  }
-                />
-              ))}
-            </div>
-            {filtered.length === 0 && (
-              <div className="flex flex-col items-center py-16">
-                <FileText className="h-10 w-10 text-muted-foreground/50" />
-                <p className="mt-3 font-body text-sm text-muted-foreground">
-                  No bills found matching your search.
-                </p>
-              </div>
-            )}
-          </>
+          <VirtualizedBillList
+            bills={filtered}
+            total={total}
+            onBillClick={(bill) => {
+              trackEvent("Click Bill", { id: bill.billNumber });
+              navigate(`/bills/${bill.id}`, { state: { bill, jurisdiction } });
+            }}
+          />
         )}
       </main>
     </div>
   );
 };
+
+/** Threshold above which we enable virtual scrolling */
+const VIRTUALIZE_THRESHOLD = 30;
+/** Estimated row height for the virtualizer */
+const ESTIMATED_ROW_HEIGHT = 110;
+
+function VirtualizedBillList({
+  bills,
+  total,
+  onBillClick,
+}: {
+  bills: Bill[];
+  total: number;
+  onBillClick: (bill: Bill) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const shouldVirtualize = bills.length > VIRTUALIZE_THRESHOLD;
+
+  const virtualizer = useVirtualizer({
+    count: bills.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 5,
+    enabled: shouldVirtualize,
+  });
+
+  if (bills.length === 0) {
+    return (
+      <>
+        <p className="mb-4 font-body text-xs text-muted-foreground">
+          Showing 0 of {total} bills
+        </p>
+        <div className="flex flex-col items-center py-16">
+          <FileText className="h-10 w-10 text-muted-foreground/50" />
+          <p className="mt-3 font-body text-sm text-muted-foreground">
+            No bills found matching your search.
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  // For small lists, render normally without virtualizer overhead
+  if (!shouldVirtualize) {
+    return (
+      <>
+        <p className="mb-4 font-body text-xs text-muted-foreground">
+          Showing {bills.length} of {total} bills
+        </p>
+        <div className="grid gap-3">
+          {bills.map((bill) => (
+            <BillRow key={bill.id} bill={bill} onClick={() => onBillClick(bill)} />
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  // Virtualized rendering for large lists
+  return (
+    <>
+      <p className="mb-4 font-body text-xs text-muted-foreground">
+        Showing {bills.length} of {total} bills
+      </p>
+      <div
+        ref={parentRef}
+        className="max-h-[70vh] overflow-y-auto rounded-lg"
+        style={{ contain: "strict" }}
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const bill = bills[virtualRow.index];
+            return (
+              <div
+                key={bill.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="pb-3">
+                  <BillRow bill={bill} onClick={() => onBillClick(bill)} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
 
 function BillRow({ bill, onClick }: { bill: Bill; onClick: () => void }) {
   const config = chamberConfig[bill.chamber];

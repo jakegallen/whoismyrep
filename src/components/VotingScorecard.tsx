@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { BarChart3, CheckCircle2, XCircle, MinusCircle, Clock, Loader2, AlertCircle, TrendingUp, Users } from "lucide-react";
-import { useVotingRecords, type VoteDetail, type VotingSummary } from "@/hooks/useVotingRecords";
+import { BarChart3, CheckCircle2, XCircle, MinusCircle, Clock, Loader2 } from "lucide-react";
+import { useVotingRecords } from "@/hooks/useVotingRecords";
 
 interface VotingScorecardProps {
   politicianId: string;
@@ -20,7 +20,7 @@ const voteIcons: Record<string, { icon: typeof CheckCircle2; className: string }
   "Not Voting": { icon: Clock, className: "text-muted-foreground" },
 };
 
-const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level, chamber, jurisdiction, bioguideId }: VotingScorecardProps) => {
+const VotingScorecard = ({ politicianName, level, chamber, jurisdiction, bioguideId }: VotingScorecardProps) => {
   // Fetch live data for both state and federal legislators
   const { data, isLoading, error } = useVotingRecords(
     politicianName,
@@ -53,7 +53,7 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
   }
 
   if (error) {
-    return <NoDataFallback level={level} error={error} />;
+    return <NoDataFallback level={level} error={error instanceof Error ? error.message : String(error)} />;
   }
 
   const summary = data!.summary;
@@ -85,9 +85,9 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
           color="hsl(0, 72%, 51%)"
         />
         <StatCard
-          label="Party-Line Rate"
+          label="Majority Alignment"
           value={`${summary.partyLineRate}%`}
-          subvalue="majority alignment"
+          subvalue="voted with chamber majority"
           color="hsl(210, 80%, 55%)"
         />
       </div>
@@ -139,7 +139,7 @@ const VotingScorecard = ({ politicianId, politicianName, keyIssues, party, level
               const iconClass = voteIcons[v.vote]?.className || "text-muted-foreground";
               return (
                 <motion.div
-                  key={v.billId || `${v.billNumber}-${v.date}`}
+                  key={`${v.billId || v.billNumber}-${v.date}-${idx}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: idx * 0.03, duration: 0.3 }}

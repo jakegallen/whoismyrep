@@ -6,7 +6,7 @@ import type { TrendingTopic, TrendingIndividual } from "@/lib/mockNews";
 import { useAuth } from "@/hooks/useAuth";
 
 // Use party from API data, or fallback to "?"
-const getParty = (name: string, apiParty?: string): string => {
+const getParty = (_name: string, apiParty?: string): string => {
   if (apiParty) return apiParty;
   return "?";
 };

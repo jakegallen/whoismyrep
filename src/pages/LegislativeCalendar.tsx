@@ -14,10 +14,10 @@ import {
   Circle,
   AlertCircle,
 } from "lucide-react";
-import DashboardHeader from "@/components/DashboardHeader";
 import { useLegislativeCalendar } from "@/hooks/useLegislativeCalendar";
 import type { CalendarEvent } from "@/hooks/useLegislativeCalendar";
 import { Skeleton } from "@/components/ui/skeleton";
+import SEO from "@/components/SEO";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { US_STATES } from "@/lib/usStates";
 
@@ -106,9 +106,10 @@ const LegislativeCalendar = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Legislative Calendar" path="/calendar" description="View upcoming legislative sessions, hearings, votes, and committee meetings." />
       <SiteNav />
 
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-5xl px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -240,7 +241,6 @@ const LegislativeCalendar = () => {
                         {dayEvents.length > 0 && (
                           <div className="flex gap-0.5">
                             {dayEvents.slice(0, 3).map((evt, idx) => {
-                              const config = EVENT_TYPE_CONFIG[evt.type] || EVENT_TYPE_CONFIG.other;
                               return (
                                 <span
                                   key={idx}

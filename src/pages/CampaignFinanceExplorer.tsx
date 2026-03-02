@@ -9,7 +9,6 @@ import {
   Wallet,
   PiggyBank,
   AlertTriangle,
-  Loader2,
   AlertCircle,
   Users,
   Building2,
@@ -28,10 +27,10 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import DashboardHeader from "@/components/DashboardHeader";
 import { useFECFinance, formatUSD, getSizeLabel } from "@/hooks/useFECFinance";
 import type { FECTotals } from "@/hooks/useFECFinance";
 import { Skeleton } from "@/components/ui/skeleton";
+import SEO from "@/components/SEO";
 
 const PIE_COLORS = [
   "hsl(0, 72%, 51%)",
@@ -70,9 +69,10 @@ const CampaignFinanceExplorer = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Campaign Finance Explorer" path="/campaign-finance" description="Explore campaign contributions, fundraising data, and political spending." />
       <SiteNav />
 
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-5xl px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

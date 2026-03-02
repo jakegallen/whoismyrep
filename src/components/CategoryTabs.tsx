@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Scale, Landmark, Users, MessageCircle, LayoutGrid, Headphones, Youtube } from "lucide-react";
+import { LayoutGrid, Headphones, Youtube } from "lucide-react";
 import type { NewsCategory } from "@/lib/mockNews";
 
 export type TabKey = NewsCategory | "all" | "podcasts" | "youtube";

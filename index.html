@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo-192.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WhoIsMyRep">
+    <link rel="preconnect" href="https://dnfdlxiggyucaclebyjh.supabase.co" crossorigin>
+    <link rel="dns-prefetch" href="https://dnfdlxiggyucaclebyjh.supabase.co">
     <title>WhoIsMyRep.us — Find Your U.S. Representatives</title>
     <meta name="description" content="Find your representatives instantly — federal, state, and local. Search any U.S. address to see voting records, campaign finance, legislation, and more.">
     <meta name="author" content="WhoIsMyRep.us" />
@@ -43,10 +51,21 @@
       }
     }
     </script>
+
+    <!-- Plausible analytics — privacy-friendly, no cookies -->
+    <script defer data-domain="whoismyrep.us" src="https://plausible.io/js/script.js"></script>
+    <script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
 </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

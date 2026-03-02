@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import SEO from "@/components/SEO";
 
 interface Prefs {
   bill_updates: boolean;
@@ -112,12 +113,13 @@ const Alerts = () => {
       key: "breaking_news" as const,
       icon: <Newspaper className="h-5 w-5 text-primary" />,
       title: "Breaking Political News",
-      desc: "Major political news and developments across Nevada",
+      desc: "Major political news and developments",
     },
   ];
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO title="Manage Alerts" path="/alerts" description="Set up personalized alerts for congressional bills, votes, and policy changes." />
       <header className="gradient-hero border-b border-border">
         <div className="container mx-auto px-4 py-8 md:py-10">
           <div className="flex items-center justify-between mb-4">
@@ -155,7 +157,7 @@ const Alerts = () => {
         </div>
       </header>
 
-      <main className="container mx-auto max-w-lg px-4 py-8 space-y-6">
+      <main id="main-content" className="container mx-auto max-w-lg px-4 py-8 space-y-6">
         {/* Email master toggle */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}

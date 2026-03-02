@@ -9,22 +9,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { url, title, summary, category } = await req.json();
+    const body = await req.json();
 
-    if (!url) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!FIRECRAWL_API_KEY) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Firecrawl not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Support both legacy fields and new politician-context fields
+    const {
+      title,
+      summary,
+      category,
+      // New structured context fields
+      politicianName,
+      party,
+      office,
+      state,
+      level,
+      chamber,
+      inOfficeSince,
+      committees,
+      recentBills,
+      votingSummary,
+    } = body;
 
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
@@ -34,34 +37,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Scrape the full article content
-    let articleContent = '';
-    try {
-      const scrapeResp = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url,
-          formats: ['markdown'],
-          onlyMainContent: true,
-        }),
-      });
+    // Build rich context from structured data if available
+    const name = politicianName || title?.replace(/\s*—.*/, '') || 'Unknown';
+    const contextParts: string[] = [];
 
-      if (scrapeResp.ok) {
-        const scrapeData = await scrapeResp.json();
-        articleContent = scrapeData.data?.markdown || scrapeData.markdown || '';
-      }
-    } catch (e) {
-      console.error('Scrape failed:', e);
+    contextParts.push(`Politician: ${name}`);
+    if (party) contextParts.push(`Party: ${party}`);
+    if (office) contextParts.push(`Office: ${office}`);
+    if (state) contextParts.push(`State: ${state}`);
+    if (level) contextParts.push(`Level: ${level}`);
+    if (chamber) contextParts.push(`Chamber: ${chamber}`);
+    if (inOfficeSince) contextParts.push(`In office since: ${inOfficeSince}`);
+    if (summary) contextParts.push(`Bio: ${summary}`);
+
+    if (committees && committees.length > 0) {
+      contextParts.push(`Committee memberships: ${committees.slice(0, 8).join(', ')}`);
+    }
+    if (recentBills && recentBills.length > 0) {
+      const billList = recentBills.slice(0, 5).map((b: any) =>
+        typeof b === 'string' ? b : `${b.identifier || b.id}: ${b.title || ''}`
+      ).join('; ');
+      contextParts.push(`Recent bills: ${billList}`);
+    }
+    if (votingSummary) {
+      const vs = votingSummary;
+      contextParts.push(
+        `Voting record (${vs.session || 'current session'}): ${vs.totalVotes || 0} total votes, ` +
+        `${vs.yesVotes || 0} yes, ${vs.noVotes || 0} no, ` +
+        `${vs.attendance || 0}% attendance, ${vs.partyLineRate || 0}% majority alignment`
+      );
     }
 
-    // Step 2: Generate in-depth analysis via AI
-    const contentContext = articleContent
-      ? `\n\nFull article content:\n${articleContent.slice(0, 6000)}`
-      : '';
+    const politicianContext = contextParts.join('\n');
+
+    console.log(`Generating analysis for ${name} (${level}/${state})`);
 
     const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -74,36 +83,36 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert U.S. political analyst. Given a news article about American politics, produce a comprehensive analysis in markdown format.
+            content: `You are a nonpartisan U.S. political analyst writing a concise profile overview for a civic transparency platform. Given structured data about a legislator, produce a helpful, data-driven analysis in markdown.
 
-Structure your analysis with these sections:
-## Key Takeaways
-- 3-5 bullet points summarizing the most important facts
+Structure your response with these sections:
 
-## Background & Context
-A 2-3 paragraph section explaining the broader political context, relevant history, and why this matters nationally or for the affected region.
+## At a Glance
+A brief 2-3 sentence overview of who this legislator is, their role, and what they're known for.
 
-## Stakeholders & Impact
-Who are the key players involved? How does this affect constituents, businesses, and the political landscape?
+## Legislative Focus
+Based on their committee assignments and recent bills, what policy areas does this legislator prioritize? (2-3 short paragraphs)
 
-## What's Next
-What are the likely next steps, upcoming votes, or potential outcomes? What should readers watch for?
+## Voting Patterns
+Analyze their voting record data. What does their attendance and majority-alignment rate suggest about their legislative style? Are they an independent voice or do they tend to vote with the majority? (1-2 paragraphs)
 
-## Local vs. National Significance
-How does this story connect local or regional concerns to broader national politics and policy?
+## Key Issues to Watch
+3-4 bullet points on current political dynamics relevant to this legislator — upcoming elections, major legislation in their committees, or regional issues.
 
-Write in a professional, journalistic tone. Be factual and balanced. If you don't have enough information to be certain, say so.`,
+IMPORTANT RULES:
+- Be factual and balanced. Do NOT editorialize or express personal opinions.
+- If you don't have data for a section, write a brief note like "No committee data available" rather than inventing information.
+- Do NOT fabricate specific vote counts, bill numbers, or quotes.
+- Keep the total response under 500 words.
+- Use present tense for current roles, past tense for historical facts.`,
           },
           {
             role: 'user',
-            content: `Analyze this U.S. political news article:
-
-Title: ${title}
-Category: ${category}
-Summary: ${summary}
-Source URL: ${url}${contentContext}`,
+            content: `Generate a profile analysis for this legislator:\n\n${politicianContext}`,
           },
         ],
+        max_tokens: 800,
+        temperature: 0.3,
       }),
     });
 

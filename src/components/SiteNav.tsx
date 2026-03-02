@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, LogIn, LogOut } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X, LogIn, LogOut, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "./ThemeToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
+import { useSavedReps } from "@/hooks/useSavedReps";
 
 const navLinks = [
   { to: "/#states", label: "States" },
@@ -21,7 +22,7 @@ export default function SiteNav() {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { count: savedCount } = useSavedReps();
   const { pathname } = useLocation();
   const isActive = (to: string) =>
     to === "/#states" ? pathname === "/" : pathname.startsWith(to);
@@ -54,6 +55,22 @@ export default function SiteNav() {
                 {link.label}
               </Link>
             ))}
+            <Link
+              to="/saved"
+              className={`relative flex items-center gap-1 rounded-lg px-3 py-2 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                isActive("/saved")
+                  ? "bg-surface-hover text-foreground"
+                  : "text-muted-foreground"
+              }`}
+              aria-label={`Saved representatives${savedCount > 0 ? ` (${savedCount})` : ""}`}
+            >
+              <Heart className="h-4 w-4" fill={savedCount > 0 ? "currentColor" : "none"} />
+              {savedCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9px] font-bold text-white">
+                  {savedCount > 99 ? "99+" : savedCount}
+                </span>
+              )}
+            </Link>
             <div className="ml-1">
               <ThemeToggle />
             </div>
@@ -117,6 +134,18 @@ export default function SiteNav() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                to="/saved"
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                  isActive("/saved")
+                    ? "bg-surface-hover text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <Heart className="h-4 w-4" fill={savedCount > 0 ? "currentColor" : "none"} />
+                Saved{savedCount > 0 ? ` (${savedCount})` : ""}
+              </Link>
               {user ? (
                 <button
                   onClick={() => { signOut(); setMenuOpen(false); }}

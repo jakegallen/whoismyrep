@@ -1,14 +1,10 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
 
 const BASE_URL = 'https://lda.senate.gov/api/v1';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
   try {
     const { endpoint = 'filings', search, page = 1, filing_year, filing_type, registrant_name, client_name } = await req.json().catch(() => ({}));
@@ -55,10 +51,7 @@ Deno.serve(async (req) => {
       if (search) {
         params.set('name', search);
       }
-      // Filter for Nevada clients
-      if (!search) {
-        params.set('name', 'Nevada');
-      }
+      // Without a search term, return recent clients (no state-specific default)
       url = `${BASE_URL}/clients/?${params}`;
     } else if (endpoint === 'lobbyists') {
       const params = new URLSearchParams({
@@ -84,7 +77,7 @@ Deno.serve(async (req) => {
       console.error(`Senate LDA API error: ${resp.status} ${errText}`);
       return new Response(
         JSON.stringify({ success: false, error: `Senate LDA API error: ${resp.status}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -160,13 +153,13 @@ Deno.serve(async (req) => {
         page,
         totalPages: Math.ceil((data.count || 1) / 20),
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: withCache({ ...getCorsHeaders(req), 'Content-Type': 'application/json' }) }
     );
   } catch (error) {
     console.error('Error fetching lobbying data:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch lobbying data' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

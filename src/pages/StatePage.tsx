@@ -8,7 +8,6 @@ import {
   FileText,
   Map as MapIcon,
   Newspaper,
-  Loader2,
   ChevronRight,
   ExternalLink,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import { CardListSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useFederalReps, type FederalRep } from "@/hooks/useFederalReps";
+import SEO from "@/components/SEO";
 import { useBills } from "@/hooks/useBills";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -54,8 +54,13 @@ const StatePage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={`${stateInfo.name || upperAbbr} — State Overview`}
+        description={`View ${stateInfo.name || upperAbbr}'s elected officials, legislation, and political landscape.`}
+        path={`/state/${abbr}`}
+      />
       <SiteNav />
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main id="main-content" className="container mx-auto max-w-5xl px-4 py-8">
         {/* Back */}
         <button
           onClick={() => navigate("/")}
@@ -171,6 +176,7 @@ function FederalSection({ stateAbbr, stateName }: { stateAbbr: string; stateName
                       website: rep.website,
                       email: rep.email,
                       socialHandles: rep.socialHandles,
+                      bioguideId: rep.bioguideId,
                       divisionId: rep.divisionId || "",
                     },
                   },
@@ -203,6 +209,7 @@ function FederalSection({ stateAbbr, stateName }: { stateAbbr: string; stateName
                       website: rep.website,
                       email: rep.email,
                       socialHandles: rep.socialHandles,
+                      bioguideId: rep.bioguideId,
                       divisionId: rep.divisionId || "",
                     },
                   },
@@ -232,7 +239,7 @@ function FederalRepCard({ rep, onClick }: { rep: FederalRep; onClick: () => void
       className="group flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
     >
       {rep.photoUrl ? (
-        <img src={rep.photoUrl} alt={rep.name} className="h-10 w-10 rounded-lg object-cover" />
+        <img src={rep.photoUrl} alt={rep.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
           {rep.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
@@ -288,7 +295,7 @@ function LegislatorsSection({ stateName, jurisdiction }: { stateName: string; ju
           </h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {senate.slice(0, 20).map((leg) => (
-              <LegislatorCard key={leg.id} leg={leg} jurisdiction={jurisdiction} onClick={() => {
+              <LegislatorCard key={leg.id} leg={leg} onClick={() => {
                 const repId = leg.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                 navigate(`/politicians/${repId}`, {
                   state: {
@@ -324,7 +331,7 @@ function LegislatorsSection({ stateName, jurisdiction }: { stateName: string; ju
           </h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {house.slice(0, 20).map((leg) => (
-              <LegislatorCard key={leg.id} leg={leg} jurisdiction={jurisdiction} onClick={() => {
+              <LegislatorCard key={leg.id} leg={leg} onClick={() => {
                 const repId = leg.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                 navigate(`/politicians/${repId}`, {
                   state: {
@@ -355,7 +362,7 @@ function LegislatorsSection({ stateName, jurisdiction }: { stateName: string; ju
   );
 }
 
-function LegislatorCard({ leg, jurisdiction, onClick }: { leg: Legislator; jurisdiction: string; onClick: () => void }) {
+function LegislatorCard({ leg, onClick }: { leg: Legislator; onClick: () => void }) {
   const dot = partyDot[leg.party] || partyDot.Nonpartisan;
   const allHandles: Record<string, string> = {
     ...(leg.website ? { website: leg.website } : {}),
@@ -371,7 +378,7 @@ function LegislatorCard({ leg, jurisdiction, onClick }: { leg: Legislator; juris
       className="group flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
     >
       {leg.imageUrl ? (
-        <img src={leg.imageUrl} alt={leg.name} className="h-10 w-10 rounded-lg object-cover" />
+        <img src={leg.imageUrl} alt={leg.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
           {leg.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}

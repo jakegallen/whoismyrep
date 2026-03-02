@@ -1,48 +1,43 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders, handleCors, jsonResponse } from "../_shared/cors.ts";
 
-const ALLOWED_ORIGINS = [
-  "https://whoismyrep.us",
-  "https://www.whoismyrep.us",
-];
+Deno.serve(async (req) => {
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
-const CORS_HEADERS_BASE = {
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("Origin") ?? "";
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
-    ? origin
-    : ALLOWED_ORIGINS[0];
-  return {
-    ...CORS_HEADERS_BASE,
-    "Access-Control-Allow-Origin": allowedOrigin,
-  };
-}
-
-serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const cors = getCorsHeaders(req);
 
   try {
+    // ── Auth check: caller must be a logged-in user ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return jsonResponse({ error: "Missing authorization header" }, req, { status: 401, cache: false });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return jsonResponse({ error: "Unauthorized" }, req, { status: 401, cache: false });
+    }
+
+    // ── Validate env ──
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "RESEND_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "RESEND_API_KEY not configured" }, req, { status: 500, cache: false });
     }
 
     const { type, subject, htmlContent, recipients } = await req.json();
 
     if (!recipients?.length || !subject || !htmlContent) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: recipients, subject, htmlContent" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      return jsonResponse(
+        { error: "Missing required fields: recipients, subject, htmlContent" },
+        req,
+        { status: 400, cache: false },
       );
     }
 
@@ -67,15 +62,13 @@ serve(async (req) => {
       throw new Error(data.message || "Failed to send email");
     }
 
-    return new Response(
-      JSON.stringify({ success: true, data }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ success: true, data }, req, { cache: false });
   } catch (error) {
     console.error("Error sending alert email:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      req,
+      { status: 500, cache: false },
     );
   }
 });

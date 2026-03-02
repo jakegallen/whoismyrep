@@ -1,0 +1,27 @@
+{
+  "name": "WhoIsMyRep.us — Find Your U.S. Representatives",
+  "short_name": "WhoIsMyRep",
+  "description": "Find your representatives instantly — federal, state, and local. Search any U.S. address to see voting records, campaign finance, legislation, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#dc2626",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["government", "news", "politics"],
+  "lang": "en-US",
+  "scope": "/"
+}

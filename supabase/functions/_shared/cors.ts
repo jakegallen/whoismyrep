@@ -10,6 +10,8 @@ const ALLOWED_ORIGINS = [
   "https://www.whoismyrep.us",
   "http://localhost:5173",   // Vite dev
   "http://localhost:4173",   // Vite preview
+  "http://localhost:8080",   // Claude preview
+  "http://127.0.0.1:8080",  // Claude preview (IP)
 ];
 
 const BASE_HEADERS = {

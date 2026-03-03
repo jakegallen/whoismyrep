@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FileText, ExternalLink, Download, Search, Loader2, Landmark, Scale, ScrollText, Bell } from "lucide-react";
-import DashboardHeader from "@/components/DashboardHeader";
 import SiteNav from "@/components/SiteNav";
 import { useFederalRegister, type FederalDocType } from "@/hooks/useFederalRegister";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +47,6 @@ const FederalRegister = () => {
     <div className="min-h-screen bg-background">
       <SEO title="Federal Register" path="/federal-register" description="Search executive orders, final rules, proposed rules, and federal notices." />
       <SiteNav />
-      <DashboardHeader />
 
       <main id="main-content" className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

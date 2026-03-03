@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   Briefcase, ExternalLink, Search, Loader2, FileText, Users, Building2, DollarSign, ChevronDown, ChevronUp,
 } from "lucide-react";
-import DashboardHeader from "@/components/DashboardHeader";
 import SiteNav from "@/components/SiteNav";
 import { useLobbying, type LobbyingEndpoint, type LobbyingFiling } from "@/hooks/useLobbying";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +62,6 @@ const LobbyingExplorer = () => {
     <div className="min-h-screen bg-background">
       <SEO title="Lobbying Explorer" path="/lobbying" description="Track lobbying activities, filings, clients, and lobbyist registrations." />
       <SiteNav />
-      <DashboardHeader />
 
       <main id="main-content" className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">

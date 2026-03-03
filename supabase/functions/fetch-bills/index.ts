@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   if (preflight) return preflight;
 
   try {
-    const { session, search, page = 1, per_page = 50, jurisdiction, level, bioguideId } = await req.json().catch(() => ({}));
+    const { session, search, page = 1, per_page = 20, jurisdiction, level, bioguideId } = await req.json().catch(() => ({}));
 
     // Federal politicians: use Congress.gov API via bioguideId
     if (level === 'federal' && bioguideId) {
@@ -153,10 +153,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Build query params for OpenStates v3 REST API
+    // Build query params for OpenStates v3 REST API (max per_page is 20)
+    const osPerPage = Math.min(per_page, 20);
     const params = new URLSearchParams({
       jurisdiction: ocdJurisdiction,
-      per_page: String(per_page),
+      per_page: String(osPerPage),
       page: String(page),
       sort: 'updated_desc',
     });
@@ -183,7 +184,7 @@ Deno.serve(async (req) => {
       console.error(`OpenStates API error: ${resp.status} ${errText}`);
       const error = resp.status === 429
         ? 'API rate limit reached. Please try again later.'
-        : `OpenStates API error: ${resp.status}`;
+        : `OpenStates API error: ${resp.status} — ${errText.slice(0, 300)}`;
       return new Response(
         JSON.stringify({ success: false, error }),
         { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }

@@ -10,6 +10,7 @@ import {
   Newspaper,
   ChevronRight,
   ExternalLink,
+  Crown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,8 @@ import { CardListSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useFederalReps, type FederalRep } from "@/hooks/useFederalReps";
+import { SaveRepButton } from "@/components/SaveRepButton";
+import type { CivicRep } from "@/hooks/useCivicReps";
 import SEO from "@/components/SEO";
 import { useBills } from "@/hooks/useBills";
 import { supabase } from "@/integrations/supabase/client";
@@ -100,9 +103,10 @@ const StatePage = () => {
         </motion.div>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
-          {/* Left column: Federal + State Legislators */}
+          {/* Left column: Federal + Executives + State Legislators */}
           <div className="space-y-10">
             <FederalSection stateAbbr={upperAbbr} stateName={stateInfo.name} />
+            <ExecutivesSection stateAbbr={upperAbbr} stateName={stateInfo.name} />
             <LegislatorsSection stateName={stateInfo.name} jurisdiction={stateInfo.jurisdiction} />
           </div>
 
@@ -231,12 +235,26 @@ function FederalRepCard({ rep, onClick }: { rep: FederalRep; onClick: () => void
     ...(rep.socialHandles || {}),
   };
 
+  const civicRep: CivicRep = {
+    name: rep.name,
+    office: rep.office,
+    level: "federal",
+    party: rep.party,
+    photoUrl: rep.photoUrl,
+    phone: rep.phone,
+    website: rep.website,
+    email: rep.email,
+    socialHandles: rep.socialHandles,
+    bioguideId: rep.bioguideId,
+    divisionId: rep.divisionId || "",
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className="group flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
     >
       {rep.photoUrl ? (
         <img src={rep.photoUrl} alt={rep.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
@@ -253,6 +271,7 @@ function FederalRepCard({ rep, onClick }: { rep: FederalRep; onClick: () => void
         <p className="font-body text-[11px] text-muted-foreground truncate">{rep.office}</p>
         <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
       </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </motion.div>
   );
@@ -370,12 +389,24 @@ function LegislatorCard({ leg, onClick }: { leg: Legislator; onClick: () => void
     ...(leg.socialHandles || {}),
   };
 
+  const civicRep: CivicRep = {
+    name: leg.name,
+    office: leg.office,
+    level: "state",
+    party: leg.party,
+    photoUrl: leg.imageUrl,
+    website: leg.website,
+    email: leg.email,
+    socialHandles: leg.socialHandles,
+    divisionId: "",
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className="group flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
     >
       {leg.imageUrl ? (
         <img src={leg.imageUrl} alt={leg.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
@@ -392,6 +423,174 @@ function LegislatorCard({ leg, onClick }: { leg: Legislator; onClick: () => void
         <p className="font-body text-[11px] text-muted-foreground truncate">{leg.title}</p>
         <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
       </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+/* ════════ Executives (Governors, Mayors, etc.) ════════ */
+
+interface ExecutiveEntry {
+  id: string;
+  name: string;
+  title: string;
+  party: string;
+  state: string;
+  level: "state" | "local";
+  website?: string;
+}
+
+function ExecutivesSection({ stateAbbr, stateName }: { stateAbbr: string; stateName: string }) {
+  const [executives, setExecutives] = useState<ExecutiveEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("fetch-state-executives", {
+          body: { stateAbbr },
+        });
+        if (cancelled) return;
+        if (fnError) throw fnError;
+        setExecutives(data?.executives || []);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Failed to load executives");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [stateAbbr]);
+
+  const stateExecs = executives.filter((e) => e.level === "state");
+  const localExecs = executives.filter((e) => e.level === "local");
+
+  // Don't render the section at all if empty and done loading
+  if (!isLoading && executives.length === 0 && !error) return null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <Crown className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">Governors & Executives</h2>
+        {!isLoading && executives.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {executives.length} total
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+
+      {/* State-level executives (Governor, Lt. Governor, AG, etc.) */}
+      {stateExecs.length > 0 && (
+        <div className="mb-6">
+          <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            State Executives ({stateExecs.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {stateExecs.map((exec) => (
+              <ExecutiveCard key={exec.id} exec={exec} onClick={() => {
+                const repId = exec.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+                navigate(`/politicians/${repId}`, {
+                  state: {
+                    civicRep: {
+                      name: exec.name,
+                      office: `${exec.title} of ${stateName}`,
+                      level: "state" as const,
+                      party: exec.party,
+                      website: exec.website,
+                      divisionId: "",
+                    },
+                  },
+                });
+              }} stateName={stateName} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Local executives (Mayors, etc.) */}
+      {localExecs.length > 0 && (
+        <div>
+          <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            Local Officials ({localExecs.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {localExecs.map((exec) => (
+              <ExecutiveCard key={exec.id} exec={exec} onClick={() => {
+                const repId = exec.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+                navigate(`/politicians/${repId}`, {
+                  state: {
+                    civicRep: {
+                      name: exec.name,
+                      office: exec.title,
+                      level: "local" as const,
+                      party: exec.party,
+                      website: exec.website,
+                      divisionId: "",
+                    },
+                  },
+                });
+              }} stateName={stateName} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExecutiveCard({ exec, onClick, stateName }: { exec: ExecutiveEntry; onClick: () => void; stateName: string }) {
+  const dot = partyDot[exec.party] || partyDot.Nonpartisan;
+
+  const civicRep: CivicRep = {
+    name: exec.name,
+    office: exec.level === "state" ? `${exec.title} of ${stateName}` : exec.title,
+    level: exec.level === "state" ? "state" : "local",
+    party: exec.party,
+    website: exec.website,
+    divisionId: "",
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={onClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
+        {exec.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{exec.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{exec.title}</p>
+        {exec.website && (
+          <a
+            href={exec.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 inline-flex items-center gap-1 font-body text-[10px] text-primary hover:underline"
+          >
+            <ExternalLink className="h-2.5 w-2.5" /> Website
+          </a>
+        )}
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </motion.div>
   );

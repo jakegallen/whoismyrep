@@ -25,7 +25,7 @@ const CongressExplorer = () => {
   const [page, setPage] = useUrlNumber("page", 1);
 
   const { data, isLoading, error } = useCongress(activeTab, {
-    congress: 119,
+    congress: Math.floor((new Date().getFullYear() - 1789) / 2) + 1,
     limit: 20,
     offset: (page - 1) * 20,
   });

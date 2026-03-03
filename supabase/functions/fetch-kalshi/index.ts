@@ -28,42 +28,37 @@ Deno.serve(async (req) => {
     const nameParts = name.split(/\s+/);
     const lastName = nameParts[nameParts.length - 1];
 
-    // Fetch events matching politician name and state
-    const searchTerms = [name, lastName];
-    if (stateStr) searchTerms.push(stateStr);
+    // Build search terms for client-side filtering
+    const searchTerms = [name.toLowerCase(), lastName.toLowerCase()];
+    if (stateStr) searchTerms.push(stateStr.toLowerCase());
 
+    // Fetch events once with a generous limit (API has no text search param)
     const allEvents: any[] = [];
-    const fetches: Promise<void>[] = [];
+    const url = `${KALSHI_API}/events?status=open&with_nested_markets=true&limit=100`;
 
-    for (const term of searchTerms) {
-      const url = `${KALSHI_API}/events?status=open&with_nested_markets=true&limit=20`;
-      fetches.push(
-        fetch(url, {
-          headers: { 'Accept': 'application/json' },
-        })
-          .then(r => r.ok ? r.json() : { events: [] })
-          .then((data: any) => {
-            if (data.events && Array.isArray(data.events)) {
-              // Filter events whose title/category mentions our search term
-              const termLC = term.toLowerCase();
-              const relevant = data.events.filter((e: any) => {
-                const text = [
-                  e.title || '',
-                  e.sub_title || '',
-                  e.category || '',
-                ].join(' ').toLowerCase();
-                return text.includes(termLC);
-              });
-              allEvents.push(...relevant);
+    try {
+      const resp = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.events && Array.isArray(data.events)) {
+          // Keep events whose title/category mentions any search term
+          for (const event of data.events) {
+            const text = [
+              event.title || '',
+              event.sub_title || '',
+              event.category || '',
+            ].join(' ').toLowerCase();
+            if (searchTerms.some(term => text.includes(term))) {
+              allEvents.push(event);
             }
-          })
-          .catch((err) => {
-            console.error(`Kalshi search error for "${term}":`, err);
-          })
-      );
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Kalshi fetch error:`, err);
     }
-
-    await Promise.all(fetches);
 
     // Extract markets from events
     const nameLC = name.toLowerCase();

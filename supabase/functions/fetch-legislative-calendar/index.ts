@@ -18,13 +18,19 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const stateAbbr = (body.stateAbbr || 'nv').toLowerCase();
+    const stateAbbr = (body.stateAbbr || '').toLowerCase();
+    if (!stateAbbr) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'stateAbbr is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const headers = { 'X-API-KEY': apiKey };
     const jurisdiction = stateAbbr === 'dc'
       ? 'ocd-jurisdiction/country:us/district:dc/government'
       : `ocd-jurisdiction/country:us/state:${stateAbbr}/government`;
-    const jurisdictionName = body.jurisdiction || 'Nevada';
+    const jurisdictionName = body.jurisdiction || stateAbbr.toUpperCase();
 
     // Fetch events from OpenStates
     const eventsUrl = new URL('https://v3.openstates.org/events');

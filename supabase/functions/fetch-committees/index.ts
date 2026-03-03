@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { chamber, legislatorName, jurisdiction = 'Nevada', stateAbbr = 'nv', level, bioguideId } = await req.json().catch(() => ({}));
+    const { chamber, legislatorName, jurisdiction, stateAbbr, level, bioguideId } = await req.json().catch(() => ({}));
     console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}, jurisdiction=${jurisdiction}, level=${level}, bioguideId=${bioguideId}`);
 
     // Federal path: use @unitedstates data
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
             committees,
             legislatorCommittees,
             recentBills: [],
-            session: '119th Congress',
+            session: (() => { const c = Math.floor((new Date().getFullYear() - 1789) / 2) + 1; const s = [11,12,13].includes(c%100) ? 'th' : c%10===1 ? 'st' : c%10===2 ? 'nd' : c%10===3 ? 'rd' : 'th'; return `${c}${s} Congress`; })(),
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

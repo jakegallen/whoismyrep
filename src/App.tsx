@@ -64,13 +64,16 @@ function withBoundary(element: ReactNode, pageName: string) {
   return <RouteErrorBoundary pageName={pageName}>{element}</RouteErrorBoundary>;
 }
 
-/* ── React Query defaults: stale 5 min, retry once ── */
+/* ── React Query defaults: stale 5 min, retry once, toast on error ── */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
       retry: 1,
       refetchOnWindowFocus: false,
+    },
+    mutations: {
+      retry: 0,
     },
   },
 });

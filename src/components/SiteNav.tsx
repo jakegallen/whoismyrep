@@ -6,6 +6,8 @@ import ThemeToggle from "./ThemeToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { useSavedReps } from "@/hooks/useSavedReps";
+import { useSavedBills } from "@/hooks/useSavedBills";
+import { useHomeState } from "@/hooks/useHomeState";
 
 const navLinks = [
   { to: "/#states", label: "States" },
@@ -22,7 +24,10 @@ export default function SiteNav() {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const { count: savedCount } = useSavedReps();
+  const { count: savedRepCount } = useSavedReps();
+  const { count: savedBillCount } = useSavedBills();
+  const totalSavedCount = savedRepCount + savedBillCount;
+  const { homeState, homeDistrict } = useHomeState();
   const { pathname } = useLocation();
   const isActive = (to: string) =>
     to === "/#states" ? pathname === "/" : pathname.startsWith(to);
@@ -46,6 +51,7 @@ export default function SiteNav() {
               <Link
                 key={link.to}
                 to={link.to}
+                aria-current={isActive(link.to) ? "page" : undefined}
                 className={`rounded-lg px-3 py-2 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
                   isActive(link.to)
                     ? "bg-surface-hover text-foreground"
@@ -62,12 +68,17 @@ export default function SiteNav() {
                   ? "bg-surface-hover text-foreground"
                   : "text-muted-foreground"
               }`}
-              aria-label={`Saved representatives${savedCount > 0 ? ` (${savedCount})` : ""}`}
+              aria-label={`Saved items${totalSavedCount > 0 ? ` (${totalSavedCount})` : ""}`}
             >
-              <Heart className="h-4 w-4" fill={savedCount > 0 ? "currentColor" : "none"} />
-              {savedCount > 0 && (
+              <Heart className="h-4 w-4" fill={totalSavedCount > 0 ? "currentColor" : "none"} />
+              {homeState && (
+                <span className="rounded bg-primary/10 px-1 py-0.5 font-mono text-[9px] font-bold text-primary">
+                  {homeState}{homeDistrict ? `-${homeDistrict}` : ""}
+                </span>
+              )}
+              {totalSavedCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[9px] font-bold text-white">
-                  {savedCount > 99 ? "99+" : savedCount}
+                  {totalSavedCount > 99 ? "99+" : totalSavedCount}
                 </span>
               )}
             </Link>
@@ -102,6 +113,7 @@ export default function SiteNav() {
               onClick={() => setMenuOpen((v) => !v)}
               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
             >
               {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -125,6 +137,7 @@ export default function SiteNav() {
                   key={link.to}
                   to={link.to}
                   onClick={() => setMenuOpen(false)}
+                  aria-current={isActive(link.to) ? "page" : undefined}
                   className={`rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
                     isActive(link.to)
                       ? "bg-surface-hover text-foreground"
@@ -143,8 +156,14 @@ export default function SiteNav() {
                     : "text-muted-foreground"
                 }`}
               >
-                <Heart className="h-4 w-4" fill={savedCount > 0 ? "currentColor" : "none"} />
-                Saved{savedCount > 0 ? ` (${savedCount})` : ""}
+                <Heart className="h-4 w-4" fill={totalSavedCount > 0 ? "currentColor" : "none"} />
+                Saved{totalSavedCount > 0 ? ` (${totalSavedCount})` : ""}
+
+                {homeState && (
+                  <span className="rounded bg-primary/10 px-1 py-0.5 font-mono text-[9px] font-bold text-primary">
+                    {homeState}{homeDistrict ? `-${homeDistrict}` : ""}
+                  </span>
+                )}
               </Link>
               {user ? (
                 <button

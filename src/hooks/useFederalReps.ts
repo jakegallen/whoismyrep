@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FederalRep {
@@ -19,47 +19,28 @@ export interface FederalRep {
   divisionId?: string;
 }
 
-interface UseFederalRepsResult {
-  reps: FederalRep[];
-  isLoading: boolean;
-  error: string | null;
+async function fetchFederalReps(stateAbbr: string): Promise<FederalRep[]> {
+  const { data, error } = await supabase.functions.invoke("fetch-civic-reps", {
+    body: { stateAbbr },
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to fetch federal representatives");
+
+  return data.representatives || [];
 }
 
-export function useFederalReps(stateAbbr?: string): UseFederalRepsResult {
-  const [reps, setReps] = useState<FederalRep[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function useFederalReps(stateAbbr?: string) {
+  const query = useQuery({
+    queryKey: ["federal-reps", stateAbbr],
+    queryFn: () => fetchFederalReps(stateAbbr!),
+    enabled: !!stateAbbr,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const fetchReps = useCallback(async () => {
-    if (!stateAbbr) {
-      setReps([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-civic-reps", {
-        body: { stateAbbr },
-      });
-
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error || "Failed to fetch federal representatives");
-
-      setReps(data.representatives || []);
-    } catch (e) {
-      console.error("Failed to fetch federal reps:", e);
-      setError(e instanceof Error ? e.message : "Failed to fetch federal representatives");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [stateAbbr]);
-
-  useEffect(() => {
-    fetchReps();
-  }, [fetchReps]);
-
-  return { reps, isLoading, error };
+  return {
+    reps: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+  };
 }

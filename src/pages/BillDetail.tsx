@@ -31,6 +31,7 @@ import {
 } from "@/hooks/useBills";
 import ReactMarkdown from "react-markdown";
 import { trackEvent } from "@/lib/analytics";
+import { SaveBillButton } from "@/components/SaveBillButton";
 import SEO from "@/components/SEO";
 
 const BillDetail = () => {
@@ -43,6 +44,13 @@ const BillDetail = () => {
   const jurisdiction = locState?.jurisdiction;
   const { summary, sponsors, status, isLoading, error } = useBillDetail(bill);
   const { data: detail, isLoading: detailLoading, error: detailError } = useBillOpenStatesDetail(bill, jurisdiction);
+
+  // Plausible analytics: track bill detail view (must be before any conditional return)
+  useEffect(() => {
+    if (bill) {
+      trackEvent("View Bill", { id: bill.billNumber || fullId || "unknown" });
+    }
+  }, [bill, fullId]);
 
   if (!bill) {
     return (
@@ -57,13 +65,6 @@ const BillDetail = () => {
       </div>
     );
   }
-
-  // Plausible analytics: track bill detail view
-  useEffect(() => {
-    if (bill) {
-      trackEvent("View Bill", { id: bill.billNumber || fullId || "unknown" });
-    }
-  }, [bill, fullId]);
 
   const ChamberIcon = bill.chamber === "Senate" ? Landmark : Building2;
 
@@ -99,7 +100,7 @@ const BillDetail = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
                 <ChamberIcon className="h-5 w-5 text-primary-foreground" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="font-display text-2xl font-bold tracking-tight text-headline md:text-3xl">
                   {bill.billNumber}
                 </h1>
@@ -109,6 +110,9 @@ const BillDetail = () => {
                   <Badge variant="secondary" className="text-xs">{status || bill.status}</Badge>
                 </div>
               </div>
+              {jurisdiction && (
+                <SaveBillButton bill={bill} jurisdiction={jurisdiction} size="md" />
+              )}
             </div>
             <p className="mt-3 max-w-2xl font-body text-sm text-secondary-custom">{bill.title}</p>
             <div className="mt-3">

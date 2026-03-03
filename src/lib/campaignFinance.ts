@@ -138,7 +138,7 @@ export function getCampaignFinance(
     totalRaised,
     totalSpent,
     cashOnHand,
-    cycle: "2025-2026",
+    cycle: (() => { const y = new Date().getFullYear(); const start = y % 2 === 0 ? y - 1 : y; return `${start}-${start + 1}`; })(),
     topDonors,
     spendingBreakdown,
     fundraisingTrend,

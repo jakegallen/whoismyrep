@@ -19,7 +19,8 @@ import type { CalendarEvent } from "@/hooks/useLegislativeCalendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import SEO from "@/components/SEO";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { US_STATES } from "@/lib/usStates";
+import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
+import { useHomeState } from "@/hooks/useHomeState";
 
 const EVENT_TYPE_CONFIG: Record<string, { label: string; icon: typeof Gavel; colorClass: string }> = {
   hearing: { label: "Hearing", icon: Gavel, colorClass: "bg-[hsl(210,80%,55%)] text-white" },
@@ -46,9 +47,10 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 const LegislativeCalendar = () => {
   const navigate = useNavigate();
-  const [selectedState, setSelectedState] = useState("NV");
+  const { homeState } = useHomeState();
+  const [selectedState, setSelectedState] = useState(() => homeState || detectStateFromTimezone());
   const stateAbbr = selectedState.toLowerCase();
-  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada";
+  const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || selectedState;
   const { data, isLoading, error } = useLegislativeCalendar(stateAbbr, jurisdiction);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 

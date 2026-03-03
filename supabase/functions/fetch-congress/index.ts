@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
         bioguideId: m.bioguideId || '',
         name: m.name || '',
         party: m.partyName || '',
-        state: m.state || 'Nevada',
+        state: m.state || '',
         district: m.district || null,
         chamber: m.terms?.item?.[0]?.chamber || '',
         url: m.url || '',

@@ -15,6 +15,8 @@ import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useCongress, type CongressMember } from "@/hooks/useCongress";
 import { useUrlState, useUrlNumber } from "@/hooks/useUrlState";
+import { Badge } from "@/components/ui/badge";
+import { useHomeState } from "@/hooks/useHomeState";
 import SEO from "@/components/SEO";
 
 const PAGE_SIZE = 12;
@@ -34,9 +36,11 @@ const Politicians = () => {
   const [sortBy, setSortBy] = useUrlState("sort", "default") as ["default" | "name" | "party", (v: string) => void];
   const [currentPage, setCurrentPage] = useUrlNumber("page", 1);
 
+  const { homeState, homeDistrict } = useHomeState();
+
   const isUSWide = selectedState === "US";
-  const jurisdiction = isUSWide ? "" : (US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || "Nevada");
-  const stateName = isUSWide ? "United States" : (US_STATES.find((s) => s.abbr === selectedState)?.name || "Nevada");
+  const jurisdiction = isUSWide ? "" : (US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || selectedState);
+  const stateName = isUSWide ? "United States" : (US_STATES.find((s) => s.abbr === selectedState)?.name || selectedState);
 
   // State legislators
   const { legislators, isLoading: stateLoading, error: stateError, refetch: stateRefetch } = useLegislators(
@@ -130,6 +134,29 @@ const Politicians = () => {
     return list;
   }, [legislators, search, sortBy]);
 
+  // "Your Rep" detection for federal members
+  const isMyRep = useMemo(() => {
+    if (!homeState) return () => false;
+    // Congress.gov returns full state names (e.g. "Colorado"), homeState is abbreviation ("CO")
+    const homeStateFull = US_STATES.find((s) => s.abbr === homeState)?.name || homeState;
+    // Count how many House members this state has — if only 1, it's at-large
+    const stateHouseMembers = federalMembers.filter(
+      (m) => m.state === homeStateFull && m.chamber !== "Senate",
+    );
+    const isAtLarge = stateHouseMembers.length <= 1;
+    const districtNum = homeDistrict ? parseInt(homeDistrict, 10) : null;
+
+    return (member: CongressMember): boolean => {
+      if (member.state !== homeStateFull) return false;
+      // Senators always match for the home state
+      if (member.chamber === "Senate") return true;
+      // House members: match district or at-large
+      if (isAtLarge) return true;
+      if (districtNum != null && member.district === districtNum) return true;
+      return false;
+    };
+  }, [homeState, homeDistrict, federalMembers]);
+
   // Filtered federal members
   const filteredFederal = useMemo(() => {
     // When a name search is active, use results from search-politicians (cross-state)
@@ -150,8 +177,16 @@ const Politicians = () => {
     }
     if (sortBy === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortBy === "party") list.sort((a, b) => a.party.localeCompare(b.party) || a.name.localeCompare(b.name));
+    // Sort "my reps" to the top when no explicit sort is active
+    if (sortBy === "default" && homeState) {
+      list.sort((a, b) => {
+        const aIsMyRep = isMyRep(a) ? 0 : 1;
+        const bIsMyRep = isMyRep(b) ? 0 : 1;
+        return aIsMyRep - bIsMyRep;
+      });
+    }
     return list;
-  }, [federalMembers, nameSearchMembers, nameSearchActive, federalChamberFilter, search, sortBy]);
+  }, [federalMembers, nameSearchMembers, nameSearchActive, federalChamberFilter, search, sortBy, homeState, isMyRep]);
 
   // Force federal when US-wide selected
   useEffect(() => { if (isUSWide) setLevel("federal"); }, [isUSWide]);
@@ -427,7 +462,7 @@ const Politicians = () => {
             </p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedFederal.map((member) => (
-                <FederalMemberRow key={member.bioguideId} member={member} socialHandles={(socialLookup && member.bioguideId) ? (socialLookup[member.bioguideId] ?? {}) : {}} websiteUrl={member.url} onClick={() => {
+                <FederalMemberRow key={member.bioguideId} member={member} socialHandles={(socialLookup && member.bioguideId) ? (socialLookup[member.bioguideId] ?? {}) : {}} websiteUrl={member.url} isMyRep={isMyRep(member)} onClick={() => {
                   const repId = member.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
                   navigate(`/politicians/${repId}`, {
                     state: {
@@ -558,7 +593,7 @@ function LegislatorRow({ legislator, onClick }: { legislator: Legislator; onClic
 }
 
 /* ── Federal member card ── */
-function FederalMemberRow({ member, socialHandles, websiteUrl, onClick }: { member: CongressMember; socialHandles?: Record<string, string>; websiteUrl?: string; onClick: () => void }) {
+function FederalMemberRow({ member, socialHandles, websiteUrl, isMyRep, onClick }: { member: CongressMember; socialHandles?: Record<string, string>; websiteUrl?: string; isMyRep?: boolean; onClick: () => void }) {
   const isSenate = member.chamber === "Senate";
   const partyDot =
     member.party === "Democrat" || member.party === "Democratic"
@@ -582,7 +617,11 @@ function FederalMemberRow({ member, socialHandles, websiteUrl, onClick }: { memb
       onClick={onClick}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-surface-hover"
+      className={`group flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-surface-hover ${
+        isMyRep
+          ? "border-primary/30 bg-primary/5 ring-2 ring-primary/20"
+          : "border-border bg-card"
+      }`}
     >
       {member.depiction?.imageUrl ? (
         <img src={member.depiction.imageUrl} alt={member.name} className="h-12 w-12 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -595,6 +634,11 @@ function FederalMemberRow({ member, socialHandles, websiteUrl, onClick }: { memb
         <div className="flex items-center gap-2">
           <h4 className="font-display text-sm font-bold text-headline truncate">{member.name}</h4>
           <div className={`h-2 w-2 shrink-0 rounded-full ${partyDot}`} title={member.party} />
+          {isMyRep && (
+            <Badge variant="secondary" className="shrink-0 bg-primary/15 text-primary text-[10px] font-semibold">
+              Your Rep
+            </Badge>
+          )}
         </div>
         <p className="font-body text-xs text-muted-foreground truncate">{title}</p>
         <p className="mt-0.5 font-body text-[10px] text-muted-foreground/60">{member.party} · {chamberLabel}</p>

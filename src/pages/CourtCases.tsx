@@ -142,10 +142,9 @@ const CourtCases = () => {
                 </h3>
 
                 {c.snippet && (
-                  <p
-                    className="font-body text-sm text-secondary-custom mb-3 line-clamp-3"
-                    dangerouslySetInnerHTML={{ __html: c.snippet }}
-                  />
+                  <p className="font-body text-sm text-secondary-custom mb-3 line-clamp-3">
+                    {c.snippet.replace(/<[^>]*>/g, '')}
+                  </p>
                 )}
 
                 <div className="flex flex-wrap items-center gap-3 text-xs font-body text-tertiary">

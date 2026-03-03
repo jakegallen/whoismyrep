@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
             }));
             break;
           case 'news':
-            items = (data.articles || []).map((a: any) => ({
+            items = (data.news || []).map((a: any) => ({
               id: a.id || a.url,
               title: a.title || 'Untitled',
               description: a.description || a.excerpt || '',

@@ -23,34 +23,33 @@ import { trackEvent } from "@/lib/analytics";
 import { useBills, type Bill } from "@/hooks/useBills";
 import BillPipeline, { categorizeBill, type PipelineStage } from "@/components/BillPipeline";
 import { US_STATES, detectStateFromTimezone } from "@/lib/usStates";
+import { useHomeState } from "@/hooks/useHomeState";
+import { SaveBillButton } from "@/components/SaveBillButton";
 import SEO from "@/components/SEO";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-const chamberConfig = {
+const chamberConfig: Record<string, { icon: typeof Building2; color: string }> = {
   Assembly: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
+  House: { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
+  "House of Representatives": { icon: Building2, color: "bg-blue-500/20 text-blue-400" },
   Senate: { icon: Landmark, color: "bg-amber-500/20 text-amber-400" },
-} as const;
+};
+
+const defaultChamberConfig = { icon: FileText, color: "bg-muted text-muted-foreground" };
 
 const Bills = () => {
   useEffect(() => { document.title = "Bills | WhoIsMyRep.us"; }, []);
   const navigate = useNavigate();
-  const [selectedState, setSelectedState] = useState(() => detectStateFromTimezone());
+  const { homeState } = useHomeState();
+  const [selectedState, setSelectedState] = useState(() => homeState || detectStateFromTimezone());
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 400);
   const [chamberFilter, setChamberFilter] = useState<"all" | "Assembly" | "Senate">("all");
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>("all");
 
   const jurisdiction = US_STATES.find((s) => s.abbr === selectedState)?.jurisdiction || selectedState;
   const stateName = US_STATES.find((s) => s.abbr === selectedState)?.name || selectedState;
-
-  // Debounce search for edge function
-  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    if (debounceTimer) clearTimeout(debounceTimer);
-    const timer = setTimeout(() => setDebouncedSearch(value), 500);
-    setDebounceTimer(timer);
-  };
 
   const { bills, total, isLoading, error, refetch } = useBills(debouncedSearch || undefined, jurisdiction);
 
@@ -167,7 +166,7 @@ const Bills = () => {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by bill number, title, or sponsor…"
             className="pl-9 pr-9"
           />
@@ -175,7 +174,6 @@ const Bills = () => {
             <button
               onClick={() => {
                 setSearch("");
-                setDebouncedSearch("");
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -238,6 +236,7 @@ const Bills = () => {
           <VirtualizedBillList
             bills={filtered}
             total={total}
+            jurisdiction={jurisdiction}
             onBillClick={(bill) => {
               trackEvent("Click Bill", { id: bill.billNumber });
               navigate(`/bills/${bill.id}`, { state: { bill, jurisdiction } });
@@ -257,10 +256,12 @@ const ESTIMATED_ROW_HEIGHT = 110;
 function VirtualizedBillList({
   bills,
   total,
+  jurisdiction,
   onBillClick,
 }: {
   bills: Bill[];
   total: number;
+  jurisdiction: string;
   onBillClick: (bill: Bill) => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -300,7 +301,7 @@ function VirtualizedBillList({
         </p>
         <div className="grid gap-3">
           {bills.map((bill) => (
-            <BillRow key={bill.id} bill={bill} onClick={() => onBillClick(bill)} />
+            <BillRow key={bill.id} bill={bill} jurisdiction={jurisdiction} onClick={() => onBillClick(bill)} />
           ))}
         </div>
       </>
@@ -341,7 +342,7 @@ function VirtualizedBillList({
                 }}
               >
                 <div className="pb-3">
-                  <BillRow bill={bill} onClick={() => onBillClick(bill)} />
+                  <BillRow bill={bill} jurisdiction={jurisdiction} onClick={() => onBillClick(bill)} />
                 </div>
               </div>
             );
@@ -352,16 +353,19 @@ function VirtualizedBillList({
   );
 }
 
-function BillRow({ bill, onClick }: { bill: Bill; onClick: () => void }) {
-  const config = chamberConfig[bill.chamber];
+function BillRow({ bill, jurisdiction, onClick }: { bill: Bill; jurisdiction: string; onClick: () => void }) {
+  const config = chamberConfig[bill.chamber] || defaultChamberConfig;
   const Icon = config.icon;
 
   return (
-    <motion.button
+    <motion.div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex w-full items-start gap-4 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-surface-hover"
+      className="group flex w-full cursor-pointer items-start gap-4 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-surface-hover"
     >
       <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${config.color}`}>
         <Icon className="h-4 w-4" />
@@ -387,8 +391,11 @@ function BillRow({ bill, onClick }: { bill: Bill; onClick: () => void }) {
           </p>
         )}
       </div>
-      <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-    </motion.button>
+      <div className="flex shrink-0 flex-col items-center gap-1">
+        <SaveBillButton bill={bill} jurisdiction={jurisdiction} size="sm" />
+        <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </div>
+    </motion.div>
   );
 }
 

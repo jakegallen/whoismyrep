@@ -62,7 +62,8 @@ Deno.serve(async (req) => {
       const bills = items.map((item: any, idx: number) => {
         const typeCode: string = (item.type || '').toUpperCase();
         const chamber = typeCode.startsWith('H') ? 'House' : 'Senate';
-        const congress: number = item.congress || 119;
+        const currentCongress = Math.floor((new Date().getFullYear() - 1789) / 2) + 1;
+        const congress: number = item.congress || currentCongress;
         const billNum: string = item.number || '';
 
         // Build congress.gov URL
@@ -73,7 +74,9 @@ Deno.serve(async (req) => {
           'SCONRES': 'senate-concurrent-resolution', 'SRES': 'senate-simple-resolution',
         };
         const slug = typeSlug[typeCode] || 'bill';
-        const ordinal = congress === 119 ? '119th' : `${congress}th`;
+        const suffix = [11, 12, 13].includes(congress % 100) ? 'th'
+          : congress % 10 === 1 ? 'st' : congress % 10 === 2 ? 'nd' : congress % 10 === 3 ? 'rd' : 'th';
+        const ordinal = `${congress}${suffix}`;
         const billUrl = `https://www.congress.gov/bill/${ordinal}-congress/${slug}/${billNum}`;
 
         let type = 'Bill';

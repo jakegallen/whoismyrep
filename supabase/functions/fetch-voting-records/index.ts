@@ -287,12 +287,14 @@ Deno.serve(async (req) => {
           .slice(0, 3);
         console.log('Available sessions:', sessionIds);
       } else {
-        console.log('Could not fetch sessions, using generic defaults');
-        sessionIds = ['2025', '2024', '2023'];
+        console.log('Could not fetch sessions, using dynamic year defaults');
+        const y = new Date().getFullYear();
+        sessionIds = [String(y), String(y - 1), String(y - 2)];
       }
     } catch (e) {
       console.log('Session fetch error:', e);
-      sessionIds = ['2025', '2024', '2023'];
+      const y = new Date().getFullYear();
+      sessionIds = [String(y), String(y - 1), String(y - 2)];
     }
 
     let bills: any[] = [];
@@ -421,15 +423,18 @@ Deno.serve(async (req) => {
           // Also match "First Last" against "Last, First" format
           const legislatorDisplayName = (legislator.name || '').toLowerCase().trim();
           if (voterName === legislatorDisplayName) return true;
-          // 3. Match by last name + first initial (avoid false positives on common names)
+          // 3. Match by last name as a whole word + first-name prefix (≥3 chars)
           const nameParts = fullName.split(/\s+/);
           const lastName = nameParts[nameParts.length - 1] || '';
           const firstName = nameParts[0] || '';
-          if (lastName.length > 2 && voterName.includes(lastName)) {
-            // Verify with first letter of first name to reduce false positives
-            if (firstName && voterName.includes(firstName.charAt(0))) return true;
-            // If last name is uncommon (>5 chars), accept last-name-only match
-            if (lastName.length > 5) return true;
+          // Use word-boundary regex so "Johnson" won't match "Johnston"
+          if (lastName.length > 2) {
+            const lastNameRegex = new RegExp(`\\b${lastName}\\b`, 'i');
+            if (lastNameRegex.test(voterName)) {
+              // Require first 3+ chars of first name to also appear (not just initial)
+              const prefix = firstName.slice(0, Math.min(3, firstName.length)).toLowerCase();
+              if (prefix.length >= 2 && voterName.includes(prefix)) return true;
+            }
           }
           return false;
         });
@@ -504,7 +509,7 @@ Deno.serve(async (req) => {
       notVoting,
       attendance: Math.min(100, attendance),
       partyLineRate,
-      session: usedSession || '2025',
+      session: usedSession || String(new Date().getFullYear()),
       legislatorName: legislator.name,
       party: legislatorParty,
       chamber: legislator.current_role?.org_classification === 'upper' ? 'Senate' : 'Assembly',

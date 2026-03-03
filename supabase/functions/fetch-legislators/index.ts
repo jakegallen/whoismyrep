@@ -123,7 +123,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { chamber, search, page = 1, per_page = 50, jurisdiction = 'Nevada' } = await req.json().catch(() => ({}));
+    const { chamber, search, page = 1, per_page = 50, jurisdiction } = await req.json().catch(() => ({}));
+
+    if (!jurisdiction) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'jurisdiction is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Resolve state abbreviation
     const stateAbbr = STATE_ABBR[jurisdiction.toLowerCase()] || jurisdiction.toLowerCase();

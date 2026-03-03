@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PodcastEpisode {
@@ -13,40 +13,26 @@ export interface PodcastEpisode {
   episodeUrl: string;
 }
 
-interface UsePodcastsResult {
-  episodes: PodcastEpisode[];
-  isLoading: boolean;
-  error: string | null;
-  refetch: () => void;
+async function fetchPodcastEpisodes(): Promise<PodcastEpisode[]> {
+  const { data, error } = await supabase.functions.invoke("fetch-podcasts");
+
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error || "Failed to fetch podcasts");
+
+  return data.episodes || [];
 }
 
-export function usePodcasts(): UsePodcastsResult {
-  const [episodes, setEpisodes] = useState<PodcastEpisode[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function usePodcasts() {
+  const query = useQuery({
+    queryKey: ["podcast-episodes"],
+    queryFn: fetchPodcastEpisodes,
+    staleTime: 15 * 60 * 1000,
+  });
 
-  const fetchPodcasts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke("fetch-podcasts");
-
-      if (fnError) throw new Error(fnError.message);
-      if (!data?.success) throw new Error(data?.error || "Failed to fetch podcasts");
-
-      if (data.episodes?.length > 0) setEpisodes(data.episodes);
-    } catch (e) {
-      console.error("Failed to fetch podcasts:", e);
-      setError(e instanceof Error ? e.message : "Failed to fetch podcasts");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchPodcasts();
-  }, [fetchPodcasts]);
-
-  return { episodes, isLoading, error, refetch: fetchPodcasts };
+  return {
+    episodes: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error?.message ?? null,
+    refetch: query.refetch,
+  };
 }

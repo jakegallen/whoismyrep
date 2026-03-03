@@ -113,11 +113,31 @@ Deno.serve(async (req) => {
 
     // 3. Fetch voting records (reuse existing logic, simplified)
     if (legislatorId) {
+      // Build OCD jurisdiction ID from the jurisdiction parameter
+      const jMap: Record<string, string> = {
+        'Alabama': 'al', 'Alaska': 'ak', 'Arizona': 'az', 'Arkansas': 'ar', 'California': 'ca',
+        'Colorado': 'co', 'Connecticut': 'ct', 'Delaware': 'de', 'Florida': 'fl', 'Georgia': 'ga',
+        'Hawaii': 'hi', 'Idaho': 'id', 'Illinois': 'il', 'Indiana': 'in', 'Iowa': 'ia',
+        'Kansas': 'ks', 'Kentucky': 'ky', 'Louisiana': 'la', 'Maine': 'me', 'Maryland': 'md',
+        'Massachusetts': 'ma', 'Michigan': 'mi', 'Minnesota': 'mn', 'Mississippi': 'ms', 'Missouri': 'mo',
+        'Montana': 'mt', 'Nebraska': 'ne', 'Nevada': 'nv', 'New Hampshire': 'nh', 'New Jersey': 'nj',
+        'New Mexico': 'nm', 'New York': 'ny', 'North Carolina': 'nc', 'North Dakota': 'nd', 'Ohio': 'oh',
+        'Oklahoma': 'ok', 'Oregon': 'or', 'Pennsylvania': 'pa', 'Rhode Island': 'ri',
+        'South Carolina': 'sc', 'South Dakota': 'sd', 'Tennessee': 'tn', 'Texas': 'tx', 'Utah': 'ut',
+        'Vermont': 'vt', 'Virginia': 'va', 'Washington': 'wa', 'West Virginia': 'wv', 'Wisconsin': 'wi',
+        'Wyoming': 'wy', 'District of Columbia': 'dc', 'Puerto Rico': 'pr',
+      };
+      const jName = jurisdiction;
+      const stAbbr = jMap[jName] || jName.toLowerCase().slice(0, 2);
+      const ocdJurisdiction = stAbbr === 'dc'
+        ? 'ocd-jurisdiction/country:us/district:dc/government'
+        : `ocd-jurisdiction/country:us/state:${stAbbr}/government`;
+
       // Get current session
       let session = '';
       try {
         const sessResp = await fetch(
-          'https://v3.openstates.org/jurisdictions/ocd-jurisdiction/country:us/state:nv/government',
+          `https://v3.openstates.org/jurisdictions/${ocdJurisdiction}`,
           { headers }
         );
         if (sessResp.ok) {
@@ -131,7 +151,7 @@ Deno.serve(async (req) => {
 
       if (session) {
         const votesUrl = new URL('https://v3.openstates.org/bills');
-        votesUrl.searchParams.set('jurisdiction', jurisdiction || 'Nevada');
+        votesUrl.searchParams.set('jurisdiction', jurisdiction);
         votesUrl.searchParams.set('session', session);
         votesUrl.searchParams.set('include', 'votes');
         votesUrl.searchParams.set('per_page', '15');
@@ -143,14 +163,23 @@ Deno.serve(async (req) => {
           const vResp = await fetch(votesUrl.toString(), { headers });
           if (vResp.ok) {
             const vData = await vResp.json();
-            const lastName = legislatorName.split(' ').pop()?.toLowerCase() || '';
+            const nameTokens = legislatorName.trim().split(/\s+/);
+            const lastName = (nameTokens[nameTokens.length - 1] || '').toLowerCase();
+            const firstName = (nameTokens[0] || '').toLowerCase();
+            const firstPrefix = firstName.slice(0, Math.min(3, firstName.length));
+            const lastNameRegex = lastName.length > 2 ? new RegExp(`\\b${lastName}\\b`, 'i') : null;
 
             for (const bill of (vData.results || [])) {
               for (const voteEvent of (bill.votes || [])) {
                 const personVotes = voteEvent.votes || [];
-                const myVote = personVotes.find((v: any) =>
-                  (v.voter_name || '').toLowerCase().includes(lastName)
-                );
+                const myVote = personVotes.find((v: any) => {
+                  const vn = (v.voter_name || '').toLowerCase();
+                  // Exact full-name match
+                  if (vn === legislatorName.toLowerCase()) return true;
+                  // Word-boundary last name + first-name prefix (≥2 chars)
+                  if (lastNameRegex && lastNameRegex.test(vn) && firstPrefix.length >= 2 && vn.includes(firstPrefix)) return true;
+                  return false;
+                });
                 if (myVote) {
                   const option = myVote.option === 'yes' ? 'Yes' : myVote.option === 'no' ? 'No' : 'Abstain';
                   events.push({

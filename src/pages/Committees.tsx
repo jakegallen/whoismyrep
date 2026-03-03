@@ -8,19 +8,26 @@ import type { Committee, CommitteeBill } from "@/hooks/useCommittees";
 import { Skeleton } from "@/components/ui/skeleton";
 import SEO from "@/components/SEO";
 
-type ChamberFilter = "All" | "Senate" | "Assembly" | "Joint";
+type ChamberFilter = "All" | "Senate" | "House" | "Joint";
 
 const Committees = () => {
   const navigate = useNavigate();
   const [chamberFilter, setChamberFilter] = useState<ChamberFilter>("All");
   const chamberParam = chamberFilter === "All" ? undefined : chamberFilter;
-  const { data, isLoading, error } = useCommittees(chamberParam);
+  const { data, isLoading, error } = useCommittees(
+    chamberParam,
+    undefined, // legislatorName
+    undefined, // jurisdiction
+    undefined, // stateAbbr
+    "federal", // level — default to federal committees
+    undefined  // bioguideId
+  );
 
-  const chambers: ChamberFilter[] = ["All", "Senate", "Assembly", "Joint"];
+  const chambers: ChamberFilter[] = ["All", "Senate", "House", "Joint"];
 
   return (
     <div className="min-h-screen bg-background">
-      <SEO title="Congressional Committees" path="/committees" description="Browse House, Senate, and state legislative committees and their members." />
+      <SEO title="Congressional Committees" path="/committees" description="Browse House, Senate, and Joint congressional committees and their members." />
       <SiteNav />
 
       <main id="main-content" className="container mx-auto max-w-5xl px-4 py-8">
@@ -138,7 +145,7 @@ function CommitteeCard({ committee }: { committee: Committee }) {
   const chamberColor =
     committee.chamber === "Senate"
       ? "text-[hsl(210,80%,55%)]"
-      : committee.chamber === "Assembly"
+      : committee.chamber === "House"
         ? "text-[hsl(142,71%,45%)]"
         : "text-[hsl(43,90%,55%)]";
 

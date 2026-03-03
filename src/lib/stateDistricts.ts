@@ -1,7 +1,10 @@
 /**
  * Nationwide district GeoJSON data via Census Bureau TIGERweb ArcGIS REST API.
+ * Proxied through a Supabase edge function to avoid CORS issues (TIGERweb lacks CORS headers).
  * Supports congressional, state senate, and state house/assembly districts for all 50 states + DC.
  */
+
+import { supabase } from "@/integrations/supabase/client";
 
 export type DistrictLayer = "congressional" | "state-senate" | "state-house";
 
@@ -59,7 +62,8 @@ export const STATE_MAP_CONFIG: Record<string, { center: [number, number]; zoom: 
 };
 
 /**
- * Fetch districts from Census TIGERweb ArcGIS REST API.
+ * Fetch districts from Census TIGERweb ArcGIS REST API via our edge function proxy.
+ * TIGERweb lacks CORS headers, so direct browser requests fail silently.
  * Congressional: layer 0 (118th Congress)
  * State Senate (Upper): layers 16, 13, 11, 26
  * State House (Lower): layers 14, 10, 8, 24
@@ -78,16 +82,14 @@ async function fetchTIGERweb(
 
   for (const idx of layers) {
     try {
-      const service = type === "congressional"
-        ? "TIGERweb/Legislative/MapServer"
-        : "TIGERweb/Legislative/MapServer";
-      const url = `https://tigerweb.geo.census.gov/arcgis/rest/services/${service}/${idx}/query?where=STATE%3D%27${stateFips}%27&outFields=*&outSR=4326&f=geojson`;
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data.error) continue;
-      if (data.type === "FeatureCollection" && data.features?.length > 0) {
-        return data;
+      const { data, error } = await supabase.functions.invoke("fetch-districts", {
+        body: { stateFips, layerIndex: idx },
+      });
+      if (error) continue;
+      if (!data?.success) continue;
+      const geojson = data.geojson;
+      if (geojson?.type === "FeatureCollection" && geojson.features?.length > 0) {
+        return geojson;
       }
     } catch {
       continue;

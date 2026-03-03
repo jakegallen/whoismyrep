@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface Committee {
   id: string;
   name: string;
-  chamber: "Senate" | "Assembly" | "Joint";
+  chamber: "Senate" | "House" | "Assembly" | "Joint";
   memberCount: number;
   members: { name: string; role: string }[];
 }

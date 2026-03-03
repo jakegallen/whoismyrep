@@ -98,6 +98,57 @@ async function fetchFederalCommittees(bioguideId: string, legislatorName: string
   return { committees, legislatorCommittees };
 }
 
+/** Fetch ALL federal committees (no bioguideId filter), optionally filtered by chamber. */
+async function fetchAllFederalCommittees(chamber?: string) {
+  const now = Date.now();
+  if (!federalCommitteeCache || now - federalCommitteeCache.fetchedAt > FEDERAL_CACHE_TTL) {
+    const [committeesResp, membershipResp] = await Promise.all([
+      fetch('https://unitedstates.github.io/congress-legislators/committees-current.json'),
+      fetch('https://unitedstates.github.io/congress-legislators/committee-membership-current.json'),
+    ]);
+    if (!committeesResp.ok || !membershipResp.ok) {
+      throw new Error('Failed to fetch federal committee data');
+    }
+    federalCommitteeCache = {
+      data: await committeesResp.json(),
+      membership: await membershipResp.json(),
+      fetchedAt: now,
+    };
+  }
+
+  const { data: allCommittees, membership } = federalCommitteeCache;
+  const committees: any[] = [];
+
+  for (const c of allCommittees) {
+    const chamberLabel = c.type === 'senate' ? 'Senate' : c.type === 'house' ? 'House' : 'Joint';
+
+    // Apply chamber filter
+    if (chamber && chamber !== 'All') {
+      if (chamber === 'Senate' && chamberLabel !== 'Senate') continue;
+      if (chamber === 'House' && chamberLabel !== 'House') continue;
+      if (chamber === 'Joint' && chamberLabel !== 'Joint') continue;
+    }
+
+    const memberList = membership[c.thomas_id] || [];
+    const parsedMembers = memberList.map((m: any) => ({
+      name: m.name || '',
+      role: m.title || (m.rank === 1 ? 'Chair' : 'Member'),
+    }));
+
+    committees.push({
+      id: c.thomas_id,
+      name: c.name,
+      chamber: chamberLabel,
+      memberCount: memberList.length,
+      members: parsedMembers,
+    });
+  }
+
+  committees.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  console.log(`All federal committees: ${committees.length} (filter: ${chamber || 'all'})`);
+  return { committees };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: getCorsHeaders(req) });
@@ -108,17 +159,28 @@ Deno.serve(async (req) => {
     console.log(`Fetching committees. chamber=${chamber}, legislator=${legislatorName}, jurisdiction=${jurisdiction}, level=${level}, bioguideId=${bioguideId}`);
 
     // Federal path: use @unitedstates data
-    if (level === 'federal' && bioguideId) {
+    // Supports two modes:
+    //   1. With bioguideId: return committees for a specific legislator
+    //   2. Without bioguideId (level=federal): return ALL federal committees
+    if (level === 'federal') {
       try {
-        const { committees, legislatorCommittees } = await fetchFederalCommittees(bioguideId, legislatorName || '');
+        const congressNum = Math.floor((new Date().getFullYear() - 1789) / 2) + 1;
+        const suffix = [11,12,13].includes(congressNum%100) ? 'th' : congressNum%10===1 ? 'st' : congressNum%10===2 ? 'nd' : congressNum%10===3 ? 'rd' : 'th';
+        const session = `${congressNum}${suffix} Congress`;
+
+        if (bioguideId) {
+          // Specific legislator's committees
+          const { committees, legislatorCommittees } = await fetchFederalCommittees(bioguideId, legislatorName || '');
+          return new Response(
+            JSON.stringify({ success: true, committees, legislatorCommittees, recentBills: [], session }),
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // All federal committees (no bioguideId)
+        const { committees: allCommittees } = await fetchAllFederalCommittees(chamber);
         return new Response(
-          JSON.stringify({
-            success: true,
-            committees,
-            legislatorCommittees,
-            recentBills: [],
-            session: (() => { const c = Math.floor((new Date().getFullYear() - 1789) / 2) + 1; const s = [11,12,13].includes(c%100) ? 'th' : c%10===1 ? 'st' : c%10===2 ? 'nd' : c%10===3 ? 'rd' : 'th'; return `${c}${s} Congress`; })(),
-          }),
+          JSON.stringify({ success: true, committees: allCommittees, legislatorCommittees: [], recentBills: [], session }),
           { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       } catch (e) {

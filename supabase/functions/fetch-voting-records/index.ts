@@ -1,7 +1,4 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 /** Map OpenStates jurisdiction name → 2-letter state abbreviation for OCD slug */
 function jurisdictionToAbbr(jurisdiction: string): string {
@@ -36,7 +33,7 @@ interface VoteDetail {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -44,7 +41,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'OpenStates API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -53,7 +50,7 @@ Deno.serve(async (req) => {
     if (!legislatorName) {
       return new Response(
         JSON.stringify({ success: false, error: 'legislatorName is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -104,7 +101,7 @@ Deno.serve(async (req) => {
           console.log(`GovTrack: no match found for "${legislatorName}"`);
           return new Response(
             JSON.stringify({ success: true, votes: [], total: 0, legislatorFound: false }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
           );
         }
 
@@ -208,13 +205,13 @@ Deno.serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true, votes, summary, total: totalVoted, legislatorFound: true, socialHandles }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       } catch (e) {
         console.error('GovTrack federal voting error:', e);
         return new Response(
           JSON.stringify({ success: false, error: String(e) }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -249,7 +246,7 @@ Deno.serve(async (req) => {
         : `OpenStates people error: ${peopleResp.status}`;
       return new Response(
         JSON.stringify({ success: false, error }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -260,7 +257,7 @@ Deno.serve(async (req) => {
       console.log(`No legislator found for "${legislatorName}"`);
       return new Response(
         JSON.stringify({ success: true, votes: [], total: 0, legislatorFound: false }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -525,13 +522,13 @@ Deno.serve(async (req) => {
         total: totalItems || bills.length,
         legislatorFound: true,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error fetching voting records:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch voting records' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -938,6 +938,7 @@ function OverviewTab({
       {!isLoading && !error && analysis && (
         <article>
           <ReactMarkdown
+            skipHtml
             components={{
               h2: ({ children }) => <h2 className="mb-3 mt-8 font-display text-xl font-bold text-headline first:mt-0">{children}</h2>,
               h3: ({ children }) => <h3 className="mb-2 mt-6 font-display text-lg font-semibold text-headline">{children}</h3>,
@@ -1570,6 +1571,7 @@ function MidtermsTab({ politician }: { politician: RepProfile }) {
       {!isLoading && !error && analysis && (
         <article className="prose-sm max-w-none">
           <ReactMarkdown
+            skipHtml
             components={{
               h2: ({ children }) => <h2 className="mb-3 mt-8 font-display text-xl font-bold text-headline first:mt-0">{children}</h2>,
               h3: ({ children }) => <h3 className="mb-2 mt-6 font-display text-lg font-semibold text-headline">{children}</h3>,

@@ -1,7 +1,4 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // ── Lightweight XML → items parser (no deps) ───────────────────────────
 function parseRssItems(xml: string, sourceName: string): Array<{ title: string; url: string; description: string; pubDate: string; source: string }> {
@@ -84,7 +81,7 @@ function getUsNewsRss(stateName: string): Array<{ name: string; url: string }> {
 // ── Main handler ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -92,7 +89,7 @@ Deno.serve(async (req) => {
     if (!OPENAI_API_KEY) {
       return new Response(
         JSON.stringify({ success: false, error: 'OPENAI_API_KEY not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -153,7 +150,7 @@ Deno.serve(async (req) => {
     if (uniqueResults.length === 0) {
       return new Response(
         JSON.stringify({ success: true, news: [], trending: [], trendingIndividuals: [] }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -167,7 +164,7 @@ Deno.serve(async (req) => {
     if ('error' in aiResult) {
       return new Response(
         JSON.stringify({ success: false, error: aiResult.error }),
-        { status: aiResult.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: aiResult.status || 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -190,13 +187,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, ...aiResult }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

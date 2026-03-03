@@ -180,7 +180,7 @@ const BillDetail = () => {
                   )}
                   {summary && !isLoading && (
                     <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-display prose-headings:text-headline prose-p:text-secondary-custom prose-p:font-body prose-li:text-secondary-custom prose-li:font-body">
-                      <ReactMarkdown>{summary}</ReactMarkdown>
+                      <ReactMarkdown skipHtml>{summary}</ReactMarkdown>
                     </div>
                   )}
                 </div>

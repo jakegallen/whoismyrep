@@ -3,10 +3,7 @@
 // This replaces the OpenStates v3 API which requires an API key that has become invalid.
 // CSV data is freely available under CC-0 license, updated regularly.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Map full state names to two-letter abbreviations for CSV URL construction
 const STATE_ABBR: Record<string, string> = {
@@ -119,7 +116,7 @@ async function fetchStateCSV(stateAbbr: string): Promise<Record<string, string>[
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -128,7 +125,7 @@ Deno.serve(async (req) => {
     if (!jurisdiction) {
       return new Response(
         JSON.stringify({ success: false, error: 'jurisdiction is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -137,7 +134,7 @@ Deno.serve(async (req) => {
     if (!stateAbbr || stateAbbr.length !== 2) {
       return new Response(
         JSON.stringify({ success: false, error: `Unknown jurisdiction: ${jurisdiction}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -211,13 +208,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, legislators, total }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error fetching legislators:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Failed to fetch legislators' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

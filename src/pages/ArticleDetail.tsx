@@ -163,6 +163,7 @@ const ArticleDetail = () => {
           {!isLoading && !error && analysis && (
             <article className="prose-custom">
               <ReactMarkdown
+                skipHtml
                 components={{
                   h2: ({ children }) => (
                     <h2 className="mb-3 mt-8 font-display text-xl font-bold text-headline first:mt-0">

@@ -42,6 +42,10 @@ const CongressExplorer = lazy(() => import("./pages/CongressExplorer"));
 const UnifiedSearch = lazy(() => import("./pages/UnifiedSearch"));
 const RepResults = lazy(() => import("./pages/RepResults"));
 const SavedReps = lazy(() => import("./pages/SavedReps"));
+const DailyBriefing = lazy(() => import("./pages/DailyBriefing"));
+const Achievements = lazy(() => import("./pages/Achievements"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const CivicsChallenge = lazy(() => import("./pages/CivicsChallenge"));
 
 /* ── Full-page loading spinner for Suspense ── */
 function PageLoader() {
@@ -116,6 +120,10 @@ const App = () => (
                   <Route path="/state/:abbr" element={withBoundary(<StatePage />, "State")} />
                   <Route path="/reps" element={withBoundary(<RepResults />, "Representatives")} />
                   <Route path="/saved" element={withBoundary(<SavedReps />, "Saved Reps")} />
+                  <Route path="/today" element={withBoundary(<DailyBriefing />, "Daily Briefing")} />
+                  <Route path="/achievements" element={withBoundary(<Achievements />, "Achievements")} />
+                  <Route path="/leaderboard" element={withBoundary(<Leaderboard />, "Leaderboard")} />
+                  <Route path="/quiz" element={withBoundary(<CivicsChallenge />, "Civics Challenge")} />
                   <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

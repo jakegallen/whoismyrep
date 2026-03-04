@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
+import { useXP } from "@/hooks/useXP";
 import SEO from "@/components/SEO";
 import { motion } from "framer-motion";
 import {
@@ -51,6 +52,8 @@ import { useFederalRegister } from "@/hooks/useFederalRegister";
 import { useCongressTrades, type CongressTrade } from "@/hooks/useCongressTrades";
 import { useVotingRecords } from "@/hooks/useVotingRecords";
 import { useFECFinance, formatUSD } from "@/hooks/useFECFinance";
+import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
+import { RelatedQuiz } from "@/components/RelatedQuiz";
 
 // midterms data is now AI-generated per politician
 import { Badge } from "@/components/ui/badge";
@@ -393,6 +396,15 @@ const PoliticianDetail = () => {
       trackEvent("View Politician", { name: politician.name, party: politician.party || "Unknown" });
     }
   }, [politician]);
+
+  const { awardXP } = useXP();
+
+  // Award XP for viewing a politician
+  useEffect(() => {
+    if (politician?.id) {
+      awardXP("read_politician", { repId: politician.id });
+    }
+  }, [politician?.id, awardXP]);
 
   if (!politician) return null;
 
@@ -802,6 +814,22 @@ const PoliticianDetail = () => {
             </ErrorBoundary>
           </div>
         </motion.div>
+
+        {/* Related quiz */}
+        <div className="mt-8">
+          <RelatedQuiz
+            context="politician"
+            name={politician.name}
+            party={politician.party}
+            state={politician.stateAbbr}
+            office={politician.office}
+          />
+        </div>
+
+        {/* Discovery prompts */}
+        <div className="mt-8">
+          <DiscoveryPrompts context="politicians" />
+        </div>
       </main>
     </div>
   );

@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSavedReps } from "@/hooks/useSavedReps";
 import { useSavedBills } from "@/hooks/useSavedBills";
 import { useHomeState } from "@/hooks/useHomeState";
+import { StreakBanner } from "@/components/StreakBanner";
+import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
 import { US_STATES } from "@/lib/usStates";
 import { categorizeBill } from "@/components/BillPipeline";
 import { ActivityFeed } from "@/components/ActivityFeed";
@@ -142,6 +144,9 @@ const SavedReps = () => {
               Saved locally on this device — no sign-in required
             </p>
           </div>
+
+          {/* Streak banner */}
+          <StreakBanner />
 
           {/* Preferences card */}
           <div className="mb-6 rounded-xl border border-border bg-card p-4">
@@ -287,6 +292,9 @@ const SavedReps = () => {
                   >
                     Find Your Reps
                   </Button>
+                  <div className="mt-6 w-full">
+                    <DiscoveryPrompts context="saved-empty" />
+                  </div>
                 </motion.div>
               )}
 

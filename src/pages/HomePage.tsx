@@ -12,6 +12,8 @@ import {
   BarChart3,
   Globe,
   Star,
+  Flame,
+  Trophy,
 } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { NameAutocomplete, type NameAutocompleteRef } from "@/components/NameAutocomplete";
@@ -21,6 +23,10 @@ import SiteNav from "@/components/SiteNav";
 import { useCivicReps } from "@/hooks/useCivicReps";
 import { US_STATES } from "@/lib/usStates";
 import SEO from "@/components/SEO";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { WeeklyRecap } from "@/components/WeeklyRecap";
+import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
 
 const EXAMPLE_ADDRESSES = [
   "3799 S Las Vegas Blvd, Las Vegas, NV",
@@ -38,6 +44,8 @@ const STATS = [
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { profile } = useUserProfile();
   const [searchMode, setSearchMode] = useState<"address" | "name" | "state">("address");
   const [nameQuery, setNameQuery] = useState("");
   const [address, setAddress] = useState("");
@@ -322,6 +330,41 @@ const HomePage = () => {
             </motion.div>
           </motion.div>
 
+          {/* Logged-in user engagement strip */}
+          {user && profile && (profile.xp > 0 || profile.current_streak > 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="mx-auto mt-8 flex max-w-md items-center justify-center gap-6 rounded-xl border border-primary/20 bg-primary/5 px-6 py-3"
+            >
+              <div className="flex items-center gap-1.5">
+                <Trophy className="h-4 w-4 text-primary" />
+                <span className="font-display text-sm font-bold text-headline">Level {profile.level}</span>
+              </div>
+              <div className="h-5 w-px bg-border" />
+              <span className="font-mono text-sm font-semibold text-primary">
+                {profile.xp.toLocaleString()} XP
+              </span>
+              {profile.current_streak > 0 && (
+                <>
+                  <div className="h-5 w-px bg-border" />
+                  <div className="flex items-center gap-1">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    <span className="font-mono text-sm font-bold text-orange-500">
+                      {profile.current_streak}d
+                    </span>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* Discovery prompts for home page */}
+          <div className="mx-auto mt-6 max-w-3xl">
+            <DiscoveryPrompts context="home" />
+          </div>
+
           {/* Stats row */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -350,6 +393,9 @@ const HomePage = () => {
       )}
 
       </main>
+
+      {/* Weekly recap dialog (auto-shows for logged-in users on first visit of the week) */}
+      <WeeklyRecap />
 
       {/* Footer */}
       <footer className="border-t border-border py-6">

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, LogIn, LogOut, Heart } from "lucide-react";
+import { Menu, X, LogIn, LogOut, Heart, Calendar, Trophy, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "./ThemeToggle";
+import { XPBar } from "./XPBar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/useAuth";
 import { useSavedReps } from "@/hooks/useSavedReps";
@@ -82,6 +83,7 @@ export default function SiteNav() {
                 </span>
               )}
             </Link>
+            <XPBar />
             <div className="ml-1">
               <ThemeToggle />
             </div>
@@ -108,6 +110,7 @@ export default function SiteNav() {
         {/* Mobile hamburger */}
         {isMobile && (
           <div className="flex items-center gap-1">
+            <XPBar />
             <ThemeToggle />
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -147,6 +150,49 @@ export default function SiteNav() {
                   {link.label}
                 </Link>
               ))}
+              {user && (
+                <>
+                  <Link
+                    to="/today"
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={isActive("/today") ? "page" : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                      isActive("/today")
+                        ? "bg-surface-hover text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Today
+                  </Link>
+                  <Link
+                    to="/achievements"
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={isActive("/achievements") ? "page" : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                      isActive("/achievements")
+                        ? "bg-surface-hover text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Trophy className="h-4 w-4" />
+                    Achievements
+                  </Link>
+                  <Link
+                    to="/leaderboard"
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={isActive("/leaderboard") ? "page" : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2.5 font-body text-sm font-medium transition-colors hover:bg-surface-hover hover:text-foreground ${
+                      isActive("/leaderboard")
+                        ? "bg-surface-hover text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Crown className="h-4 w-4" />
+                    Leaderboard
+                  </Link>
+                </>
+              )}
               <Link
                 to="/saved"
                 onClick={() => setMenuOpen(false)}

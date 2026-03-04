@@ -47,6 +47,154 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profiles: {
+        Row: {
+          id: string
+          display_name: string | null
+          avatar_url: string | null
+          home_state: string | null
+          home_district: string | null
+          xp: number
+          level: number
+          current_streak: number
+          longest_streak: number
+          last_active_date: string | null
+          total_active_days: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name?: string | null
+          avatar_url?: string | null
+          home_state?: string | null
+          home_district?: string | null
+          xp?: number
+          level?: number
+          current_streak?: number
+          longest_streak?: number
+          last_active_date?: string | null
+          total_active_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          home_state?: string | null
+          home_district?: string | null
+          xp?: number
+          level?: number
+          current_streak?: number
+          longest_streak?: number
+          last_active_date?: string | null
+          total_active_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      xp_events: {
+        Row: {
+          id: number
+          user_id: string
+          action: string
+          xp_earned: number
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          action: string
+          xp_earned: number
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          action?: string
+          xp_earned?: number
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          id: number
+          user_id: string
+          achievement_key: string
+          unlocked_at: string
+        }
+        Insert: {
+          user_id: string
+          achievement_key: string
+          unlocked_at?: string
+        }
+        Update: {
+          user_id?: string
+          achievement_key?: string
+          unlocked_at?: string
+        }
+        Relationships: []
+      }
+      daily_challenges: {
+        Row: {
+          id: number
+          challenge_date: string
+          challenge_type: string
+          title: string
+          description: string
+          target_count: number
+          xp_reward: number
+          created_at: string
+        }
+        Insert: {
+          challenge_date: string
+          challenge_type: string
+          title: string
+          description: string
+          target_count?: number
+          xp_reward?: number
+          created_at?: string
+        }
+        Update: {
+          challenge_date?: string
+          challenge_type?: string
+          title?: string
+          description?: string
+          target_count?: number
+          xp_reward?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      challenge_progress: {
+        Row: {
+          id: number
+          user_id: string
+          challenge_id: number
+          progress: number
+          completed: boolean
+          completed_at: string | null
+        }
+        Insert: {
+          user_id: string
+          challenge_id: number
+          progress?: number
+          completed?: boolean
+          completed_at?: string | null
+        }
+        Update: {
+          user_id?: string
+          challenge_id?: number
+          progress?: number
+          completed?: boolean
+          completed_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

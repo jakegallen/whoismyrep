@@ -77,3 +77,9 @@ verify_jwt = false
 
 [functions.fetch-voting-records]
 verify_jwt = false
+
+[functions.record-xp]
+verify_jwt = false
+
+[functions.generate-daily-challenge]
+verify_jwt = false

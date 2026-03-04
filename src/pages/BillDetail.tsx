@@ -33,6 +33,9 @@ import ReactMarkdown from "react-markdown";
 import { trackEvent } from "@/lib/analytics";
 import { SaveBillButton } from "@/components/SaveBillButton";
 import SEO from "@/components/SEO";
+import { useXP } from "@/hooks/useXP";
+import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
+import { RelatedQuiz } from "@/components/RelatedQuiz";
 
 const BillDetail = () => {
   const { id, "*": rest } = useParams();
@@ -45,12 +48,21 @@ const BillDetail = () => {
   const { summary, sponsors, status, isLoading, error } = useBillDetail(bill);
   const { data: detail, isLoading: detailLoading, error: detailError } = useBillOpenStatesDetail(bill, jurisdiction);
 
+  const { awardXP } = useXP();
+
   // Plausible analytics: track bill detail view (must be before any conditional return)
   useEffect(() => {
     if (bill) {
       trackEvent("View Bill", { id: bill.billNumber || fullId || "unknown" });
     }
   }, [bill, fullId]);
+
+  // Award XP for reading a bill
+  useEffect(() => {
+    if (bill?.billNumber) {
+      awardXP("read_bill", { billId: bill.billNumber });
+    }
+  }, [bill?.billNumber, awardXP]);
 
   if (!bill) {
     return (
@@ -257,6 +269,23 @@ const BillDetail = () => {
               fallbackSponsors={sponsors.length > 0 ? sponsors : bill.sponsors}
             />
           </div>
+        </div>
+
+        {/* Related quiz */}
+        <div className="mt-8">
+          <RelatedQuiz
+            context="bill"
+            billNumber={bill.billNumber}
+            title={bill.title}
+            chamber={bill.billNumber?.startsWith("S") ? "Senate" : "House"}
+            sponsors={sponsors.length > 0 ? sponsors : bill.sponsors}
+            status={status}
+          />
+        </div>
+
+        {/* Discovery prompts */}
+        <div className="mt-8">
+          <DiscoveryPrompts context="bills" />
         </div>
       </main>
     </div>

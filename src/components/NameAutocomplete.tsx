@@ -9,7 +9,7 @@ interface PoliticianSuggestion {
   title: string;
   party: string;
   state: string;
-  level: "federal" | "state" | "county" | "school_board" | "local";
+  level: "federal" | "state" | "county" | "judicial" | "special_district" | "school_board" | "local";
   bioguideId?: string;
   website?: string;
 }

@@ -76,7 +76,7 @@ interface RepProfile {
   party: string;
   office: string;
   region: string;
-  level: "federal" | "state" | "county" | "local";
+  level: "federal" | "state" | "county" | "judicial" | "special_district" | "school_board" | "local";
   imageUrl?: string;
   bio: string;
   keyIssues: string[];
@@ -540,7 +540,7 @@ const PoliticianDetail = () => {
                       className="mt-1.5 shrink-0 rounded-full px-2.5 py-0.5 font-body text-xs font-bold tracking-wide"
                       style={{ backgroundColor: `${partyHex}20`, color: partyHex }}
                     >
-                      {politician.level.charAt(0).toUpperCase() + politician.level.slice(1)}
+                      {politician.level === "school_board" ? "School Board" : politician.level === "special_district" ? "Special District" : politician.level.charAt(0).toUpperCase() + politician.level.slice(1)}
                     </span>
                     <SaveRepButton
                       rep={{

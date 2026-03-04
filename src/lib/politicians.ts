@@ -8,7 +8,7 @@ export interface Politician {
   party: "Democrat" | "Republican" | "Independent" | "Nonpartisan";
   office: string;
   region: string;
-  level: "federal" | "state" | "county" | "local";
+  level: "federal" | "state" | "county" | "school_board" | "local";
   imageUrl?: string;
   bio: string;
   keyIssues: string[];

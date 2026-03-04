@@ -1,12 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getCorsHeaders, handleCors, withCache } from "../_shared/cors.ts";
+import {
+  type CountyOfficial,
+  fetchCountyOfficialsFromCivic,
+} from "../_shared/county-utils.ts";
+import {
+  type SchoolBoardMember,
+  type SchoolDistrict,
+  fetchSchoolBoardFromCivic,
+} from "../_shared/school-board-utils.ts";
+import {
+  type MunicipalOfficial,
+  fetchMunicipalOfficialsFromCivic,
+} from "../_shared/municipal-utils.ts";
+import {
+  type JudicialOfficial,
+  fetchJudicialOfficialsFromCivic,
+} from "../_shared/judicial-utils.ts";
+import {
+  type SpecialDistrictOfficial,
+  fetchSpecialDistrictOfficialsFromCivic,
+} from "../_shared/special-district-utils.ts";
 
 // --- Types ---
 
 interface RepResult {
   name: string;
   office: string;
-  level: "federal" | "state" | "county" | "local";
+  level: "federal" | "state" | "county" | "judicial" | "school_board" | "special_district" | "local";
   party: string;
   phone?: string;
   email?: string;
@@ -14,6 +35,7 @@ interface RepResult {
   photoUrl?: string;
   socialHandles?: Record<string, string>;
   divisionId: string;
+  jurisdiction?: string;
 }
 
 // --- Fetch with timeout helper ---
@@ -551,6 +573,166 @@ async function fetchVoterInfo(address: string, googleKey: string, electionId?: s
   return result;
 }
 
+// --- County officials via shared module (Google Civic Representatives API) ---
+
+const countyCache = new Map<string, { data: CountyOfficial[]; ts: number }>();
+const COUNTY_CACHE_TTL = 15 * 60 * 1000;
+
+/** Wrapper: fetch county officials and convert to RepResult format */
+async function fetchCountyOfficials(address: string, googleKey: string): Promise<RepResult[]> {
+  const officials = await fetchCountyOfficialsFromCivic(
+    address,
+    googleKey,
+    countyCache,
+    COUNTY_CACHE_TTL,
+  );
+  // Convert CountyOfficial → RepResult
+  // NOTE: Do NOT append county to office — it must stay consistent with
+  // the standalone hook (countyOfficialToCivicRep) so that the saved-reps
+  // dedup key (name::office) produces the same value from both flows.
+  return officials.map((o) => ({
+    name: o.name,
+    office: o.office,
+    level: "county" as const,
+    party: o.party,
+    phone: o.phone,
+    email: o.email,
+    website: o.website,
+    photoUrl: o.photoUrl,
+    socialHandles: o.channels,
+    divisionId: o.divisionId,
+    jurisdiction: o.county || undefined,
+  }));
+}
+
+// --- School board officials via shared module (Google Civic Representatives API) ---
+
+const schoolBoardCache = new Map<string, { data: SchoolBoardMember[]; districts: SchoolDistrict[]; ts: number }>();
+const SCHOOL_BOARD_CACHE_TTL = 15 * 60 * 1000;
+
+/** Wrapper: fetch school board members and convert to RepResult format */
+async function fetchSchoolBoardOfficials(address: string, googleKey: string): Promise<RepResult[]> {
+  const { members } = await fetchSchoolBoardFromCivic(
+    address,
+    googleKey,
+    schoolBoardCache,
+    SCHOOL_BOARD_CACHE_TTL,
+  );
+  // Convert SchoolBoardMember → RepResult
+  // NOTE: Do NOT append district to office — it must stay consistent with
+  // the standalone hook (schoolBoardMemberToCivicRep) so that the saved-reps
+  // dedup key (name::office) produces the same value from both flows.
+  return members.map((m) => ({
+    name: m.name,
+    office: m.office,
+    level: "school_board" as const,
+    party: m.party,
+    phone: m.phone,
+    email: m.email,
+    website: m.website,
+    photoUrl: m.photoUrl,
+    socialHandles: m.channels,
+    divisionId: m.divisionId,
+    jurisdiction: m.district || undefined,
+  }));
+}
+
+// --- Municipal/city officials via shared module (Google Civic Representatives API) ---
+
+const municipalCache = new Map<string, { data: MunicipalOfficial[]; ts: number }>();
+const MUNICIPAL_CACHE_TTL = 15 * 60 * 1000;
+
+/** Wrapper: fetch municipal officials and convert to RepResult format */
+async function fetchMunicipalOfficials(address: string, googleKey: string): Promise<RepResult[]> {
+  const officials = await fetchMunicipalOfficialsFromCivic(
+    address,
+    googleKey,
+    municipalCache,
+    MUNICIPAL_CACHE_TTL,
+  );
+  // Convert MunicipalOfficial → RepResult
+  // NOTE: Do NOT append municipality to office — it must stay consistent with
+  // the standalone hook (municipalOfficialToCivicRep) so that the saved-reps
+  // dedup key (name::office) produces the same value from both flows.
+  return officials.map((o) => ({
+    name: o.name,
+    office: o.office,
+    level: "local" as const,
+    party: o.party,
+    phone: o.phone,
+    email: o.email,
+    website: o.website,
+    photoUrl: o.photoUrl,
+    socialHandles: o.channels,
+    divisionId: o.divisionId,
+    jurisdiction: o.municipality || undefined,
+  }));
+}
+
+// --- Judicial officials via shared module (Google Civic Representatives API) ---
+
+const judicialCache = new Map<string, { data: JudicialOfficial[]; ts: number }>();
+const JUDICIAL_CACHE_TTL = 15 * 60 * 1000;
+
+/** Wrapper: fetch judicial officials and convert to RepResult format */
+async function fetchJudicialOfficials(address: string, googleKey: string): Promise<RepResult[]> {
+  const officials = await fetchJudicialOfficialsFromCivic(
+    address,
+    googleKey,
+    judicialCache,
+    JUDICIAL_CACHE_TTL,
+  );
+  // Convert JudicialOfficial → RepResult
+  // NOTE: Do NOT append jurisdiction to office — it must stay consistent with
+  // the standalone hook (judicialOfficialToCivicRep) so that the saved-reps
+  // dedup key (name::office) produces the same value from both flows.
+  return officials.map((o) => ({
+    name: o.name,
+    office: o.office,
+    level: "judicial" as const,
+    party: o.party,
+    phone: o.phone,
+    email: o.email,
+    website: o.website,
+    photoUrl: o.photoUrl,
+    socialHandles: o.channels,
+    divisionId: o.divisionId,
+    jurisdiction: o.jurisdiction || undefined,
+  }));
+}
+
+// --- Special district officials via shared module (Google Civic Representatives API) ---
+
+const specialDistrictCache = new Map<string, { data: SpecialDistrictOfficial[]; ts: number }>();
+const SPECIAL_DISTRICT_CACHE_TTL = 15 * 60 * 1000;
+
+/** Wrapper: fetch special district officials and convert to RepResult format */
+async function fetchSpecialDistrictOfficials(address: string, googleKey: string): Promise<RepResult[]> {
+  const officials = await fetchSpecialDistrictOfficialsFromCivic(
+    address,
+    googleKey,
+    specialDistrictCache,
+    SPECIAL_DISTRICT_CACHE_TTL,
+  );
+  // Convert SpecialDistrictOfficial → RepResult
+  // NOTE: Do NOT append district to office — it must stay consistent with
+  // the standalone hook (specialDistrictOfficialToCivicRep) so that the saved-reps
+  // dedup key (name::office) produces the same value from both flows.
+  return officials.map((o) => ({
+    name: o.name,
+    office: o.office,
+    level: "special_district" as const,
+    party: o.party,
+    phone: o.phone,
+    email: o.email,
+    website: o.website,
+    photoUrl: o.photoUrl,
+    socialHandles: o.channels,
+    divisionId: o.divisionId,
+    jurisdiction: o.district || undefined,
+  }));
+}
+
 // --- Main handler ---
 
 serve(async (req) => {
@@ -592,11 +774,16 @@ serve(async (req) => {
     // Step 2: Fetch divisions + federal delegation in parallel
     const googleKey = Deno.env.get("GOOGLE_CIVIC_API_KEY");
 
-    const [divisions, federalAll, elections, voterInfo] = await Promise.all([
+    const [divisions, federalAll, elections, voterInfo, countyOfficials, schoolBoardOfficials, municipalOfficials, judicialOfficials, specialDistrictOfficials] = await Promise.all([
       googleKey ? fetchDivisions(address, googleKey) : Promise.resolve({ cd: null, sldl: null, sldu: null } as DivisionInfo),
       fetchFederalDelegation(geo.stateAbbr),
       googleKey ? fetchElections(googleKey) : Promise.resolve([]),
       googleKey ? fetchVoterInfo(address, googleKey) : Promise.resolve(null),
+      googleKey ? fetchCountyOfficials(address, googleKey) : Promise.resolve([]),
+      googleKey ? fetchSchoolBoardOfficials(address, googleKey) : Promise.resolve([]),
+      googleKey ? fetchMunicipalOfficials(address, googleKey) : Promise.resolve([]),
+      googleKey ? fetchJudicialOfficials(address, googleKey) : Promise.resolve([]),
+      googleKey ? fetchSpecialDistrictOfficials(address, googleKey) : Promise.resolve([]),
     ]);
 
     // Step 3: Fetch state legislators from CSV (uses division district numbers)
@@ -614,22 +801,26 @@ serve(async (req) => {
 
     const cleanFederal: RepResult[] = federalReps.map(({ _district, _state, ...rest }: any) => rest);
 
-    // Step 5: Deduplicate by name
+    // Step 5: Deduplicate by name + level (prevents collision between
+    // county/state/federal officials who share the same name)
     const seen = new Set<string>();
     const allReps: RepResult[] = [];
-    for (const rep of [...cleanFederal, ...stateLegislators]) {
-      const key = rep.name.toLowerCase().replace(/[^a-z]/g, "");
+    for (const rep of [...cleanFederal, ...stateLegislators, ...countyOfficials, ...judicialOfficials, ...specialDistrictOfficials, ...schoolBoardOfficials, ...municipalOfficials]) {
+      const key = `${rep.name.toLowerCase().replace(/[^a-z]/g, "")}:${rep.level}:${rep.office.toLowerCase().replace(/[^a-z]/g, "").slice(0, 30)}`;
       if (!seen.has(key)) {
         seen.add(key);
         allReps.push(rep);
       }
     }
 
-    const levelOrder: RepResult["level"][] = ["federal", "state", "county", "local"];
+    const levelOrder: RepResult["level"][] = ["federal", "state", "county", "judicial", "special_district", "school_board", "local"];
     const levelLabels: Record<string, string> = {
       federal: "Federal Representatives",
       state: "State Officials & Legislators",
       county: "County Officials",
+      judicial: "Judges & Courts",
+      special_district: "Special District Officials",
+      school_board: "School Board Members",
       local: "City & Local Officials",
     };
 

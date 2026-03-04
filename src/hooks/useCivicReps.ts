@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface CivicRep {
   name: string;
   office: string;
-  level: "federal" | "state" | "county" | "local";
+  level: "federal" | "state" | "county" | "judicial" | "special_district" | "school_board" | "local";
   party: string;
   phone?: string;
   email?: string;
@@ -20,7 +20,7 @@ export interface CivicRep {
 }
 
 export interface CivicGroup {
-  level: "federal" | "state" | "county" | "local";
+  level: "federal" | "state" | "county" | "judicial" | "special_district" | "school_board" | "local";
   label: string;
   representatives: CivicRep[];
 }

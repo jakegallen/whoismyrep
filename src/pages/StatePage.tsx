@@ -11,6 +11,14 @@ import {
   ChevronRight,
   ExternalLink,
   Crown,
+  Shield,
+  Scale,
+  Layers,
+  GraduationCap,
+  Home,
+  Search,
+  Loader2,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +28,11 @@ import { CardListSkeleton, NewsSkeleton } from "@/components/TabSkeletons";
 import { US_STATES } from "@/lib/usStates";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
 import { useFederalReps, type FederalRep } from "@/hooks/useFederalReps";
+import { useCountyOfficials, countyOfficialToCivicRep, type CountyOfficial } from "@/hooks/useCountyOfficials";
+import { useSchoolBoard, schoolBoardMemberToCivicRep, type SchoolBoardMember } from "@/hooks/useSchoolBoard";
+import { useMunicipalOfficials, municipalOfficialToCivicRep, type MunicipalOfficial } from "@/hooks/useMunicipalOfficials";
+import { useJudicialOfficials, judicialOfficialToCivicRep, type JudicialOfficial } from "@/hooks/useJudicialOfficials";
+import { useSpecialDistrictOfficials, specialDistrictOfficialToCivicRep, type SpecialDistrictOfficial } from "@/hooks/useSpecialDistrictOfficials";
 import { SaveRepButton } from "@/components/SaveRepButton";
 import type { CivicRep } from "@/hooks/useCivicReps";
 import SEO from "@/components/SEO";
@@ -103,10 +116,11 @@ const StatePage = () => {
         </motion.div>
 
         <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
-          {/* Left column: Federal + Executives + State Legislators */}
+          {/* Left column: Federal + Executives + Local (County + School Board) + State Legislators */}
           <div className="space-y-10">
             <FederalSection stateAbbr={upperAbbr} stateName={stateInfo.name} />
             <ExecutivesSection stateAbbr={upperAbbr} stateName={stateInfo.name} />
+            <LocalOfficialsSections stateName={stateInfo.name} />
             <LegislatorsSection stateName={stateInfo.name} jurisdiction={stateInfo.jurisdiction} />
           </div>
 
@@ -589,6 +603,779 @@ function ExecutiveCard({ exec, onClick, stateName }: { exec: ExecutiveEntry; onC
             <ExternalLink className="h-2.5 w-2.5" /> Website
           </a>
         )}
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+/* ════════ Combined Local Officials: County + School Board (shared address) ════════ */
+function LocalOfficialsSections({ stateName }: { stateName: string }) {
+  const [address, setAddress] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+  const county = useCountyOfficials();
+  const schoolBoard = useSchoolBoard();
+  const municipal = useMunicipalOfficials();
+  const judicial = useJudicialOfficials();
+  const specialDistrict = useSpecialDistrictOfficials();
+
+  const isLoading = county.isLoading || schoolBoard.isLoading || municipal.isLoading || judicial.isLoading || specialDistrict.isLoading;
+
+  const handleSearch = async () => {
+    if (!address.trim()) return;
+    setHasSearched(true);
+    // Fire all lookups in parallel
+    await Promise.all([
+      county.lookup(address.trim()),
+      schoolBoard.lookup(address.trim()),
+      municipal.lookup(address.trim()),
+      judicial.lookup(address.trim()),
+      specialDistrict.lookup(address.trim()),
+    ]);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  return (
+    <div>
+      {/* Shared address input */}
+      <div className="mb-6 rounded-xl border border-border bg-card/50 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Search className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-lg font-bold text-headline">Address Lookup</h2>
+        </div>
+        <p className="mb-3 font-body text-xs text-muted-foreground">
+          Enter a street address to find county officials, judges & courts, special district officials, city/municipal officials, school board members, and other local representatives in {stateName}.
+        </p>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`123 Main St, City, ${stateName}...`}
+              className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 font-body text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <Button
+            onClick={handleSearch}
+            disabled={isLoading || !address.trim()}
+            size="sm"
+            className="shrink-0"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </Button>
+        </div>
+        {!hasSearched && (
+          <div className="mt-2 flex items-start gap-1.5">
+            <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/60" />
+            <p className="font-body text-[11px] text-muted-foreground/60">
+              A full street address is required because county and school district boundaries vary by location.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* County Officials Section */}
+      <CountyOfficialsResults
+        officials={county.officials}
+        isLoading={county.isLoading}
+        error={county.error}
+        message={county.message}
+        hasSearched={hasSearched}
+        stateName={stateName}
+      />
+
+      {/* Judicial Officials Section */}
+      {hasSearched && (
+        <div className="mt-8">
+          <JudicialOfficialsResults
+            officials={judicial.officials}
+            isLoading={judicial.isLoading}
+            error={judicial.error}
+            message={judicial.message}
+            hasSearched={hasSearched}
+            stateName={stateName}
+          />
+        </div>
+      )}
+
+      {/* Special District Officials Section */}
+      {hasSearched && (
+        <div className="mt-8">
+          <SpecialDistrictOfficialsResults
+            officials={specialDistrict.officials}
+            isLoading={specialDistrict.isLoading}
+            error={specialDistrict.error}
+            message={specialDistrict.message}
+            hasSearched={hasSearched}
+            stateName={stateName}
+          />
+        </div>
+      )}
+
+      {/* Municipal/City Officials Section */}
+      {hasSearched && (
+        <div className="mt-8">
+          <MunicipalOfficialsResults
+            officials={municipal.officials}
+            isLoading={municipal.isLoading}
+            error={municipal.error}
+            message={municipal.message}
+            hasSearched={hasSearched}
+            stateName={stateName}
+          />
+        </div>
+      )}
+
+      {/* School Board Section */}
+      {hasSearched && (
+        <div className="mt-8">
+          <SchoolBoardResults
+            members={schoolBoard.members}
+            districts={schoolBoard.districts}
+            isLoading={schoolBoard.isLoading}
+            error={schoolBoard.error}
+            message={schoolBoard.message}
+            hasSearched={hasSearched}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════ County Officials Results ════════ */
+function CountyOfficialsResults({
+  officials,
+  isLoading,
+  error,
+  message,
+  hasSearched,
+  stateName,
+}: {
+  officials: CountyOfficial[];
+  isLoading: boolean;
+  error: string | null;
+  message?: string;
+  hasSearched: boolean;
+  stateName: string;
+}) {
+  const navigate = useNavigate();
+
+  // Group officials by category
+  const lawEnforcement = officials.filter((o) => {
+    const lower = o.office.toLowerCase();
+    return lower.includes("sheriff") || lower.includes("district attorney") || lower.includes("prosecutor") || lower.includes("public defender") || lower.includes("constable");
+  });
+  const administration = officials.filter((o) => {
+    const lower = o.office.toLowerCase();
+    return lower.includes("commissioner") || lower.includes("supervisor") || lower.includes("clerk") || lower.includes("recorder") || lower.includes("assessor") || lower.includes("treasurer") || lower.includes("auditor") || lower.includes("coroner") || lower.includes("tax collector") || lower.includes("surveyor") || lower.includes("register");
+  });
+  const categorized = new Set([...lawEnforcement, ...administration]);
+  const other = officials.filter((o) => !categorized.has(o));
+
+  const countyName = officials.length > 0 && officials[0].county ? officials[0].county : null;
+
+  if (!hasSearched) return null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <Shield className="h-5 w-5 text-primary" />
+        <h2 className="font-display text-xl font-bold text-headline">
+          {countyName ? `${countyName} Officials` : "County Officials"}
+        </h2>
+        {!isLoading && officials.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {officials.length} total
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+      {message && !error && officials.length === 0 && !isLoading && (
+        <p className="py-4 font-body text-sm text-muted-foreground">{message}</p>
+      )}
+      {!isLoading && !error && !message && officials.length === 0 && (
+        <p className="py-4 font-body text-sm text-muted-foreground">
+          No county officials found for this address. Try a different address within {stateName}.
+        </p>
+      )}
+
+      {/* Law Enforcement & Justice */}
+      {lawEnforcement.length > 0 && (
+        <div className="mb-4">
+          <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            Law Enforcement & Justice ({lawEnforcement.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {lawEnforcement.map((official) => (
+              <CountyOfficialCard key={`${official.name}-${official.office}`} official={official} navigate={navigate} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Administration */}
+      {administration.length > 0 && (
+        <div className="mb-4">
+          <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            County Administration ({administration.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {administration.map((official) => (
+              <CountyOfficialCard key={`${official.name}-${official.office}`} official={official} navigate={navigate} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Other county officials */}
+      {other.length > 0 && (
+        <div className="mb-4">
+          <h3 className="mb-3 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            Other County Officials ({other.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {other.map((official) => (
+              <CountyOfficialCard key={`${official.name}-${official.office}`} official={official} navigate={navigate} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════ School Board Results ════════ */
+function SchoolBoardResults({
+  members,
+  districts,
+  isLoading,
+  error,
+  message,
+  hasSearched,
+}: {
+  members: SchoolBoardMember[];
+  districts: { name: string; ocdId: string }[];
+  isLoading: boolean;
+  error: string | null;
+  message?: string;
+  hasSearched: boolean;
+}) {
+  const navigate = useNavigate();
+
+  if (!hasSearched) return null;
+
+  const districtName = districts.length > 0 ? districts[0].name : null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <GraduationCap className="h-5 w-5 text-[hsl(174,60%,40%)]" />
+        <h2 className="font-display text-xl font-bold text-headline">
+          {districtName ? districtName : "School Board"}
+        </h2>
+        {!isLoading && members.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {members.length} member{members.length !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+
+      {/* Show district info even when no individual members found */}
+      {!isLoading && !error && members.length === 0 && districts.length > 0 && (
+        <div className="rounded-lg border border-border bg-card/50 p-4">
+          <p className="font-body text-sm text-muted-foreground">
+            {message || "Your school district was identified but individual board member data is not currently available."}
+          </p>
+          <div className="mt-3 space-y-1">
+            {districts.map((d) => (
+              <div key={d.ocdId} className="flex items-center gap-2">
+                <GraduationCap className="h-3.5 w-3.5 text-[hsl(174,60%,40%)]" />
+                <span className="font-display text-sm font-medium text-headline">{d.name}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 font-body text-xs text-muted-foreground/60">
+            Check your school district's website for current board member information.
+          </p>
+        </div>
+      )}
+
+      {!isLoading && !error && members.length === 0 && districts.length === 0 && (
+        <p className="py-4 font-body text-sm text-muted-foreground">
+          {message || "No school district data found for this address."}
+        </p>
+      )}
+
+      {/* Board member cards */}
+      {members.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {members.map((member) => (
+            <SchoolBoardMemberCard
+              key={`${member.name}-${member.office}`}
+              member={member}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SchoolBoardMemberCard({
+  member,
+  navigate,
+}: {
+  member: SchoolBoardMember;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const dot = partyDot[member.party] || partyDot.Nonpartisan;
+  const civicRep = schoolBoardMemberToCivicRep(member);
+
+  const allHandles: Record<string, string> = {
+    ...(member.website ? { website: member.website } : {}),
+    ...(member.email ? { email: member.email } : {}),
+    ...(member.channels || {}),
+  };
+
+  const handleClick = () => {
+    const repId = member.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    navigate(`/politicians/${repId}`, {
+      state: { civicRep },
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      {member.photoUrl ? (
+        <img src={member.photoUrl} alt={member.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(174,60%,40%/0.12)] font-display text-sm font-bold text-[hsl(174,60%,40%)]">
+          {member.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{member.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{member.office}</p>
+        {member.district && (
+          <p className="font-body text-[10px] text-muted-foreground/70 truncate">{member.district}</p>
+        )}
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+function CountyOfficialCard({ official, navigate }: { official: CountyOfficial; navigate: ReturnType<typeof useNavigate> }) {
+  const dot = partyDot[official.party] || partyDot.Nonpartisan;
+  const civicRep = countyOfficialToCivicRep(official);
+
+  const allHandles: Record<string, string> = {
+    ...(official.website ? { website: official.website } : {}),
+    ...(official.email ? { email: official.email } : {}),
+    ...(official.channels || {}),
+  };
+
+  const handleClick = () => {
+    const repId = official.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    navigate(`/politicians/${repId}`, {
+      state: { civicRep },
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      {official.photoUrl ? (
+        <img src={official.photoUrl} alt={official.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
+          {official.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{official.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{official.office}</p>
+        {official.county && (
+          <p className="font-body text-[10px] text-muted-foreground/70 truncate">{official.county}</p>
+        )}
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+/* ════════ Municipal/City Officials Results ════════ */
+function MunicipalOfficialsResults({
+  officials,
+  isLoading,
+  error,
+  message,
+  hasSearched,
+  stateName,
+}: {
+  officials: MunicipalOfficial[];
+  isLoading: boolean;
+  error: string | null;
+  message?: string;
+  hasSearched: boolean;
+  stateName: string;
+}) {
+  const navigate = useNavigate();
+
+  const municipalityName = officials.length > 0 && officials[0].municipality ? officials[0].municipality : null;
+
+  if (!hasSearched) return null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <Home className="h-5 w-5 text-[hsl(43,90%,48%)]" />
+        <h2 className="font-display text-xl font-bold text-headline">
+          {municipalityName ? `${municipalityName} Officials` : "City & Local Officials"}
+        </h2>
+        {!isLoading && officials.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {officials.length} total
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+      {message && !error && officials.length === 0 && !isLoading && (
+        <p className="py-4 font-body text-sm text-muted-foreground">{message}</p>
+      )}
+      {!isLoading && !error && !message && officials.length === 0 && (
+        <p className="py-4 font-body text-sm text-muted-foreground">
+          No city/municipal officials found for this address. City government data may not be available for all areas in {stateName}.
+        </p>
+      )}
+
+      {officials.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {officials.map((official) => (
+            <MunicipalOfficialCard
+              key={`${official.name}-${official.office}`}
+              official={official}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MunicipalOfficialCard({
+  official,
+  navigate,
+}: {
+  official: MunicipalOfficial;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const dot = partyDot[official.party] || partyDot.Nonpartisan;
+  const civicRep = municipalOfficialToCivicRep(official);
+
+  const allHandles: Record<string, string> = {
+    ...(official.website ? { website: official.website } : {}),
+    ...(official.email ? { email: official.email } : {}),
+    ...(official.channels || {}),
+  };
+
+  const handleClick = () => {
+    const repId = official.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    navigate(`/politicians/${repId}`, {
+      state: { civicRep },
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      {official.photoUrl ? (
+        <img src={official.photoUrl} alt={official.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(43,90%,48%/0.12)] font-display text-sm font-bold text-[hsl(43,90%,48%)]">
+          {official.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{official.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{official.office}</p>
+        {official.municipality && (
+          <p className="font-body text-[10px] text-muted-foreground/70 truncate">{official.municipality}</p>
+        )}
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+/* ════════ Judicial Officials Results ════════ */
+function JudicialOfficialsResults({
+  officials,
+  isLoading,
+  error,
+  message,
+  hasSearched,
+  stateName,
+}: {
+  officials: JudicialOfficial[];
+  isLoading: boolean;
+  error: string | null;
+  message?: string;
+  hasSearched: boolean;
+  stateName: string;
+}) {
+  const navigate = useNavigate();
+
+  const jurisdictionName = officials.length > 0 && officials[0].jurisdiction ? officials[0].jurisdiction : null;
+
+  if (!hasSearched) return null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <Scale className="h-5 w-5 text-[hsl(262,50%,50%)]" />
+        <h2 className="font-display text-xl font-bold text-headline">
+          {jurisdictionName ? `${jurisdictionName} Courts & Judges` : "Judges & Courts"}
+        </h2>
+        {!isLoading && officials.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {officials.length} total
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+      {message && !error && officials.length === 0 && !isLoading && (
+        <p className="py-4 font-body text-sm text-muted-foreground">{message}</p>
+      )}
+      {!isLoading && !error && !message && officials.length === 0 && (
+        <p className="py-4 font-body text-sm text-muted-foreground">
+          No judicial officials found for this address. Court and judicial data may not be available for all areas in {stateName}.
+        </p>
+      )}
+
+      {officials.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {officials.map((official) => (
+            <JudicialOfficialCard
+              key={`${official.name}-${official.office}`}
+              official={official}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JudicialOfficialCard({
+  official,
+  navigate,
+}: {
+  official: JudicialOfficial;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const dot = partyDot[official.party] || partyDot.Nonpartisan;
+  const civicRep = judicialOfficialToCivicRep(official);
+
+  const allHandles: Record<string, string> = {
+    ...(official.website ? { website: official.website } : {}),
+    ...(official.email ? { email: official.email } : {}),
+    ...(official.channels || {}),
+  };
+
+  const handleClick = () => {
+    const repId = official.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    navigate(`/politicians/${repId}`, {
+      state: { civicRep },
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      {official.photoUrl ? (
+        <img src={official.photoUrl} alt={official.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(262,50%,50%/0.12)] font-display text-sm font-bold text-[hsl(262,50%,50%)]">
+          {official.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{official.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{official.office}</p>
+        {official.jurisdiction && (
+          <p className="font-body text-[10px] text-muted-foreground/70 truncate">{official.jurisdiction}</p>
+        )}
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
+      </div>
+      <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+}
+
+/* ════════ Special District Officials Results ════════ */
+function SpecialDistrictOfficialsResults({
+  officials,
+  isLoading,
+  error,
+  message,
+  hasSearched,
+  stateName,
+}: {
+  officials: SpecialDistrictOfficial[];
+  isLoading: boolean;
+  error: string | null;
+  message?: string;
+  hasSearched: boolean;
+  stateName: string;
+}) {
+  const navigate = useNavigate();
+
+  if (!hasSearched) return null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <Layers className="h-5 w-5 text-[hsl(16,75%,52%)]" />
+        <h2 className="font-display text-xl font-bold text-headline">
+          Special District Officials
+        </h2>
+        {!isLoading && officials.length > 0 && (
+          <span className="rounded-md bg-surface-elevated px-2 py-0.5 font-body text-xs text-muted-foreground">
+            {officials.length} total
+          </span>
+        )}
+      </div>
+
+      {isLoading && <CardListSkeleton />}
+      {error && <p className="font-body text-sm text-destructive">{error}</p>}
+      {message && !error && officials.length === 0 && !isLoading && (
+        <p className="py-4 font-body text-sm text-muted-foreground">{message}</p>
+      )}
+      {!isLoading && !error && !message && officials.length === 0 && (
+        <p className="py-4 font-body text-sm text-muted-foreground">
+          No special district officials found for this address. Special district data (water, fire, transit, etc.) may not be available for all areas in {stateName}.
+        </p>
+      )}
+
+      {officials.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {officials.map((official) => (
+            <SpecialDistrictOfficialCard
+              key={`${official.name}-${official.office}`}
+              official={official}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SpecialDistrictOfficialCard({
+  official,
+  navigate,
+}: {
+  official: SpecialDistrictOfficial;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const dot = partyDot[official.party] || partyDot.Nonpartisan;
+  const civicRep = specialDistrictOfficialToCivicRep(official);
+
+  const allHandles: Record<string, string> = {
+    ...(official.website ? { website: official.website } : {}),
+    ...(official.email ? { email: official.email } : {}),
+    ...(official.channels || {}),
+  };
+
+  const handleClick = () => {
+    const repId = official.name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    navigate(`/politicians/${repId}`, {
+      state: { civicRep },
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick}
+      className="group relative flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-surface-hover"
+    >
+      {official.photoUrl ? (
+        <img src={official.photoUrl} alt={official.name} className="h-10 w-10 rounded-lg object-cover" loading="lazy" decoding="async" />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(16,75%,52%/0.12)] font-display text-sm font-bold text-[hsl(16,75%,52%)]">
+          {official.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-sm font-bold text-headline truncate">{official.name}</span>
+          <div className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+        </div>
+        <p className="font-body text-[11px] text-muted-foreground truncate">{official.office}</p>
+        {official.district && (
+          <p className="font-body text-[10px] text-muted-foreground/70 truncate">{official.district}</p>
+        )}
+        <SocialIcons socialHandles={allHandles} size="sm" className="mt-1" />
       </div>
       <SaveRepButton rep={civicRep} size="sm" className="shrink-0" />
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />

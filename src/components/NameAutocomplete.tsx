@@ -9,7 +9,7 @@ interface PoliticianSuggestion {
   title: string;
   party: string;
   state: string;
-  level: "federal" | "state" | "local";
+  level: "federal" | "state" | "county" | "school_board" | "local";
   bioguideId?: string;
   website?: string;
 }
@@ -178,11 +178,15 @@ export const NameAutocomplete = forwardRef<NameAutocompleteRef, NameAutocomplete
               <span className={`shrink-0 rounded px-1.5 py-0.5 font-body text-[10px] font-semibold ${
                 s.level === "federal"
                   ? "bg-primary/10 text-primary"
+                  : s.level === "county"
+                  ? "bg-amber-500/10 text-amber-600"
+                  : s.level === "school_board"
+                  ? "bg-teal-500/10 text-teal-600"
                   : s.level === "local"
                   ? "bg-emerald-500/10 text-emerald-600"
                   : "bg-muted text-muted-foreground"
               }`}>
-                {s.level === "federal" ? "Federal" : s.level === "local" ? "Local" : "State"}
+                {s.level === "federal" ? "Federal" : s.level === "county" ? "County" : s.level === "school_board" ? "School Board" : s.level === "local" ? "Local" : "State"}
               </span>
             </button>
           ))}

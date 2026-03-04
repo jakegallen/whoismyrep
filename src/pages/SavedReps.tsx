@@ -10,6 +10,9 @@ import {
   Building2,
   Building,
   Home,
+  GraduationCap,
+  Scale,
+  Layers,
   MapPin,
   X,
   Bookmark,
@@ -43,6 +46,9 @@ const levelIcons: Record<string, typeof Landmark> = {
   federal: Landmark,
   state: Building2,
   county: Building,
+  judicial: Scale,
+  special_district: Layers,
+  school_board: GraduationCap,
   local: Home,
 };
 
@@ -50,6 +56,9 @@ const levelStyles: Record<string, { bg: string; text: string; border: string }> 
   federal: { bg: "bg-[hsl(217,72%,42%/0.12)]", text: "text-[hsl(217,72%,42%)]", border: "border-[hsl(217,72%,42%/0.25)]" },
   state: { bg: "bg-[hsl(0,68%,48%/0.12)]", text: "text-[hsl(0,68%,48%)]", border: "border-[hsl(0,68%,48%/0.25)]" },
   county: { bg: "bg-[hsl(220,20%,45%/0.12)]", text: "text-[hsl(220,20%,45%)]", border: "border-[hsl(220,20%,45%/0.25)]" },
+  judicial: { bg: "bg-[hsl(262,50%,50%/0.12)]", text: "text-[hsl(262,50%,50%)]", border: "border-[hsl(262,50%,50%/0.25)]" },
+  special_district: { bg: "bg-[hsl(16,75%,52%/0.12)]", text: "text-[hsl(16,75%,52%)]", border: "border-[hsl(16,75%,52%/0.25)]" },
+  school_board: { bg: "bg-[hsl(174,60%,40%/0.12)]", text: "text-[hsl(174,60%,40%)]", border: "border-[hsl(174,60%,40%/0.25)]" },
   local: { bg: "bg-[hsl(43,90%,48%/0.12)]", text: "text-[hsl(43,90%,48%)]", border: "border-[hsl(43,90%,48%/0.25)]" },
 };
 
@@ -98,11 +107,14 @@ const SavedReps = () => {
     return acc;
   }, {});
 
-  const levelOrder = ["federal", "state", "county", "local"] as const;
+  const levelOrder = ["federal", "state", "county", "judicial", "special_district", "school_board", "local"] as const;
   const levelLabels: Record<string, string> = {
     federal: "Federal",
     state: "State",
     county: "County",
+    judicial: "Judicial",
+    special_district: "Special District",
+    school_board: "School Board",
     local: "Local",
   };
 
@@ -370,7 +382,7 @@ const SavedReps = () => {
                                           {rep.party}
                                         </span>
                                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${lvl.bg} ${lvl.text} border ${lvl.border}`}>
-                                          {rep.level.charAt(0).toUpperCase() + rep.level.slice(1)}
+                                          {rep.level === "school_board" ? "School Board" : rep.level === "judicial" ? "Judicial" : rep.level.charAt(0).toUpperCase() + rep.level.slice(1)}
                                         </span>
                                       </div>
                                       <SocialIcons

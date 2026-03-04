@@ -6,7 +6,7 @@ export interface PoliticianSuggestion {
   title: string;
   party: string;
   state: string;
-  level: 'federal' | 'state' | 'local';
+  level: 'federal' | 'state' | 'county' | 'school_board' | 'local';
   bioguideId?: string;
   website?: string;
 }

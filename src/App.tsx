@@ -11,7 +11,9 @@ import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { usePageView } from "@/hooks/usePageView";
 import { useFocusOnNavigate } from "@/hooks/useFocusOnNavigate";
+import { useSavedItemsSync } from "@/hooks/useSavedItemsSync";
 import SkipToContent from "@/components/SkipToContent";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { Loader2 } from "lucide-react";
 
 /* ── Eagerly loaded (above the fold) ── */
@@ -63,6 +65,12 @@ function RouteEffects() {
   return null;
 }
 
+/** Hooks that run inside AuthProvider context to sync saved items to the cloud. */
+function AppServices() {
+  useSavedItemsSync();
+  return null;
+}
+
 /** Wrap a page element with a route-level error boundary. */
 function withBoundary(element: ReactNode, pageName: string) {
   return <RouteErrorBoundary pageName={pageName}>{element}</RouteErrorBoundary>;
@@ -91,6 +99,8 @@ const App = () => (
           <Sonner />
           <ErrorBoundary fallbackTitle="Application Error">
             <AuthProvider>
+              <AppServices />
+              <InstallPrompt />
               <BrowserRouter>
                 <SkipToContent />
                 <RouteEffects />

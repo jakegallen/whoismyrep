@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeftRight,
@@ -7,6 +7,7 @@ import {
   BarChart3,
   Search,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   BarChart,
@@ -15,17 +16,13 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
-  Legend,
 } from "recharts";
-import type { Politician } from "@/lib/politicians";
-import { getVotingRecord, gradeFromScore, gradeColor } from "@/lib/votingRecords";
-import { getCampaignFinance, formatCurrency } from "@/lib/campaignFinance";
 import { useLegislators, type Legislator } from "@/hooks/useLegislators";
+import { useVotingRecords } from "@/hooks/useVotingRecords";
+import { useFECFinance, formatUSD } from "@/hooks/useFECFinance";
 import { US_STATES } from "@/lib/usStates";
+
+// ── Party color helpers ──
 
 const partyDot = (p: string) =>
   p === "Democrat" || p === "Democratic"
@@ -42,28 +39,89 @@ const partyText = (p: string) =>
       : "text-[hsl(43,90%,55%)]";
 
 const partyHsl = (p: string) =>
-  p === "Democrat" || p === "Democratic" ? "hsl(210,80%,55%)" : p === "Republican" ? "hsl(0,72%,51%)" : "hsl(43,90%,55%)";
+  p === "Democrat" || p === "Democratic"
+    ? "hsl(210,80%,55%)"
+    : p === "Republican"
+      ? "hsl(0,72%,51%)"
+      : "hsl(43,90%,55%)";
 
-/** Convert a Legislator from the API into a Politician shape for comparison */
-function legislatorToPolitician(l: Legislator): Politician {
-  return {
-    id: l.id,
-    name: l.name,
-    title: l.title,
-    party: l.party as Politician["party"],
-    office: l.office,
-    region: l.region,
-    level: l.level,
-    imageUrl: l.imageUrl,
-    bio: "",
-    keyIssues: [],
-    website: l.website,
-    email: l.email,
-    socialHandles: l.socialHandles,
-  };
+// ── Shared UI components ──
+
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-card">
+      <p className="font-body text-xs font-semibold text-headline">{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.dataKey} className="font-body text-[11px]" style={{ color: p.color || p.fill }}>
+          {p.name}: {typeof p.value === "number" && p.value > 999 ? formatUSD(p.value) : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-4">
+      <div className="flex items-center gap-2">
+        {icon}
+        <h3 className="font-display text-lg font-bold text-headline">{title}</h3>
+      </div>
+      {children}
+    </motion.section>
+  );
 }
 
-function PoliticianPicker({
+function CompareStatCard({
+  label,
+  valueA,
+  valueB,
+  colorA,
+  colorB,
+}: {
+  label: string;
+  valueA: string;
+  valueB: string;
+  colorA?: string;
+  colorB?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 text-center">
+      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+        {label}
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <span
+          className="font-display text-sm font-bold"
+          style={{ color: colorA || "hsl(var(--foreground))" }}
+        >
+          {valueA}
+        </span>
+        <span className="text-muted-foreground text-[10px]">vs</span>
+        <span
+          className="font-display text-sm font-bold"
+          style={{ color: colorB || "hsl(var(--foreground))" }}
+        >
+          {valueB}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DataUnavailable({ message }: { message: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-8 text-center">
+      <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground/40" />
+      <p className="mt-3 font-body text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
+// ── Legislator Picker ──
+
+function LegislatorPicker({
   selected,
   onSelect,
   otherId,
@@ -71,8 +129,8 @@ function PoliticianPicker({
   legislators,
   isLoading,
 }: {
-  selected: Politician | null;
-  onSelect: (p: Politician) => void;
+  selected: Legislator | null;
+  onSelect: (l: Legislator) => void;
   otherId?: string;
   side: "left" | "right";
   legislators: Legislator[];
@@ -95,7 +153,7 @@ function PoliticianPicker({
     (p) =>
       p.id !== otherId &&
       (p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.title.toLowerCase().includes(search.toLowerCase()))
+        p.title.toLowerCase().includes(search.toLowerCase())),
   );
 
   return (
@@ -107,17 +165,32 @@ function PoliticianPicker({
         {selected ? (
           <>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated font-display text-sm font-bold text-muted-foreground">
-              {selected.name.split(" ").map((n) => n[0]).join("")}
+              {selected.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-body text-sm font-semibold text-foreground">{selected.name}</p>
-              <p className={`font-body text-xs ${partyText(selected.party)}`}>{selected.title} · {selected.party}</p>
+              <p className="truncate font-body text-sm font-semibold text-foreground">
+                {selected.name}
+              </p>
+              <p className={`font-body text-xs ${partyText(selected.party)}`}>
+                {selected.title} · {selected.party}
+              </p>
             </div>
           </>
         ) : (
           <div className="flex items-center gap-2 text-muted-foreground">
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            <span className="font-body text-sm">{isLoading ? "Loading…" : `Select ${side === "left" ? "first" : "second"} politician…`}</span>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+            <span className="font-body text-sm">
+              {isLoading
+                ? "Loading…"
+                : `Select ${side === "left" ? "first" : "second"} legislator…`}
+            </span>
           </div>
         )}
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -137,13 +210,19 @@ function PoliticianPicker({
           {filtered.map((p) => (
             <button
               key={p.id}
-              onClick={() => { onSelect(legislatorToPolitician(p)); setOpen(false); setSearch(""); }}
+              onClick={() => {
+                onSelect(p);
+                setOpen(false);
+                setSearch("");
+              }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-elevated"
             >
               <div className={`h-2 w-2 rounded-full ${partyDot(p.party)}`} />
               <div className="min-w-0 flex-1">
                 <span className="font-body text-sm text-foreground">{p.name}</span>
-                <span className="ml-2 font-body text-xs text-muted-foreground">{p.title}</span>
+                <span className="ml-2 font-body text-xs text-muted-foreground">
+                  {p.title}
+                </span>
               </div>
             </button>
           ))}
@@ -156,129 +235,375 @@ function PoliticianPicker({
   );
 }
 
-const ChartTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-card">
-      <p className="font-body text-xs font-semibold text-headline">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.dataKey} className="font-body text-[11px]" style={{ color: p.color || p.fill }}>
-          {p.name}: {typeof p.value === "number" && p.value > 999 ? formatCurrency(p.value) : p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
+// ── Voting Record Comparison (live API data) ──
 
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return (
-    <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-4">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h3 className="font-display text-lg font-bold text-headline">{title}</h3>
-      </div>
-      {children}
-    </motion.section>
-  );
-}
+function VotingComparison({
+  a,
+  b,
+  state,
+}: {
+  a: Legislator;
+  b: Legislator;
+  state: string;
+}) {
+  const votesA = useVotingRecords(a.name, a.chamber, state, undefined, "state");
+  const votesB = useVotingRecords(b.name, b.chamber, state, undefined, "state");
 
-function CompareStatCard({ label, valueA, valueB, colorA, colorB }: { label: string; valueA: string; valueB: string; colorA?: string; colorB?: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3 text-center">
-      <p className="font-body text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{label}</p>
-      <div className="flex items-center justify-center gap-2">
-        <span className="font-display text-sm font-bold" style={{ color: colorA || "hsl(var(--foreground))" }}>{valueA}</span>
-        <span className="text-muted-foreground text-[10px]">vs</span>
-        <span className="font-display text-sm font-bold" style={{ color: colorB || "hsl(var(--foreground))" }}>{valueB}</span>
-      </div>
-    </div>
-  );
-}
+  const isLoading = votesA.isLoading || votesB.isLoading;
+  const hasDataA =
+    votesA.data?.legislatorFound && (votesA.data?.summary?.totalVotes ?? 0) > 0;
+  const hasDataB =
+    votesB.data?.legislatorFound && (votesB.data?.summary?.totalVotes ?? 0) > 0;
 
-function VotingComparison({ a, b }: { a: Politician; b: Politician }) {
-  const recA = useMemo(() => getVotingRecord(a.id, a.keyIssues, a.party), [a]);
-  const recB = useMemo(() => getVotingRecord(b.id, b.keyIssues, b.party), [b]);
-  const radarData = recA.issueGrades.map((ig) => {
-    const bGrade = recB.issueGrades.find((g) => g.issue === ig.issue);
-    return { issue: ig.issue.split(" ")[0], [a.name.split(" ").pop()!]: ig.score, [b.name.split(" ").pop()!]: bGrade?.score || 0 };
-  });
-  const nameA = a.name.split(" ").pop()!;
-  const nameB = b.name.split(" ").pop()!;
-
-  return (
-    <Section icon={<BarChart3 className="h-4 w-4 text-[hsl(210,80%,55%)]" />} title="Voting Record">
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <CompareStatCard label="Overall Score" valueA={`${gradeFromScore(recA.overallScore)} (${recA.overallScore}%)`} valueB={`${gradeFromScore(recB.overallScore)} (${recB.overallScore}%)`} colorA={gradeColor(gradeFromScore(recA.overallScore))} colorB={gradeColor(gradeFromScore(recB.overallScore))} />
-        <CompareStatCard label="Attendance" valueA={`${recA.attendance}%`} valueB={`${recB.attendance}%`} />
-        <CompareStatCard label="Total Votes" valueA={String(recA.totalVotes)} valueB={String(recB.totalVotes)} />
-      </div>
-      <div className="rounded-lg border border-border bg-card p-4">
-        <h4 className="mb-2 font-display text-sm font-bold text-headline">Issue Area Scores</h4>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-              <PolarGrid stroke="hsl(220,14%,18%)" />
-              <PolarAngleAxis dataKey="issue" tick={{ fill: "hsl(215,12%,55%)", fontSize: 10, fontFamily: "Inter" }} />
-              <Radar name={nameA} dataKey={nameA} stroke={partyHsl(a.party)} fill={partyHsl(a.party)} fillOpacity={0.2} />
-              <Radar name={nameB} dataKey={nameB} stroke={partyHsl(b.party)} fill={partyHsl(b.party)} fillOpacity={0.2} />
-              <Legend wrapperStyle={{ fontFamily: "Inter", fontSize: 11 }} formatter={(value) => <span style={{ color: "hsl(210,20%,92%)" }}>{value}</span>} />
-              <Tooltip content={<ChartTooltip />} />
-            </RadarChart>
-          </ResponsiveContainer>
+  if (isLoading) {
+    return (
+      <Section
+        icon={<BarChart3 className="h-4 w-4 text-[hsl(210,80%,55%)]" />}
+        title="Voting Record"
+      >
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">
+            Loading voting records…
+          </span>
         </div>
-      </div>
-    </Section>
-  );
-}
+      </Section>
+    );
+  }
 
-function FinanceComparison({ a, b }: { a: Politician; b: Politician }) {
-  const finA = useMemo(() => getCampaignFinance(a.id, a.party, a.level), [a]);
-  const finB = useMemo(() => getCampaignFinance(b.id, b.party, b.level), [b]);
-  const barData = [
-    { label: "Raised", [a.name.split(" ").pop()!]: finA.totalRaised, [b.name.split(" ").pop()!]: finB.totalRaised },
-    { label: "Spent", [a.name.split(" ").pop()!]: finA.totalSpent, [b.name.split(" ").pop()!]: finB.totalSpent },
-    { label: "Cash on Hand", [a.name.split(" ").pop()!]: finA.cashOnHand, [b.name.split(" ").pop()!]: finB.cashOnHand },
-  ];
+  if (!hasDataA && !hasDataB) {
+    return (
+      <Section
+        icon={<BarChart3 className="h-4 w-4 text-[hsl(210,80%,55%)]" />}
+        title="Voting Record"
+      >
+        <DataUnavailable message="No voting records found for either legislator in the current session." />
+      </Section>
+    );
+  }
+
+  const sA = votesA.data?.summary;
+  const sB = votesB.data?.summary;
+
   const nameA = a.name.split(" ").pop()!;
   const nameB = b.name.split(" ").pop()!;
 
+  // Bar chart data
+  const barData = [
+    {
+      label: "Yes",
+      [nameA]: sA?.yesVotes ?? 0,
+      [nameB]: sB?.yesVotes ?? 0,
+    },
+    {
+      label: "No",
+      [nameA]: sA?.noVotes ?? 0,
+      [nameB]: sB?.noVotes ?? 0,
+    },
+    {
+      label: "Abstain",
+      [nameA]: sA?.abstainVotes ?? 0,
+      [nameB]: sB?.abstainVotes ?? 0,
+    },
+    {
+      label: "Not Voting",
+      [nameA]: sA?.notVoting ?? 0,
+      [nameB]: sB?.notVoting ?? 0,
+    },
+  ];
+
   return (
-    <Section icon={<DollarSign className="h-4 w-4 text-[hsl(142,71%,45%)]" />} title="Campaign Finance">
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <CompareStatCard label="Total Raised" valueA={formatCurrency(finA.totalRaised)} valueB={formatCurrency(finB.totalRaised)} />
-        <CompareStatCard label="Total Spent" valueA={formatCurrency(finA.totalSpent)} valueB={formatCurrency(finB.totalSpent)} />
-        <CompareStatCard label="Cash on Hand" valueA={formatCurrency(finA.cashOnHand)} valueB={formatCurrency(finB.cashOnHand)} />
+    <Section
+      icon={<BarChart3 className="h-4 w-4 text-[hsl(210,80%,55%)]" />}
+      title="Voting Record"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <span className="rounded-md bg-[hsl(142,71%,45%/0.15)] px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wider text-[hsl(142,71%,45%)]">
+          Live Data
+        </span>
+        {sA?.session && (
+          <span className="font-body text-xs text-muted-foreground">
+            {sA.session} session
+          </span>
+        )}
       </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-5">
+        <CompareStatCard
+          label="Total Votes"
+          valueA={String(sA?.totalVotes ?? "—")}
+          valueB={String(sB?.totalVotes ?? "—")}
+        />
+        <CompareStatCard
+          label="Yes Rate"
+          valueA={
+            sA && sA.totalVotes > 0
+              ? `${Math.round((sA.yesVotes / sA.totalVotes) * 100)}%`
+              : "—"
+          }
+          valueB={
+            sB && sB.totalVotes > 0
+              ? `${Math.round((sB.yesVotes / sB.totalVotes) * 100)}%`
+              : "—"
+          }
+          colorA="hsl(142, 71%, 45%)"
+          colorB="hsl(142, 71%, 45%)"
+        />
+        <CompareStatCard
+          label="No Rate"
+          valueA={
+            sA && sA.totalVotes > 0
+              ? `${Math.round((sA.noVotes / sA.totalVotes) * 100)}%`
+              : "—"
+          }
+          valueB={
+            sB && sB.totalVotes > 0
+              ? `${Math.round((sB.noVotes / sB.totalVotes) * 100)}%`
+              : "—"
+          }
+          colorA="hsl(0, 72%, 51%)"
+          colorB="hsl(0, 72%, 51%)"
+        />
+        <CompareStatCard
+          label="Majority Alignment"
+          valueA={sA ? `${sA.partyLineRate}%` : "—"}
+          valueB={sB ? `${sB.partyLineRate}%` : "—"}
+          colorA="hsl(210, 80%, 55%)"
+          colorB="hsl(210, 80%, 55%)"
+        />
+      </div>
+
+      {/* Vote breakdown bar chart */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <h4 className="mb-2 font-display text-sm font-bold text-headline">Fundraising Comparison</h4>
+        <h4 className="mb-2 font-display text-sm font-bold text-headline">
+          Vote Breakdown Comparison
+        </h4>
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={barData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-              <XAxis dataKey="label" tick={{ fill: "hsl(215,12%,55%)", fontSize: 11, fontFamily: "Inter" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "hsl(215,12%,55%)", fontSize: 10, fontFamily: "Inter" }} axisLine={false} tickLine={false} tickFormatter={(v) => formatCurrency(v)} />
+            <BarChart
+              data={barData}
+              margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
+            >
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: "hsl(215,12%,55%)",
+                  fontSize: 11,
+                  fontFamily: "Inter",
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{
+                  fill: "hsl(215,12%,55%)",
+                  fontSize: 10,
+                  fontFamily: "Inter",
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
               <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey={nameA} fill={partyHsl(a.party)} radius={[4, 4, 0, 0]} />
-              <Bar dataKey={nameB} fill={partyHsl(b.party)} radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey={nameA}
+                fill={partyHsl(a.party)}
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey={nameB}
+                fill={partyHsl(b.party)}
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
+
+      <p className="font-body text-[10px] text-muted-foreground/60 italic">
+        Live data sourced from OpenStates.org. Showing current legislative session
+        roll call votes.
+      </p>
     </Section>
   );
 }
+
+// ── Campaign Finance Comparison (live FEC data) ──
+
+function FinanceComparison({ a, b }: { a: Legislator; b: Legislator }) {
+  const finA = useFECFinance(a.name);
+  const finB = useFECFinance(b.name);
+
+  const isLoading = finA.isLoading || finB.isLoading;
+  const totalsA = finA.data?.totals?.[0];
+  const totalsB = finB.data?.totals?.[0];
+  const hasData = !!totalsA || !!totalsB;
+
+  if (isLoading) {
+    return (
+      <Section
+        icon={<DollarSign className="h-4 w-4 text-[hsl(142,71%,45%)]" />}
+        title="Campaign Finance"
+      >
+        <div className="flex items-center gap-3 py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="font-body text-sm text-muted-foreground">
+            Searching FEC records…
+          </span>
+        </div>
+      </Section>
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <Section
+        icon={<DollarSign className="h-4 w-4 text-[hsl(142,71%,45%)]" />}
+        title="Campaign Finance"
+      >
+        <DataUnavailable message="No FEC campaign finance data found. FEC data is primarily available for federal candidates." />
+        <p className="font-body text-[10px] text-muted-foreground/60 italic">
+          State-level campaign finance data varies by state and is not yet
+          integrated. FEC data sourced from the Federal Election Commission.
+        </p>
+      </Section>
+    );
+  }
+
+  const nameA = a.name.split(" ").pop()!;
+  const nameB = b.name.split(" ").pop()!;
+
+  const barData = [
+    {
+      label: "Receipts",
+      [nameA]: totalsA?.receipts ?? 0,
+      [nameB]: totalsB?.receipts ?? 0,
+    },
+    {
+      label: "Spent",
+      [nameA]: totalsA?.disbursements ?? 0,
+      [nameB]: totalsB?.disbursements ?? 0,
+    },
+    {
+      label: "Cash on Hand",
+      [nameA]: totalsA?.cashOnHand ?? 0,
+      [nameB]: totalsB?.cashOnHand ?? 0,
+    },
+  ];
+
+  return (
+    <Section
+      icon={<DollarSign className="h-4 w-4 text-[hsl(142,71%,45%)]" />}
+      title="Campaign Finance"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <span className="rounded-md bg-[hsl(142,71%,45%/0.15)] px-2 py-0.5 font-body text-[10px] font-bold uppercase tracking-wider text-[hsl(142,71%,45%)]">
+          FEC Data
+        </span>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <CompareStatCard
+          label="Total Receipts"
+          valueA={totalsA ? formatUSD(totalsA.receipts) : "—"}
+          valueB={totalsB ? formatUSD(totalsB.receipts) : "—"}
+        />
+        <CompareStatCard
+          label="Disbursements"
+          valueA={totalsA ? formatUSD(totalsA.disbursements) : "—"}
+          valueB={totalsB ? formatUSD(totalsB.disbursements) : "—"}
+        />
+        <CompareStatCard
+          label="Cash on Hand"
+          valueA={totalsA ? formatUSD(totalsA.cashOnHand) : "—"}
+          valueB={totalsB ? formatUSD(totalsB.cashOnHand) : "—"}
+        />
+      </div>
+
+      {/* Fundraising sources */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <CompareStatCard
+          label="Individual Donors"
+          valueA={totalsA ? formatUSD(totalsA.individualContributions) : "—"}
+          valueB={totalsB ? formatUSD(totalsB.individualContributions) : "—"}
+        />
+        <CompareStatCard
+          label="PAC Contributions"
+          valueA={totalsA ? formatUSD(totalsA.pacContributions) : "—"}
+          valueB={totalsB ? formatUSD(totalsB.pacContributions) : "—"}
+        />
+      </div>
+
+      {/* Fundraising bar chart */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h4 className="mb-2 font-display text-sm font-bold text-headline">
+          Fundraising Comparison
+        </h4>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={barData}
+              margin={{ top: 4, right: 4, bottom: 0, left: -20 }}
+            >
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: "hsl(215,12%,55%)",
+                  fontSize: 11,
+                  fontFamily: "Inter",
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{
+                  fill: "hsl(215,12%,55%)",
+                  fontSize: 10,
+                  fontFamily: "Inter",
+                }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => formatUSD(v)}
+              />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar
+                dataKey={nameA}
+                fill={partyHsl(a.party)}
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey={nameB}
+                fill={partyHsl(b.party)}
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <p className="font-body text-[10px] text-muted-foreground/60 italic">
+        Campaign finance data sourced from the Federal Election Commission (FEC).
+        Showing most recent reporting cycle.
+      </p>
+    </Section>
+  );
+}
+
+// ── Main CompareContent ──
 
 const CompareContent = () => {
   const [selectedState, setSelectedState] = useState("California");
   const { legislators, isLoading } = useLegislators(undefined, selectedState);
 
-  const [politicianA, setPoliticianA] = useState<Politician | null>(null);
-  const [politicianB, setPoliticianB] = useState<Politician | null>(null);
-  const ready = politicianA && politicianB;
+  const [legA, setLegA] = useState<Legislator | null>(null);
+  const [legB, setLegB] = useState<Legislator | null>(null);
+  const ready = legA && legB;
 
   // Reset selections when state changes
   useEffect(() => {
-    setPoliticianA(null);
-    setPoliticianB(null);
+    setLegA(null);
+    setLegB(null);
   }, [selectedState]);
 
   return (
@@ -293,35 +618,56 @@ const CompareContent = () => {
           onChange={(e) => setSelectedState(e.target.value)}
           className="w-full max-w-xs rounded-lg border border-border bg-card px-3 py-2 font-body text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
         >
-          {US_STATES.filter(s => s.abbr !== "US").map((s) => (
-            <option key={s.abbr} value={s.name}>{s.name}</option>
+          {US_STATES.filter((s) => s.abbr !== "US").map((s) => (
+            <option key={s.abbr} value={s.name}>
+              {s.name}
+            </option>
           ))}
         </select>
       </div>
 
       <div className="flex items-center gap-3">
-        <PoliticianPicker selected={politicianA} onSelect={setPoliticianA} otherId={politicianB?.id} side="left" legislators={legislators} isLoading={isLoading} />
+        <LegislatorPicker
+          selected={legA}
+          onSelect={setLegA}
+          otherId={legB?.id}
+          side="left"
+          legislators={legislators}
+          isLoading={isLoading}
+        />
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated">
           <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
         </div>
-        <PoliticianPicker selected={politicianB} onSelect={setPoliticianB} otherId={politicianA?.id} side="right" legislators={legislators} isLoading={isLoading} />
+        <LegislatorPicker
+          selected={legB}
+          onSelect={setLegB}
+          otherId={legA?.id}
+          side="right"
+          legislators={legislators}
+          isLoading={isLoading}
+        />
       </div>
 
       {!ready && (
         <div className="py-16 text-center">
           <ArrowLeftRight className="mx-auto h-12 w-12 text-muted-foreground/30" />
-          <p className="mt-4 font-body text-sm text-muted-foreground">Select two politicians above to compare</p>
+          <p className="mt-4 font-body text-sm text-muted-foreground">
+            Select two legislators above to compare
+          </p>
         </div>
       )}
 
       {ready && (
-        <motion.div key={`${politicianA.id}-${politicianB.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }} className="space-y-8">
-          <VotingComparison a={politicianA} b={politicianB} />
+        <motion.div
+          key={`${legA.id}-${legB.id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4 }}
+          className="space-y-8"
+        >
+          <VotingComparison a={legA} b={legB} state={selectedState} />
           <div className="h-px bg-border" />
-          <FinanceComparison a={politicianA} b={politicianB} />
-          <p className="font-body text-[10px] text-muted-foreground/60 italic">
-            Data is illustrative. Voting records and finance data are generated for comparison purposes.
-          </p>
+          <FinanceComparison a={legA} b={legB} />
         </motion.div>
       )}
     </div>

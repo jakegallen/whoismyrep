@@ -1,9 +1,9 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "whoismyrep-v1";
+const CACHE_NAME = "whoismyrep-v2";
 
 // Shell assets cached on install (app shell)
-const SHELL_ASSETS = ["/", "/logo.png", "/logo-192.png", "/favicon.ico"];
+const SHELL_ASSETS = ["/", "/offline.html", "/logo.png", "/logo-192.png", "/favicon.ico"];
 
 // ── Install: cache app shell ──
 self.addEventListener("install", (event) => {
@@ -50,7 +50,11 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match("/") || new Response("Offline", { status: 503 }))
+        .catch(() =>
+          caches.match(request).then((cached) =>
+            cached || caches.match("/offline.html") || new Response("Offline", { status: 503 })
+          )
+        )
     );
     return;
   }
@@ -73,4 +77,58 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+});
+
+// ── Push: display notification from server push event ──
+self.addEventListener("push", (event) => {
+  let data = { title: "WhoIsMyRep", body: "You have a new update.", url: "/" };
+
+  try {
+    if (event.data) {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    }
+  } catch {
+    // If payload isn't JSON, use the text as the body
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: "/logo-192.png",
+    badge: "/logo-192.png",
+    vibrate: [100, 50, 100],
+    data: { url: data.url || "/" },
+    actions: [
+      { action: "open", title: "View" },
+      { action: "dismiss", title: "Dismiss" },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// ── Notification click: open the app to the relevant page ──
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "dismiss") return;
+
+  const targetUrl = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Focus an existing tab if one is open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });

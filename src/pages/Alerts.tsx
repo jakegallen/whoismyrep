@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Bell,
+  BellRing,
   FileText,
   Vote,
   Newspaper,
@@ -16,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import SEO from "@/components/SEO";
 
 interface Prefs {
@@ -36,6 +38,7 @@ const Alerts = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const push = usePushNotifications();
   const [prefs, setPrefs] = useState<Prefs>(defaultPrefs);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -158,6 +161,43 @@ const Alerts = () => {
       </header>
 
       <main id="main-content" className="container mx-auto max-w-lg px-4 py-8 space-y-6">
+        {/* Push notification toggle */}
+        {push.isSupported && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between rounded-xl border border-border bg-card p-5"
+          >
+            <div className="flex items-center gap-3">
+              <BellRing className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-body text-sm font-semibold text-foreground">Push Notifications</p>
+                <p className="font-body text-xs text-muted-foreground">
+                  {push.isSubscribed
+                    ? "Receiving push notifications in this browser"
+                    : "Get real-time push notifications in your browser"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={push.isSubscribed}
+              disabled={push.isLoading}
+              onCheckedChange={async () => {
+                if (push.isSubscribed) {
+                  await push.unsubscribe();
+                  toast({ title: "Push notifications disabled" });
+                } else {
+                  const ok = await push.subscribe();
+                  toast({
+                    title: ok ? "Push notifications enabled!" : "Permission denied",
+                    variant: ok ? "default" : "destructive",
+                  });
+                }
+              }}
+            />
+          </motion.div>
+        )}
+
         {/* Email master toggle */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { trackEvent } from "@/lib/analytics";
 import { useXP } from "@/hooks/useXP";
+import { useRecentPages } from "@/hooks/useRecentPages";
 import SEO from "@/components/SEO";
 import { motion } from "framer-motion";
 import {
@@ -398,6 +399,7 @@ const PoliticianDetail = () => {
   }, [politician]);
 
   const { awardXP } = useXP();
+  const { recordVisit } = useRecentPages();
 
   // Award XP for viewing a politician
   useEffect(() => {
@@ -405,6 +407,18 @@ const PoliticianDetail = () => {
       awardXP("read_politician", { repId: politician.id });
     }
   }, [politician?.id, awardXP]);
+
+  // Track recent page visit
+  useEffect(() => {
+    if (politician) {
+      recordVisit({
+        path: `/politicians/${id}`,
+        title: politician.name,
+        subtitle: `${politician.party} — ${politician.office}`,
+        type: "politician",
+      });
+    }
+  }, [politician, id, recordVisit]);
 
   if (!politician) return null;
 

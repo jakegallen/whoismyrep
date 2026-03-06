@@ -1,181 +1,262 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDown, ArrowUp, BarChart3, Minus, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Flame,
+  Trophy,
+  Star,
+  Target,
+  BookOpen,
+  Calendar,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { levelName } from "@/lib/xpSystem";
 
-const RECAP_SHOWN_KEY = "whoismyrep-weekly-recap-shown";
+const STORAGE_KEY = "whoismyrep-weekly-recap";
 
-interface WeekStats {
-  xpEarned: number;
-  billsRead: number;
-  repsViewed: number;
-  quizCorrect: number;
+interface WeeklySnapshot {
+  weekStart: string;
+  xp: number;
+  level: number;
+  streak: number;
+  longestStreak: number;
+  totalActiveDays: number;
+  achievementsUnlocked: number;
+  challengesCompleted: number;
 }
 
-function getWeekStart(): string {
-  const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  return new Date(now.setDate(diff)).toISOString().split("T")[0];
+interface RecapData {
+  current: WeeklySnapshot;
+  previous: WeeklySnapshot | null;
 }
 
-function getPreviousWeekRange(): { start: string; end: string } {
-  const now = new Date();
-  const day = now.getDay();
-  const thisMonday = new Date(now);
-  thisMonday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
-
-  const prevMonday = new Date(thisMonday);
-  prevMonday.setDate(thisMonday.getDate() - 7);
-  const prevSunday = new Date(thisMonday);
-  prevSunday.setDate(thisMonday.getDate() - 1);
-
-  return {
-    start: prevMonday.toISOString().split("T")[0],
-    end: prevSunday.toISOString().split("T")[0],
-  };
+function getMonday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split("T")[0];
 }
 
-function TrendArrow({ current, previous }: { current: number; previous: number }) {
-  if (current > previous) return <ArrowUp className="h-3 w-3 text-green-500" />;
-  if (current < previous) return <ArrowDown className="h-3 w-3 text-red-500" />;
-  return <Minus className="h-3 w-3 text-muted-foreground" />;
+function getDelta(current: number, previous: number | undefined): {
+  value: number;
+  icon: typeof TrendingUp;
+  color: string;
+} {
+  if (previous === undefined) return { value: 0, icon: Minus, color: "text-muted-foreground" };
+  const diff = current - previous;
+  if (diff > 0) return { value: diff, icon: TrendingUp, color: "text-emerald-500" };
+  if (diff < 0) return { value: diff, icon: TrendingDown, color: "text-red-400" };
+  return { value: 0, icon: Minus, color: "text-muted-foreground" };
 }
 
 export function WeeklyRecap() {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const [open, setOpen] = useState(false);
+  const [recap, setRecap] = useState<RecapData | null>(null);
 
-  const weekStart = getWeekStart();
-
-  // Check if we already showed recap this week
   useEffect(() => {
-    if (!user) return;
-    const shown = localStorage.getItem(RECAP_SHOWN_KEY);
-    if (shown === weekStart) return; // already shown
+    if (!user || !profile) return;
 
-    // Only show on Monday (or first visit of the week)
-    const day = new Date().getDay();
-    if (day !== 1 && shown) return; // Only auto-show on Monday unless never shown
+    const thisMonday = getMonday(new Date());
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let parsed: { lastShown: string; snapshots: WeeklySnapshot[] } | null = null;
 
-    // Delay opening slightly for better UX
-    const t = setTimeout(() => setOpen(true), 2000);
-    return () => clearTimeout(t);
-  }, [user, weekStart]);
+    try {
+      parsed = stored ? JSON.parse(stored) : null;
+    } catch {
+      // corrupted — reset
+    }
 
-  const handleClose = () => {
-    setOpen(false);
-    localStorage.setItem(RECAP_SHOWN_KEY, weekStart);
-  };
+    // Already shown this week
+    if (parsed?.lastShown === thisMonday) return;
 
-  const prevWeek = getPreviousWeekRange();
+    (async () => {
+      let achievementsUnlocked = 0;
+      let challengesCompleted = 0;
 
-  // Fetch last week's stats
-  const { data } = useQuery({
-    queryKey: ["weekly-recap", user?.id, prevWeek.start],
-    queryFn: async (): Promise<{ thisWeek: WeekStats; lastWeek: WeekStats }> => {
-      if (!user) return { thisWeek: emptyStats(), lastWeek: emptyStats() };
+      try {
+        const { count: achCount } = await supabase
+          .from("user_achievements")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        achievementsUnlocked = achCount ?? 0;
+      } catch { /* ignore */ }
 
-      const twoWeeksAgo = new Date(prevWeek.start);
-      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 7);
+      try {
+        const { count: chCount } = await supabase
+          .from("challenge_progress")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("completed", true);
+        challengesCompleted = chCount ?? 0;
+      } catch { /* ignore */ }
 
-      const { data: events } = await supabase
-        .from("xp_events")
-        .select("action, xp_earned, created_at")
-        .eq("user_id", user.id)
-        .gte("created_at", twoWeeksAgo.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (!events) return { thisWeek: emptyStats(), lastWeek: emptyStats() };
-
-      const lastWeekEvents = events.filter(
-        (e) => e.created_at >= prevWeek.start && e.created_at <= prevWeek.end + "T23:59:59Z",
-      );
-      const twoWeeksAgoStr = twoWeeksAgo.toISOString().split("T")[0];
-      const prevPrevEnd = new Date(prevWeek.start);
-      prevPrevEnd.setDate(prevPrevEnd.getDate() - 1);
-      const prevPrevEvents = events.filter(
-        (e) => e.created_at >= twoWeeksAgoStr && e.created_at <= prevPrevEnd.toISOString().split("T")[0] + "T23:59:59Z",
-      );
-
-      return {
-        thisWeek: computeStats(lastWeekEvents),
-        lastWeek: computeStats(prevPrevEvents),
+      const current: WeeklySnapshot = {
+        weekStart: thisMonday,
+        xp: profile.xp,
+        level: profile.level,
+        streak: profile.current_streak,
+        longestStreak: profile.longest_streak,
+        totalActiveDays: profile.total_active_days,
+        achievementsUnlocked,
+        challengesCompleted,
       };
+
+      const snapshots = parsed?.snapshots ?? [];
+      const previous = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
+
+      // Save current snapshot and mark as shown
+      const newSnapshots = [...snapshots.slice(-4), current];
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ lastShown: thisMonday, snapshots: newSnapshots }),
+      );
+
+      // Show if there's a previous week to compare or user has activity
+      if (previous || profile.xp > 0) {
+        setRecap({ current, previous });
+        setOpen(true);
+      }
+    })();
+  }, [user, profile]);
+
+  if (!recap) return null;
+
+  const { current, previous } = recap;
+  const xpDelta = getDelta(current.xp, previous?.xp);
+  const levelDelta = getDelta(current.level, previous?.level);
+  const achievementDelta = getDelta(current.achievementsUnlocked, previous?.achievementsUnlocked);
+  const challengeDelta = getDelta(current.challengesCompleted, previous?.challengesCompleted);
+  const xpGained = previous ? current.xp - previous.xp : current.xp;
+
+  const stats = [
+    {
+      label: "XP Earned",
+      value: `+${Math.max(0, xpGained).toLocaleString()}`,
+      total: `${current.xp.toLocaleString()} total`,
+      icon: Star,
+      delta: xpDelta,
     },
-    enabled: !!user && open,
-    staleTime: 60 * 60 * 1000,
-  });
-
-  if (!user) return null;
-
-  const thisWeek = data?.thisWeek ?? emptyStats();
-  const lastWeek = data?.lastWeek ?? emptyStats();
+    {
+      label: "Level",
+      value: `${current.level}`,
+      total: levelName(current.level),
+      icon: Trophy,
+      delta: levelDelta,
+    },
+    {
+      label: "Current Streak",
+      value: `${current.streak}d`,
+      total: `${current.longestStreak}d best`,
+      icon: Flame,
+      delta: getDelta(current.streak, previous?.streak),
+    },
+    {
+      label: "Active Days",
+      value: `${current.totalActiveDays}`,
+      total: "all-time",
+      icon: Calendar,
+      delta: getDelta(current.totalActiveDays, previous?.totalActiveDays),
+    },
+    {
+      label: "Achievements",
+      value: `${current.achievementsUnlocked}`,
+      total: "unlocked",
+      icon: Target,
+      delta: achievementDelta,
+    },
+    {
+      label: "Challenges",
+      value: `${current.challengesCompleted}`,
+      total: "completed",
+      icon: BookOpen,
+      delta: challengeDelta,
+    },
+  ];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
-      <DialogContent className="max-w-sm">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display">
-            <BarChart3 className="h-4 w-4" />
-            Weekly Recap
+          <DialogTitle className="font-display text-xl font-bold text-headline">
+            Your Weekly Recap
           </DialogTitle>
+          <DialogDescription className="font-body text-sm text-muted-foreground">
+            {previous
+              ? "Here\u2019s how you did compared to last week."
+              : "Here\u2019s your activity so far. Come back next week for a comparison!"}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <StatRow label="XP Earned" value={thisWeek.xpEarned} prev={lastWeek.xpEarned} suffix=" XP" />
-          <StatRow label="Bills Read" value={thisWeek.billsRead} prev={lastWeek.billsRead} />
-          <StatRow label="Reps Viewed" value={thisWeek.repsViewed} prev={lastWeek.repsViewed} />
-          <StatRow label="Quiz Correct" value={thisWeek.quizCorrect} prev={lastWeek.quizCorrect} />
+        <div className="grid grid-cols-2 gap-3">
+          {stats.map((stat, i) => {
+            const DeltaIcon = stat.delta.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06, duration: 0.3 }}
+                className="rounded-xl border border-border bg-card/50 p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <stat.icon className="h-4 w-4 text-primary" />
+                  {previous && (
+                    <div className={`flex items-center gap-0.5 ${stat.delta.color}`}>
+                      <DeltaIcon className="h-3 w-3" />
+                      {stat.delta.value !== 0 && (
+                        <span className="font-mono text-[10px] font-bold">
+                          {stat.delta.value > 0 ? "+" : ""}{stat.delta.value}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1.5 font-display text-lg font-bold text-headline">
+                  {stat.value}
+                </p>
+                <p className="font-body text-[10px] text-muted-foreground">
+                  {stat.label}
+                </p>
+                <p className="font-body text-[10px] text-muted-foreground/70">
+                  {stat.total}
+                </p>
+              </motion.div>
+            );
+          })}
         </div>
 
-        <Button onClick={handleClose} className="mt-2 w-full">
-          Got it!
+        {xpGained > 100 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, duration: 0.3 }}
+            className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-center"
+          >
+            <p className="font-display text-sm font-bold text-primary">
+              Great week! You earned {xpGained.toLocaleString()} XP
+            </p>
+          </motion.div>
+        )}
+
+        <Button onClick={() => setOpen(false)} className="w-full">
+          Let's go!
         </Button>
       </DialogContent>
     </Dialog>
   );
-}
-
-function StatRow({
-  label,
-  value,
-  prev,
-  suffix = "",
-}: {
-  label: string;
-  value: number;
-  prev: number;
-  suffix?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-card/60 p-3">
-      <span className="font-body text-sm text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-sm font-bold text-headline">
-          {value.toLocaleString()}{suffix}
-        </span>
-        <TrendArrow current={value} previous={prev} />
-      </div>
-    </div>
-  );
-}
-
-function emptyStats(): WeekStats {
-  return { xpEarned: 0, billsRead: 0, repsViewed: 0, quizCorrect: 0 };
-}
-
-function computeStats(
-  events: Array<{ action: string; xp_earned: number }>,
-): WeekStats {
-  return {
-    xpEarned: events.reduce((s, e) => s + e.xp_earned, 0),
-    billsRead: events.filter((e) => e.action === "read_bill").length,
-    repsViewed: events.filter((e) => e.action === "read_politician").length,
-    quizCorrect: events.filter((e) => e.action === "quiz_correct").length,
-  };
 }

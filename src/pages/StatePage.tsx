@@ -36,6 +36,7 @@ import { useSpecialDistrictOfficials, specialDistrictOfficialToCivicRep, type Sp
 import { SaveRepButton } from "@/components/SaveRepButton";
 import type { CivicRep } from "@/hooks/useCivicReps";
 import SEO from "@/components/SEO";
+import { useRecentPages } from "@/hooks/useRecentPages";
 import { useBills } from "@/hooks/useBills";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -52,6 +53,19 @@ const StatePage = () => {
   const navigate = useNavigate();
   const upperAbbr = (abbr || "").toUpperCase();
   const stateInfo = US_STATES.find((s) => s.abbr === upperAbbr);
+  const { recordVisit } = useRecentPages();
+
+  // Track recent page visit
+  useEffect(() => {
+    if (stateInfo) {
+      recordVisit({
+        path: `/state/${abbr}`,
+        title: stateInfo.name,
+        subtitle: "State Overview",
+        type: "state",
+      });
+    }
+  }, [stateInfo, abbr, recordVisit]);
 
   if (!stateInfo) {
     return (

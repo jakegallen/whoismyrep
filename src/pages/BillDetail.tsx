@@ -34,6 +34,7 @@ import { trackEvent } from "@/lib/analytics";
 import { SaveBillButton } from "@/components/SaveBillButton";
 import SEO from "@/components/SEO";
 import { useXP } from "@/hooks/useXP";
+import { useRecentPages } from "@/hooks/useRecentPages";
 import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
 import { RelatedQuiz } from "@/components/RelatedQuiz";
 
@@ -49,6 +50,7 @@ const BillDetail = () => {
   const { data: detail, isLoading: detailLoading, error: detailError } = useBillOpenStatesDetail(bill, jurisdiction);
 
   const { awardXP } = useXP();
+  const { recordVisit } = useRecentPages();
 
   // Plausible analytics: track bill detail view (must be before any conditional return)
   useEffect(() => {
@@ -63,6 +65,18 @@ const BillDetail = () => {
       awardXP("read_bill", { billId: bill.billNumber });
     }
   }, [bill?.billNumber, awardXP]);
+
+  // Track recent page visit
+  useEffect(() => {
+    if (bill) {
+      recordVisit({
+        path: `/bills/${fullId}`,
+        title: bill.billNumber || fullId || "Bill",
+        subtitle: bill.title?.slice(0, 80),
+        type: "bill",
+      });
+    }
+  }, [bill, fullId, recordVisit]);
 
   if (!bill) {
     return (

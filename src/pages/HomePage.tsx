@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { WeeklyRecap } from "@/components/WeeklyRecap";
 import { DiscoveryPrompts } from "@/components/DiscoveryPrompts";
+import { ContinueWhereYouLeftOff } from "@/components/ContinueWhereYouLeftOff";
 
 const EXAMPLE_ADDRESSES = [
   "3799 S Las Vegas Blvd, Las Vegas, NV",
@@ -359,6 +360,9 @@ const HomePage = () => {
               )}
             </motion.div>
           )}
+
+          {/* Continue where you left off */}
+          <ContinueWhereYouLeftOff />
 
           {/* Discovery prompts for home page */}
           <div className="mx-auto mt-6 max-w-3xl">
